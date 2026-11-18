@@ -117,6 +117,7 @@ export function HermesChat({
                   <li>Consultar e ajustar a memória da sua marca</li>
                   <li>Mostrar seu plano e o consumo do mês</li>
                   <li>Listar as últimas ações da conta</li>
+                  <li>Conversar com você também pelo Telegram</li>
                   <li>Criar ideias e textos com o tom da sua marca</li>
                 </ul>
               </div>
@@ -126,7 +127,7 @@ export function HermesChat({
                   <li>Agendar posts no Instagram, Facebook e Google</li>
                   <li>Organizar leads no CRM</li>
                   <li>Criar carrosséis e campanhas de anúncios</li>
-                  <li>Conversar pelo Telegram</li>
+                  <li>Mensagens de áudio pelo Telegram</li>
                 </ul>
               </div>
             </div>

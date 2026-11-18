@@ -202,19 +202,19 @@ export const INTEGRATION_CATALOG: IntegrationGuide[] = [
           "Nesta página de Integrações, clique em Gerar código no card do Telegram. O código tem 8 caracteres, vale por 10 minutos e só pode ser usado uma vez.",
       },
       {
-        title: "Abra o bot do Hermes",
+        title: "Abra o Telegram pelo botão",
         detail:
-          "Toque no link do bot exibido no card (ou procure o nome do bot no Telegram) e toque em Iniciar para abrir a conversa.",
+          "Toque em Abrir o Telegram e vincular, logo abaixo do código, e depois em Iniciar na conversa com o bot. O vínculo é feito automaticamente e o bot confirma na hora.",
       },
       {
-        title: "Envie o comando de vínculo",
+        title: "Ou envie o comando manualmente",
         detail:
-          "Na conversa com o bot, envie /vincular seguido do seu código, por exemplo: /vincular ABCD2345. O bot confirma quando o vínculo der certo.",
+          "Se preferir, abra a conversa com o bot e envie /vincular seguido do seu código, por exemplo: /vincular ABCD2345. Use o botão Copiar para não errar nenhuma letra.",
       },
       {
         title: "Converse com o Hermes",
         detail:
-          "Pronto! Envie pedidos por texto ou áudio, como “quanto do meu plano eu já usei?”. Cada mensagem usa 1 crédito de IA do plano, igual ao chat do painel.",
+          "Pronto! Envie seus pedidos por mensagem de texto, como “quanto do meu plano eu já usei?”. Cada mensagem usa 1 crédito de IA do plano, igual ao chat do painel. As mensagens de áudio serão liberadas em breve.",
       },
     ],
     tips: [

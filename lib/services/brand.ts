@@ -4,6 +4,8 @@ import { ServiceError } from "./errors";
 
 type BrandRow = ReturnType<typeof brandRowFromInput>;
 
+const BRAND_ADMIN_ONLY = "Apenas proprietários e administradores podem alterar a memória da marca.";
+
 export function brandRowFromInput(organizationId: string, input: OnboardingInput) {
   return {
     organization_id: organizationId,
@@ -59,10 +61,13 @@ export async function getBrandContext(ctx: Pick<ServiceContext, "supabase" | "or
 }
 
 // Input já validado por onboardingSchema (Server Action ou Tool do Hermes). RLS exige owner/admin.
-export async function saveBrandContext(ctx: Pick<ServiceContext, "supabase" | "organizationId">, input: OnboardingInput) {
+export async function saveBrandContext(
+  ctx: Pick<ServiceContext, "supabase" | "organizationId"> & { role?: ServiceContext["role"] },
+  input: OnboardingInput,
+) {
+  // Checagem explícita: no Telegram o contexto usa cliente admin e o RLS de papel não se aplica.
+  if (ctx.role === "member") throw new ServiceError(BRAND_ADMIN_ONLY);
   const { error } = await ctx.supabase.from("brand_context").upsert(brandRowFromInput(ctx.organizationId, input));
-  if (error?.code === "42501") {
-    throw new ServiceError("Apenas proprietários e administradores podem alterar a memória da marca.");
-  }
+  if (error?.code === "42501") throw new ServiceError(BRAND_ADMIN_ONLY);
   if (error) throw new Error(error.message);
 }

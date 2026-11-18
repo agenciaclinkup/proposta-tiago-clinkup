@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import type { MemberRole } from "@/lib/services/context";
 import { createClient } from "@/lib/supabase/server";
 
 async function fetchWorkspace() {
@@ -17,7 +18,7 @@ async function fetchWorkspace() {
   const organizationId = profile?.current_organization_id;
   if (!organizationId) return { status: "onboarding" as const };
 
-  const [{ data: organization }, { data: subscription }] = await Promise.all([
+  const [{ data: organization }, { data: subscription }, { data: membership }] = await Promise.all([
     supabase
       .from("organizations")
       .select("id, name, slug, niche, plan_id, is_white_label, onboarding_completed_at")
@@ -28,13 +29,22 @@ async function fetchWorkspace() {
       .select("plan_id, status, provider, provider_customer_id, trial_ends_at, current_period_end, cancel_at_period_end")
       .eq("organization_id", organizationId)
       .single(),
+    supabase
+      .from("organization_members")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .eq("user_id", auth.user.id)
+      .maybeSingle(),
   ]);
 
   if (!organization?.onboarding_completed_at) return { status: "onboarding" as const };
 
+  // Sem linha de membership, assume o menor privilégio.
+  const role = (membership?.role ?? "member") as MemberRole;
+
   return {
     status: "ok" as const,
-    workspace: { supabase, user: auth.user, profile: profile!, organization, subscription },
+    workspace: { supabase, user: auth.user, profile: profile!, organization, subscription, role },
   };
 }
 

@@ -35,6 +35,17 @@ export async function ensureConversation(ctx: Ctx, conversationId: string, title
   if (insertError) throw new ServiceError("Não encontramos esta conversa. Comece uma nova conversa para continuar.");
 }
 
+// Uma conversa contínua por chat vinculado (id = id da integração Telegram); aparece também no histórico do painel.
+export async function ensureTelegramConversation(organizationId: string, userId: string, conversationId: string): Promise<void> {
+  const { error } = await createAdminClient()
+    .from("hermes_conversations")
+    .upsert(
+      { id: conversationId, organization_id: organizationId, user_id: userId, channel: "telegram", title: "Conversa no Telegram" },
+      { onConflict: "id", ignoreDuplicates: true },
+    );
+  if (error) throw new Error(error.message);
+}
+
 // RLS só deixa o dono excluir; 0 linhas = conversa alheia ou inexistente. Mensagens caem em cascata.
 export async function deleteConversation(ctx: Ctx, conversationId: string): Promise<void> {
   const { data, error } = await ctx.supabase.from("hermes_conversations").delete().eq("id", conversationId).select("id");

@@ -5,23 +5,25 @@
 ## Estado atual
 
 - **Fase:** 3 — Integrações (Fase 2 — Hermes Core ✅ concluída)
-- **Etapa em andamento:** 3.3a — Telegram: bot da plataforma, vínculo e mensagens de texto
+- **Etapa em andamento:** 3.3b — Telegram: mensagens de áudio (Whisper/Groq)
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**3.3a Telegram — bot da plataforma, vínculo e texto** (TDD):
-1. `createTelegramLinkCode(ctx)` em `lib/services/integrations.ts` (código de 8 caracteres de alfabeto sem ambíguos, gerado com `crypto`, gravado via admin; testar formato e entropia) + Server Action "Gerar código" (Zod, rate limit) no card Telegram de `/integrations` mostrando código, validade e link do bot (`NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`); remover o aviso "em breve" desse card.
-2. `lib/telegram/` com schema Zod do update (só `message.text`/`message.voice` usados), parser de `/vincular CODIGO` e cliente mínimo `sendMessage` via `fetch` (sem dependência nova).
-3. `app/api/webhooks/telegram/route.ts`: header `X-Telegram-Bot-Api-Secret-Token` comparado em tempo constante com `TELEGRAM_WEBHOOK_SECRET`, Zod, rate limit por `chat_id`, sempre responde 200 rápido ao Telegram. `/vincular` → `consume_telegram_link_code` → `saveIntegration(provider "telegram", externalAccountId chat_id, metadata { user_id }, accessToken: marcador cifrado)`; chat não vinculado recebe instruções didáticas.
-4. Mensagem de texto de chat vinculado → Hermes no canal `telegram` (mesmo system prompt e Tools, `generateText`, 1 crédito com estorno em falha, `hermes_logs`) e resposta no chat. Reaproveitar o máximo de `app/api/hermes/route.ts` extraindo o núcleo do turno para `lib/hermes/` (sem duplicar lógica).
-5. `.env.example` + checklist: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`, comando `setWebhook` documentado.
+**3.3b Telegram — áudio** (TDD; decisão do produto: Whisper `whisper-1` padrão, Groq quando `GROQ_API_KEY` existir):
+1. `lib/transcription.ts`: `transcribeAudio(bytes, mime)` via `fetch` + `FormData` (sem dependência nova): Groq (`https://api.groq.com/openai/v1/audio/transcriptions`, modelo Whisper do Groq) se `GROQ_API_KEY`, senão OpenAI (`https://api.openai.com/v1/audio/transcriptions`, `whisper-1`), `language: "pt"`. Sem nenhuma chave → `ServiceError` amigável. Testar seleção de provedor e erro de API.
+2. `lib/telegram/telegram.ts`: `downloadTelegramFile(botToken, fileId)` (`getFile` + download), com limite de tamanho (ex.: 10 MB) e duração (ex.: 5 min, campo `voice.duration`) checados **antes** de baixar; aceitar também `audio` se fizer sentido.
+3. `lib/telegram/handler.ts`: trocar a resposta "áudio em breve" por: baixar → transcrever → mesmo fluxo de texto (`startHermesTurn`); transcrição vazia → pedir para repetir; responder mostrando o que foi entendido. Decidir se áudio custa 1 crédito (como texto) — padrão proposto: 1 crédito por turno, sem extra.
+4. Textos: remover "áudio em breve" do catálogo (`lib/integrations/catalog.ts`, passo 4 do Telegram) e do chat (`app/(app)/hermes/chat.tsx`).
+5. `.env.example` + checklist: `OPENAI_API_KEY`, `GROQ_API_KEY` (opcional); custo de transcrição no planejamento de preços.
+
+Depois: **3.3c** bot próprio White-Label (`/api/webhooks/telegram/[slug]`, token cifrado no cofre, `setWebhook` com segredo por bot; o handler já recebe `botToken` por parâmetro).
 
 **Plano da Fase 3:**
 - 3.1 dados + cofre ✅.
 - 3.2 `/integrations` ✅.
-- 3.3 Telegram, dividido em **3.3a** (acima), **3.3b** áudio (Whisper/Groq) e **3.3c** bot próprio White-Label. Decisões fechadas em 2026-11-18, ver `ARCHITECTURE.md` §1:
+- 3.3 Telegram, dividido em **3.3a** ✅, **3.3b** áudio (acima) e **3.3c** bot próprio White-Label. Decisões fechadas em 2026-11-18, ver `ARCHITECTURE.md` §1:
   - SaaS: bot único da plataforma (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`), webhook `/api/webhooks/telegram`; "Gerar código" na UI (Server Action, código de 8 caracteres `[A-Z0-9]` sem ambíguos, gravado via admin) e `/vincular CODIGO` → `consume_telegram_link_code` → `saveIntegration(provider: "telegram", externalAccountId: chat_id, metadata: { user_id })`.
   - White-Label/Enterprise: admin cadastra o token do próprio bot (cifrado em `integration_secrets`), plataforma chama `setWebhook` para `/api/webhooks/telegram/[slug]` com segredo próprio por bot.
   - Mensagens: Zod no update, header `X-Telegram-Bot-Api-Secret-Token`, rate limit por `chat_id`, Hermes no canal `telegram` (mesmas Tools, 1 crédito por mensagem, estorno em falha; resposta via `generateText`).
@@ -53,6 +55,11 @@
 - [ ] `db push` aplica também a migration `integrations` (Fase 3.1).
 - [ ] **Cofre em produção (Fase 3.1):** depois de conectar a primeira integração real, conferir no SQL Editor que `integration_secrets.access_token_encrypted` começa com `v1:` e não contém o token; e que `select * from integration_secrets` com a chave publishable/usuário logado retorna erro de permissão.
 - [ ] **Desconectar integração (Fase 3.2):** com integração real conectada, desconectar como owner/admin em `/integrations` (confirmação aparece; linha some e `integration_secrets` correspondente é apagado em cascata). Logado como `member`, conferir que o botão Desconectar não aparece e que o aviso "Apenas proprietários e administradores…" é exibido.
+- [ ] **Bot do Telegram (Fase 3.3a):** criar o bot no @BotFather (`/newbot`), guardar o token em `TELEGRAM_BOT_TOKEN` e o username em `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`; definir descrição e foto do bot com a marca.
+- [ ] **Registrar o webhook do Telegram (Fase 3.3a):** `curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" -d "url=https://<domínio>/api/webhooks/telegram" -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>" -d 'allowed_updates=["message"]'` e conferir com `getWebhookInfo` (sem `last_error_message`).
+- [ ] **Fluxo Telegram de ponta a ponta (Fase 3.3a):** gerar código em `/integrations`, tocar em "Abrir o Telegram e vincular" (deep link) e também testar `/vincular CODIGO` manual; código vencido/usado deve ser recusado; mensagem de texto responde pelo Hermes; conferir `integrations` (provider `telegram`), conversa "Conversa no Telegram" em `/hermes`, `hermes_logs` com canal `telegram` e `ai_credits` +1. Como `member`, pedir para mudar o tom de voz → deve ser recusado (checagem de papel sem RLS).
+- [ ] Hospedagem executa `after()` do Next.js até o fim (na Vercel usa `waitUntil`; respeita `maxDuration = 120` em `/api/webhooks/telegram`). Se não executar, as respostas do Telegram nunca chegam.
+- [ ] Monitorar logs `[telegram]` (falha ao enviar mensagem ou processar update).
 
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -62,6 +69,7 @@
 - [ ] `VAULT_ENCRYPTION_KEY` (32 bytes base64; guardar backup seguro — perder a chave = perder todos os tokens de integração)
 - [ ] `ANTHROPIC_API_KEY` (Fase 2.2+, Agente Hermes)
 - [ ] Planejadas para a Fase 3.3 (entram no `.env.example` quando o código usar): `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `OPENAI_API_KEY` (Whisper), `GROQ_API_KEY` (opcional).
+- [ ] `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` (somente servidor) e `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` — já no `.env.example` (Fase 3.3a).
 - [ ] White-Label (opcional): `NEXT_PUBLIC_BRAND_*`
 
 ### Supabase (painel)
@@ -84,6 +92,17 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 3.3a Telegram — bot da plataforma, vínculo e texto — ✅ (2026-11-18)
+- **Núcleo compartilhado `lib/hermes/turn.ts` (`startHermesTurn`):** crédito, histórico, Contexto Mestre, modelo, prompt, Tools, estorno idempotente e persistência num só lugar. `app/api/hermes/route.ts` refatorado para usá-lo (os 11 testes da rota web seguiram verdes sem mudança).
+- **`ServiceContext.role`** (vem de `workspace.role`, novo em `lib/workspace.ts`); `saveBrandContext` recusa `member` explicitamente (necessário no Telegram, onde o contexto usa cliente admin). Billing e `/integrations` passaram a usar `workspace.role` (2 consultas duplicadas removidas).
+- **`lib/telegram/telegram.ts`:** schema Zod do update, `parseCommand` (`/start`, `/start CODIGO` do deep link, `/vincular CODIGO`), `verifyWebhookSecret` (tempo constante), `splitMessage`, `sendTelegramMessage` (fetch, texto puro). **`session.ts`:** `loadTelegramSession` (membership + onboarding). **`handler.ts`:** dedupe por `update_id`, só chat privado, rate limit 20/min por chat, vínculo, Hermes por `generateText`, estorno em falha, textos pt-BR didáticos.
+- **`app/api/webhooks/telegram/route.ts`:** 401 sem segredo (falha fechado se a env estiver vazia), 503 sem token, 200 imediato + `after()`.
+- **Integrações:** `createTelegramLinkCode` (alfabeto sem 0/1/I/O, `crypto.randomInt`, retry em colisão), `linkTelegramChat` (um chat = uma conta), `findTelegramLink`; `saveIntegration` aceita conexão sem token. `ensureTelegramConversation` (uma conversa por chat, visível no painel).
+- **UI:** card Telegram com "Gerar código" ativo (`telegram-link.tsx`: código, validade, botão "Abrir o Telegram e vincular", comando com Copiar); aviso "em breve" removido desse card; guia do Telegram e chat atualizados.
+- `.env.example`: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`. `ARCHITECTURE.md`: núcleo do turno e fluxo do Telegram.
+
+**Testes:** `npm test` 134/134 · `npm run test:db` 72/72 · `tsc --noEmit` OK · lint limpo · build OK · smoke `next start`: webhook sem segredo 401, segredo errado 401, certo 200. TDD com RED verificado em todo o código novo, **exceto** os 4 testes de `linkTelegramChat`/`findTelegramLink`, escritos depois da implementação.
 
 ### 3.2 Página `/integrations` — ✅ (2026-11-18)
 - **`app/(app)/integrations/page.tsx`:** um card por provedor (ícone, descrição, selo Conectado / Precisa de atenção / Não conectado, contas conectadas), guia expansível com `<details>` nativo (requisitos, passos numerados, dicas) vindo de `lib/integrations/catalog.ts`, botões "Conectar com a Meta/Google" e "Gerar código" desabilitados com aviso acolhedor de liberação em breve (3.3–3.5), aviso para `member`, atalho "Pedir ajuda ao Hermes".

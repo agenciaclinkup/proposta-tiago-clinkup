@@ -22,6 +22,7 @@ import { serviceContext } from "@/lib/services/context";
 import { listIntegrations, summarizeIntegrations } from "@/lib/services/integrations";
 import { requireWorkspace } from "@/lib/workspace";
 import { disconnectIntegrationAction } from "./actions";
+import { TelegramLinkPanel } from "./telegram-link";
 
 export const metadata: Metadata = { title: "Integrações" };
 
@@ -34,15 +35,18 @@ const ICONS: Record<IntegrationProvider, LucideIcon> = {
   telegram: Send,
 };
 
-// Conexão automática chega nas próximas entregas (Meta: 3.4, Google: 3.5, Telegram: 3.3).
-const CONNECT: Record<IntegrationProvider, { label: string; notice: string }> = {
+// Conexão automática chega nas próximas entregas (Meta: 3.4, Google: 3.5). Telegram já usa código de vínculo.
+const CONNECT: Record<Exclude<IntegrationProvider, "telegram">, { label: string; notice: string }> = {
   instagram: { label: "Conectar com a Meta", notice: "A conexão com a Meta será liberada em breve." },
   facebook_page: { label: "Conectar com a Meta", notice: "A conexão com a Meta será liberada em breve." },
   meta_ads: { label: "Conectar com a Meta", notice: "A conexão com a Meta será liberada em breve." },
   google_business: { label: "Conectar com o Google", notice: "A conexão com o Google será liberada em breve." },
   google_calendar: { label: "Conectar com o Google", notice: "A conexão com o Google será liberada em breve." },
-  telegram: { label: "Gerar código", notice: "A geração do código de vínculo será liberada em breve." },
 };
+
+// Validado aqui porque vira parte de uma URL t.me no navegador.
+const rawBotUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.replace(/^@/, "");
+const TELEGRAM_BOT_USERNAME = rawBotUsername && /^[A-Za-z0-9_]{5,32}$/.test(rawBotUsername) ? rawBotUsername : null;
 
 const STATUS = {
   connected: { label: "Conectado", className: "border-primary/40 bg-primary/10 text-primary" },
@@ -53,17 +57,9 @@ const STATUS = {
 export default async function IntegrationsPage() {
   const workspace = await requireWorkspace();
   const ctx = serviceContext(workspace, "manual");
-  const [rows, { data: membership }] = await Promise.all([
-    listIntegrations(ctx),
-    workspace.supabase
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", workspace.organization.id)
-      .eq("user_id", workspace.user.id)
-      .single(),
-  ]);
+  const rows = await listIntegrations(ctx);
   // A UI só esconde o botão; quem garante a regra é o RLS de admin no banco.
-  const isAdmin = membership?.role === "owner" || membership?.role === "admin";
+  const isAdmin = workspace.role !== "member";
   const summary = Object.fromEntries(summarizeIntegrations(rows).map((item) => [item.provider, item]));
 
   return (
@@ -95,7 +91,6 @@ export default async function IntegrationsPage() {
           const Icon = ICONS[guide.provider];
           const status = STATUS[summary[guide.provider].status as keyof typeof STATUS];
           const accounts = rows.filter((row) => row.provider === guide.provider && row.status !== "disconnected");
-          const connect = CONNECT[guide.provider];
 
           return (
             <Card key={guide.provider} className="glass">
@@ -142,18 +137,22 @@ export default async function IntegrationsPage() {
                   </ul>
                 )}
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Button type="button" disabled aria-describedby={`${guide.provider}-connect-notice`}>
-                    {connect.label}
-                  </Button>
-                  <p id={`${guide.provider}-connect-notice`} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                    <span>
-                      {connect.notice} Enquanto isso, siga o passo a passo abaixo para deixar tudo pronto: quando o botão
-                      for ativado, a conexão leva menos de um minuto.
-                    </span>
-                  </p>
-                </div>
+                {guide.provider === "telegram" ? (
+                  <TelegramLinkPanel botUsername={TELEGRAM_BOT_USERNAME} />
+                ) : (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Button type="button" disabled aria-describedby={`${guide.provider}-connect-notice`}>
+                      {CONNECT[guide.provider].label}
+                    </Button>
+                    <p id={`${guide.provider}-connect-notice`} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                      <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                      <span>
+                        {CONNECT[guide.provider].notice} Enquanto isso, siga o passo a passo abaixo para deixar tudo
+                        pronto: quando o botão for ativado, a conexão leva menos de um minuto.
+                      </span>
+                    </p>
+                  </div>
+                )}
 
                 <details className="group rounded-lg border border-border">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium [&::-webkit-details-marker]:hidden">

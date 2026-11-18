@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { onboardingSchema } from "@/lib/onboarding";
 import { brandRowFromInput, inputFromBrandRow, mergeBrandPatch } from "./brand";
 import { ServiceError } from "./errors";
@@ -45,5 +45,15 @@ describe("mergeBrandPatch", () => {
 
   it("rejeita alteração inválida com mensagem para o usuário", () => {
     expect(() => mergeBrandPatch(row, { primaryColor: "azul" })).toThrow(ServiceError);
+  });
+});
+
+describe("saveBrandContext com papel", () => {
+  it("member não altera a memória da marca, mesmo sem RLS (ex.: Telegram)", async () => {
+    const { saveBrandContext } = await import("./brand");
+    const upsert = vi.fn();
+    const ctx = { supabase: { from: () => ({ upsert }) }, organizationId: "org-1", role: "member" } as never;
+    await expect(saveBrandContext(ctx, input)).rejects.toBeInstanceOf(ServiceError);
+    expect(upsert).not.toHaveBeenCalled();
   });
 });

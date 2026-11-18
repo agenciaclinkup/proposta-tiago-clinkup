@@ -15,6 +15,8 @@ export const RATE_LIMITS = {
   hermesChatUser: { limit: 20, windowSeconds: 60 },
   hermesDeleteUser: { limit: 30, windowSeconds: 60 },
   integrationsUser: { limit: 20, windowSeconds: 60 },
+  telegramChat: { limit: 20, windowSeconds: 60 },
+  telegramCodeUser: { limit: 5, windowSeconds: 600 },
 } satisfies Record<string, RateRule>;
 
 export const RATE_LIMIT_MESSAGE = "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";

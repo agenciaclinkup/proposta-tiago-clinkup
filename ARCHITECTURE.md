@@ -115,6 +115,14 @@ Cada Tool = wrapper de um service com o mesmo schema Zod, executada sempre por `
 
 Canais: chat interno (`/api/hermes`, streaming), Telegram (`/api/webhooks/telegram` para o bot da plataforma e `/api/webhooks/telegram/[slug]` para bots White-Label; áudio transcrito por Whisper/Groq antes do agente), webhooks externos n8n/BootConversa (`/api/webhooks/inbound`, assinatura HMAC).
 
+**Núcleo do turno compartilhado (`lib/hermes/turn.ts`, `startHermesTurn`):** todo canal executa o mesmo turno — cobra 1 crédito (`PlanLimitError` sem cobrança), carrega o histórico confiável do banco e o Contexto Mestre e devolve `settings` (modelo `claude-opus-5-5`, system prompt, Tools, `stopWhen`, providerOptions) + `refund()` (idempotente) + `persist()`. O painel passa `settings` para `streamText`; o Telegram para `generateText`.
+
+**Telegram (bot da plataforma, Fase 3.3a):**
+- Vínculo: "Gerar código" em `/integrations` (Server Action, rate limit 5/10 min) → código de 8 caracteres sem ambíguos, 10 min, uso único. O usuário toca em "Abrir o Telegram e vincular" (deep link `t.me/<bot>?start=CODIGO`, chega como `/start CODIGO`) ou envia `/vincular CODIGO`. `linkTelegramChat` consome o código, remove vínculos do mesmo chat em outras orgs (um chat = uma conta) e grava `integrations` (`provider telegram`, `external_account_id = chat_id`, `metadata.user_id`, sem segredo).
+- Webhook: segredo em tempo constante (`X-Telegram-Bot-Api-Secret-Token`), Zod no update, responde 200 imediatamente e processa em `after()`; dedupe por `update_id` (reenvios do Telegram não cobram em dobro); rate limit por `chat_id`; só conversas privadas.
+- Contexto sem sessão: `loadTelegramSession` confere membership e onboarding e monta `ServiceContext` com cliente **admin** (`channel: "telegram"`). Por isso todo service filtra por `organization_id` e regras de papel usam `ctx.role` explicitamente (ex.: `saveBrandContext` recusa `member`).
+- Conversa contínua por chat (id = id da integração), visível também no histórico do painel.
+
 ## 4. Fases
 
 | Fase | Entrega | Pronto quando |

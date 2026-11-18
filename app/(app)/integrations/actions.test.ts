@@ -4,9 +4,10 @@ import { ServiceError } from "@/lib/services/errors";
 const requireWorkspace = vi.fn();
 vi.mock("@/lib/workspace", () => ({ requireWorkspace }));
 const rateLimit = vi.fn();
-vi.mock("@/lib/rate-limit", () => ({ rateLimit, RATE_LIMITS: { integrationsUser: {} }, RATE_LIMIT_MESSAGE: "Muitas tentativas." }));
+vi.mock("@/lib/rate-limit", () => ({ rateLimit, RATE_LIMITS: { integrationsUser: {}, telegramCodeUser: {} }, RATE_LIMIT_MESSAGE: "Muitas tentativas." }));
 const disconnectIntegration = vi.fn();
-vi.mock("@/lib/services/integrations", () => ({ disconnectIntegration }));
+const createTelegramLinkCode = vi.fn();
+vi.mock("@/lib/services/integrations", () => ({ disconnectIntegration, createTelegramLinkCode }));
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath }));
 
@@ -48,5 +49,22 @@ describe("disconnectIntegrationAction", () => {
     disconnectIntegration.mockRejectedValue(new ServiceError("Apenas administradores podem desconectar."));
     expect(await disconnectIntegrationAction(undefined, form(id))).toEqual({ error: "Apenas administradores podem desconectar." });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("generateTelegramCodeAction", () => {
+  it("gera o código para o próprio usuário com rate limit", async () => {
+    const { generateTelegramCodeAction } = await import("./actions");
+    createTelegramLinkCode.mockResolvedValue({ code: "ABCD2345", expiresAt: "2026-11-18T20:10:00.000Z" });
+    expect(await generateTelegramCodeAction()).toEqual({ code: "ABCD2345", expiresAt: "2026-11-18T20:10:00.000Z" });
+    expect(rateLimit).toHaveBeenCalledWith("telegram-code:user:u-1", expect.anything());
+    expect(createTelegramLinkCode).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-1", userId: "u-1" }));
+  });
+
+  it("bloqueia excesso de códigos", async () => {
+    const { generateTelegramCodeAction } = await import("./actions");
+    rateLimit.mockResolvedValue(false);
+    expect(await generateTelegramCodeAction()).toEqual({ error: "Muitas tentativas." });
+    expect(createTelegramLinkCode).not.toHaveBeenCalled();
   });
 });

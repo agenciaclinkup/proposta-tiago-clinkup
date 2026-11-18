@@ -1,4 +1,5 @@
 import "server-only";
+import { randomInt } from "node:crypto";
 import { INTEGRATION_CATALOG, type IntegrationProvider } from "@/lib/integrations/catalog";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptSecret, encryptSecret } from "@/lib/vault";
@@ -46,7 +47,8 @@ export type SaveIntegrationInput = {
   scopes?: string[];
   metadata?: Record<string, unknown>;
   connectedBy?: string | null;
-  accessToken: string;
+  // Opcional: o vínculo com o bot da plataforma não tem token próprio do cliente.
+  accessToken?: string;
   refreshToken?: string | null;
   expiresAt?: string | null;
 };
@@ -73,6 +75,7 @@ export async function saveIntegration(input: SaveIntegrationInput): Promise<stri
     .select("id")
     .single();
   if (error || !data) throw new Error(error?.message ?? "integration upsert returned no row");
+  if (!input.accessToken) return data.id;
 
   const { error: secretError } = await admin.from("integration_secrets").upsert({
     integration_id: data.id,
@@ -101,6 +104,68 @@ export async function getIntegrationToken(organizationId: string, integrationId:
     refreshToken: data.refresh_token_encrypted ? decryptSecret(data.refresh_token_encrypted, integrationId) : null,
     expiresAt: data.expires_at as string | null,
   };
+}
+
+// Sem 0/1/I/O para evitar confusão ao digitar no Telegram. 32 símbolos × 8 posições = 40 bits, válido por 10 min.
+export const LINK_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const LINK_CODE_TTL_MS = 10 * 60_000;
+
+export async function createTelegramLinkCode(ctx: { organizationId: string; userId: string | null }) {
+  if (!ctx.userId) throw new ServiceError("Entre na sua conta para gerar o código de vínculo.");
+  const admin = createAdminClient();
+  // Colisão de código é improvável; tenta de novo poucas vezes por segurança.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const code = Array.from({ length: 8 }, () => LINK_CODE_ALPHABET[randomInt(LINK_CODE_ALPHABET.length)]).join("");
+    const expiresAt = new Date(Date.now() + LINK_CODE_TTL_MS).toISOString();
+    const { error } = await admin
+      .from("telegram_link_codes")
+      .insert({ code, organization_id: ctx.organizationId, user_id: ctx.userId, expires_at: expiresAt });
+    if (!error) return { code, expiresAt };
+    if (error.code !== "23505") throw new Error(error.message);
+  }
+  throw new Error("não foi possível gerar um código único");
+}
+
+// Um chat do Telegram fica vinculado a uma conta por vez: o vínculo novo remove os anteriores do mesmo chat.
+export async function linkTelegramChat(code: string, chat: { chatId: number; displayName: string | null }) {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("consume_telegram_link_code", { p_code: code });
+  if (error) throw new Error(error.message);
+  const link = (data as { organization_id: string; user_id: string }[] | null)?.[0];
+  if (!link) return null;
+
+  const externalAccountId = String(chat.chatId);
+  const { error: cleanupError } = await admin
+    .from("integrations")
+    .delete()
+    .eq("provider", "telegram")
+    .eq("external_account_id", externalAccountId)
+    .neq("organization_id", link.organization_id);
+  if (cleanupError) throw new Error(cleanupError.message);
+
+  await saveIntegration({
+    organizationId: link.organization_id,
+    provider: "telegram",
+    externalAccountId,
+    displayName: chat.displayName,
+    metadata: { user_id: link.user_id },
+    connectedBy: link.user_id,
+  });
+  return link;
+}
+
+// Chat vinculado → org e usuário. Leitura via admin (o webhook não tem sessão de usuário).
+export async function findTelegramLink(chatId: number) {
+  const { data, error } = await createAdminClient()
+    .from("integrations")
+    .select("id, organization_id, metadata")
+    .eq("provider", "telegram")
+    .eq("external_account_id", String(chatId))
+    .eq("status", "connected")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const userId = (data?.metadata as { user_id?: string } | undefined)?.user_id;
+  return data && userId ? { integrationId: data.id as string, organizationId: data.organization_id as string, userId } : null;
 }
 
 // RLS: só owner/admin excluem; segredos caem em cascata.

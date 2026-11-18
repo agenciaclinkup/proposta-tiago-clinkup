@@ -1,21 +1,15 @@
-import { anthropic, type AnthropicProviderOptions } from "@ai-sdk/anthropic";
-import { convertToModelMessages, isStepCount, streamText, type UIMessage } from "ai";
+import { streamText, type UIMessage } from "ai";
 import { NextResponse, type NextRequest } from "next/server";
-import { chatRequestSchema, conversationTitle, messagesToPersist } from "@/lib/hermes/chat";
-import { buildSystemPrompt } from "@/lib/hermes/system-prompt";
-import { buildHermesTools } from "@/lib/hermes/tools";
+import { chatRequestSchema, conversationTitle } from "@/lib/hermes/chat";
+import { startHermesTurn } from "@/lib/hermes/turn";
 import { RATE_LIMIT_MESSAGE, RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
-import { getBrandContext } from "@/lib/services/brand";
 import { serviceContext } from "@/lib/services/context";
-import { ensureConversation, loadConversationMessages, saveConversationMessages } from "@/lib/services/conversations";
+import { ensureConversation } from "@/lib/services/conversations";
 import { ServiceError } from "@/lib/services/errors";
-import { consumeUsage, PlanLimitError, refundUsage } from "@/lib/services/usage";
+import { PlanLimitError } from "@/lib/services/usage";
 import { loadWorkspace } from "@/lib/workspace";
 
 export const maxDuration = 120;
-
-const MODEL = "claude-opus-5-5";
-const MAX_STEPS = 6;
 
 const fail = (status: number, error: string) => NextResponse.json({ error }, { status });
 
@@ -34,74 +28,35 @@ export async function POST(request: NextRequest) {
   const ctx = serviceContext(workspace, "hermes", "web");
   const userMessage: UIMessage = { id: message.id, role: "user", parts: message.parts };
 
-  let history: UIMessage[];
-  let masterContext: string | null;
-  // Estorno no máximo uma vez por turno (falha pode chegar por onError e por onEnd).
-  let charged = false;
-  const refundOnce = () => {
-    if (!charged) return;
-    charged = false;
-    void refundUsage(ctx, "ai_credits", 1);
-  };
-
+  let turn: Awaited<ReturnType<typeof startHermesTurn>>;
   try {
     await ensureConversation(ctx, conversationId, conversationTitle(message.parts[0].text));
-    // 1 crédito de IA por turno do agente, independente de quantas Tools ele usar.
-    await consumeUsage(ctx, "ai_credits", 1);
-    charged = true;
-    const [messages, brand] = await Promise.all([loadConversationMessages(ctx, conversationId), getBrandContext(ctx)]);
-    history = messages;
-    masterContext = brand?.master_context ?? null;
+    turn = await startHermesTurn(ctx, {
+      conversationId,
+      userMessage,
+      organizationName: workspace.organization.name,
+      userName: workspace.profile.full_name,
+    });
   } catch (error) {
-    refundOnce();
     if (error instanceof PlanLimitError) return fail(402, error.message);
     if (error instanceof ServiceError) return fail(404, error.message);
     console.error("[hermes] falha ao preparar a conversa", error);
     return fail(500, "Não consegui iniciar a conversa agora. Tente novamente em alguns instantes.");
   }
 
-  const allMessages = [...history.filter((m) => m.id !== userMessage.id), userMessage];
-  const existingIds = new Set(history.map((m) => m.id));
-
-  const result = streamText({
-    model: anthropic(MODEL),
-    system: buildSystemPrompt({
-      organizationName: workspace.organization.name,
-      userName: workspace.profile.full_name,
-      masterContext,
-      now: new Date(),
-    }),
-    messages: await convertToModelMessages(allMessages),
-    tools: buildHermesTools(ctx),
-    stopWhen: isStepCount(MAX_STEPS),
-    maxOutputTokens: 16000,
-    providerOptions: {
-      anthropic: {
-        // Opus 5.5: thinking adaptativo sempre ligado; effort padrão do modelo é "medium" — fixado explicitamente.
-        effort: "medium",
-        // Recusa do classificador de segurança é reprocessada no servidor por um modelo de fallback.
-        fallbacks: "default",
-        anthropicBeta: ["server-side-fallback-2026-07-01"],
-        metadata: { userId: workspace.user.id },
-      } satisfies AnthropicProviderOptions,
-    },
-  });
+  const result = streamText(turn.settings);
 
   return result.toUIMessageStreamResponse({
-    originalMessages: allMessages,
+    originalMessages: turn.messages,
     generateMessageId: () => crypto.randomUUID(),
     onEnd: async ({ messages, outcome }) => {
       // Interrupção pelo usuário ("aborted") consome o crédito; só falha do lado do servidor/modelo estorna.
-      if (outcome.status === "failed") refundOnce();
-      try {
-        await saveConversationMessages(ctx, conversationId, messagesToPersist(existingIds, messages));
-      } catch (error) {
-        console.error("[hermes] falha ao salvar mensagens", error);
-      }
+      if (outcome.status === "failed") turn.refund();
+      await turn.persist(messages);
     },
     onError: (error) => {
       console.error("[hermes] erro no streaming", error);
-      refundOnce();
+      turn.refund();
       return "Tive um problema para concluir a resposta. Tente enviar a mensagem novamente.";
     },
   });

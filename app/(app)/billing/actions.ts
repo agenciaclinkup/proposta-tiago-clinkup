@@ -12,13 +12,7 @@ const checkoutInput = z.object({ planId: z.enum(["starter", "growth", "scale"]) 
 
 async function requireBillingAdmin() {
   const workspace = await requireWorkspace();
-  const { data: membership } = await workspace.supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", workspace.organization.id)
-    .eq("user_id", workspace.user.id)
-    .single();
-  if (membership?.role !== "owner" && membership?.role !== "admin") redirect("/billing?status=forbidden");
+  if (workspace.role === "member") redirect("/billing?status=forbidden");
   if (!(await rateLimit(`billing:user:${workspace.user.id}`, RATE_LIMITS.billingUser))) {
     redirect("/billing?status=rate_limited");
   }
