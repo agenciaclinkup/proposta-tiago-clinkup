@@ -33,6 +33,8 @@
 | IA | Vercel AI SDK; Anthropic por padrão, OpenAI opcional via env | Function calling nativo nos dois. |
 | Tokens OAuth | `integration_secrets` cifrado (AES-256-GCM, chave `VAULT_ENCRYPTION_KEY`, `lib/vault.ts`), sem grant para `authenticated` | Token nunca chega ao browser. |
 | Auth | Supabase Auth (e-mail/senha + callback PKCE `/auth/callback`) | Padrão `@supabase/ssr`. |
+| Bot do Telegram | Híbrido: **SaaS** usa o bot único da plataforma (`TELEGRAM_BOT_TOKEN`, webhook `/api/webhooks/telegram`, vínculo por `/vincular CODIGO`); **White-Label/Enterprise** cadastra o próprio bot (token cifrado em `integration_secrets`, webhook dinâmico `/api/webhooks/telegram/[slug]`, `slug` da organização) | Decisão do produto (2026-11-18): rapidez no SaaS e marca própria no White-Label. |
+| Transcrição de áudio | OpenAI Whisper (`whisper-1`, `OPENAI_API_KEY`) por padrão; Groq (`GROQ_API_KEY`) quando configurado | Decisão do produto (2026-11-18). Áudio é transcrito antes de chegar ao Hermes. |
 | Sessão | `middleware.ts` + `getClaims()` | Next 15 não executa `proxy.ts`. |
 
 ## 2. Schema PostgreSQL
@@ -71,11 +73,11 @@ Convenções: `id uuid default gen_random_uuid()`, `created_at/updated_at timest
 
 ### Integrações (Fase 3)
 
-**integrations** — `organization_id`, `provider` enum (`instagram|facebook_page|meta_ads|google_business|google_calendar|telegram`), `status` (`connected|needs_attention|disconnected`), `external_account_id`, `display_name`, `scopes text[]`, `metadata jsonb` (ex.: `business_id`, `ad_account_id`, `pixel_id`, `chat_id`), `connected_by`. Unique `(organization_id, provider, external_account_id)`.
+**integrations** — `organization_id`, `provider` enum (`instagram|facebook_page|meta_ads|google_business|google_calendar|telegram`), `status` (`connected|needs_attention|disconnected`), `external_account_id`, `display_name`, `scopes text[]`, `metadata jsonb` (ex.: `business_id`, `ad_account_id`, `pixel_id`, `chat_id`), `connected_by`. Unique `(organization_id, provider, external_account_id)`. Membros leem; só owner/admin excluem (desconectar); inserção/atualização só pelo servidor (`saveIntegration` em `lib/services/integrations.ts`, após callback OAuth ou webhook validado).
 
-**integration_secrets** — `integration_id` pk, `access_token_encrypted`, `refresh_token_encrypted`, `expires_at`. Sem grants para `anon/authenticated`.
+**integration_secrets** — `integration_id` pk, `access_token_encrypted`, `refresh_token_encrypted`, `expires_at`, `organization_id`. Sem grants para `anon/authenticated`. `CHECK` exige o formato do cofre (`v1:iv:tag:ct`): o banco recusa token em texto puro. AAD da cifra = `integration_id`.
 
-**telegram_link_codes** — `code` pk, `organization_id`, `user_id`, `expires_at`, `used_at`. Usado pelo comando `/vincular CODIGO`.
+**telegram_link_codes** — `code` pk, `organization_id`, `user_id`, `expires_at` (10 min), `used_at`. Código de 8 caracteres `[A-Z0-9]`, gerado só pelo servidor; usuário lê apenas os próprios. Consumo atômico e de uso único por `public.consume_telegram_link_code(code)` (execute só service_role), chamado pelo webhook no comando `/vincular CODIGO`.
 
 ### CRM (Fase 4)
 
@@ -111,7 +113,7 @@ Cada Tool = wrapper de um service com o mesmo schema Zod, executada sempre por `
 | Leads | `search_leads`, `list_scraped_leads`, `send_scraped_leads_to_crm`, `create_custom_audience` |
 | Ads | `check_ads_readiness`, `create_ad_campaign`, `update_campaign_budget`, `pause_campaign`, `get_campaign_metrics` |
 
-Canais: chat interno (`/api/hermes`, streaming), Telegram (`/api/telegram/webhook`, áudio transcrito antes do agente), webhooks externos n8n/BootConversa (`/api/webhooks/inbound`, assinatura HMAC).
+Canais: chat interno (`/api/hermes`, streaming), Telegram (`/api/webhooks/telegram` para o bot da plataforma e `/api/webhooks/telegram/[slug]` para bots White-Label; áudio transcrito por Whisper/Groq antes do agente), webhooks externos n8n/BootConversa (`/api/webhooks/inbound`, assinatura HMAC).
 
 ## 4. Fases
 
@@ -146,7 +148,7 @@ Canais: chat interno (`/api/hermes`, streaming), Telegram (`/api/telegram/webhoo
 | Server Actions | Zod | sessão Supabase (`getUser`) + papel quando aplicável | por usuário/IP |
 | Route Handlers internos (`/api/hermes`, scraping, IA) | Zod | sessão Supabase | por organização + consumo de plano |
 | Webhook Stripe | SDK + Zod nos metadados | assinatura `stripe-signature` | por IP, generoso (Stripe reenvia) |
-| Webhook Telegram | Zod | header `X-Telegram-Bot-Api-Secret-Token` | por `chat_id` |
+| Webhook Telegram (plataforma e `[slug]`) | Zod | header `X-Telegram-Bot-Api-Secret-Token` (segredo por bot) | por `chat_id` |
 | Webhooks n8n/BootConversa | Zod | HMAC SHA-256 + timestamp (anti-replay) | por organização |
 | Cron (`/api/cron/*`) | — | `CRON_SECRET` | — |
 

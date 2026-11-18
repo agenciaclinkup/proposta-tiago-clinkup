@@ -5,21 +5,27 @@
 ## Estado atual
 
 - **Fase:** 3 — Integrações (Fase 2 — Hermes Core ✅ concluída)
-- **Etapa em andamento:** 3.1 — Dados das integrações + cofre de credenciais
+- **Etapa em andamento:** 3.2 — Página `/integrations` com guias didáticos
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**3.1 Dados das integrações + cofre** (TDD; base em `ARCHITECTURE.md` §2 "Integrações" e §5.2):
-1. Migration `integrations` (RLS: membros leem, admins alteram; unique `(organization_id, provider, external_account_id)`), `integration_secrets` (sem grants para `anon`/`authenticated`; colunas `*_encrypted` no formato `v1:iv:tag:ct`) e `telegram_link_codes` (código curto, expira em 10 min, uso único). Checks em `supabase/tests/rls-check.mjs` (isolamento entre orgs, member não altera, ninguém lê secrets).
-2. `lib/services/integrations.ts`: `listIntegrations`, `saveIntegration` (cifra tokens com `encryptSecret(token, integrationId)` e grava via admin), `getIntegrationToken` (decifra só no servidor), `disconnectIntegration`. Testes garantindo que o token nunca volta em `listIntegrations`.
-3. Tools `list_integrations` e `get_integration_setup_guide` (rótulos em `lib/hermes/tool-labels.ts`).
+**3.2 Página `/integrations`** (TDD onde houver lógica):
+1. `app/(app)/integrations/page.tsx`: um card por provedor a partir de `summarizeIntegrations(await listIntegrations(ctx))` + `INTEGRATION_CATALOG` (status com selo: Conectado / Precisa de atenção / Não conectado; contas conectadas).
+2. Guia passo a passo expansível em cada card (requisitos, passos numerados, dicas) — mesmo conteúdo da Tool `get_integration_setup_guide` (fonte única `lib/integrations/catalog.ts`).
+3. Botão Conectar desabilitado com "Disponível em breve" para Meta/Google (OAuth chega em 3.4/3.5); Telegram com "Gerar código" fica para 3.3.
+4. Desconectar (só admin): Server Action com Zod uuid + rate limit + `disconnectIntegration` (RLS) e confirmação na UI; teste da action no padrão de `app/(app)/hermes/actions.test.ts`.
+5. Marcar "Integrações" como `ready` em `app/(app)/nav.tsx` e atualizar o item "Próximos passos" do dashboard com link para a página.
 
 **Plano da Fase 3:**
-- 3.1 dados + cofre (acima).
-- 3.2 `/integrations`: cards por provedor com status e tutoriais passo a passo didáticos em pt-BR (onde clicar no Instagram, Facebook, Meta Business Manager, Pixel, pagamento, Google Meu Negócio, Google Calendar, Telegram), sem OAuth ainda.
-- 3.3 Telegram: webhook `/api/telegram/webhook` (header `X-Telegram-Bot-Api-Secret-Token`, Zod, rate limit por `chat_id`), comando `/vincular CODIGO`, respostas do Hermes no canal `telegram` com as mesmas Tools e cobrança/estorno de crédito. **Decisão pendente:** bot único da plataforma (token em env) vs bot próprio por cliente (token cifrado em `integration_secrets`, necessário no White-Label). Áudio: definir provedor de transcrição.
+- 3.1 dados + cofre ✅.
+- 3.2 `/integrations` (acima).
+- 3.3 Telegram (decisões fechadas em 2026-11-18, ver `ARCHITECTURE.md` §1):
+  - SaaS: bot único da plataforma (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`), webhook `/api/webhooks/telegram`; "Gerar código" na UI (Server Action, código de 8 caracteres `[A-Z0-9]` sem ambíguos, gravado via admin) e `/vincular CODIGO` → `consume_telegram_link_code` → `saveIntegration(provider: "telegram", externalAccountId: chat_id, metadata: { user_id })`.
+  - White-Label/Enterprise: admin cadastra o token do próprio bot (cifrado em `integration_secrets`), plataforma chama `setWebhook` para `/api/webhooks/telegram/[slug]` com segredo próprio por bot.
+  - Mensagens: Zod no update, header `X-Telegram-Bot-Api-Secret-Token`, rate limit por `chat_id`, Hermes no canal `telegram` (mesmas Tools, 1 crédito por mensagem, estorno em falha; resposta via `generateText`).
+  - Áudio: OpenAI Whisper `whisper-1` (`OPENAI_API_KEY`) por padrão; Groq (`GROQ_API_KEY`) quando configurado; limitar duração/tamanho do áudio.
 - 3.4 OAuth Meta (Instagram, Facebook Pages, Meta Ads/BM): rota de callback com `state` assinado (anti-CSRF), tokens cifrados, refresh de token longo. Requer app Meta (envs `META_APP_ID`, `META_APP_SECRET`).
 - 3.5 OAuth Google (Google Meu Negócio + Calendar): mesmo padrão; requer `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e verificação do app no Google Cloud.
 
@@ -44,6 +50,8 @@
 - [ ] **Estorno de crédito (Fase 2.4):** forçar falha do modelo (ex.: `ANTHROPIC_API_KEY` inválida temporariamente em staging) e confirmar que `usage_counters.ai_credits` volta ao valor anterior e que o chat mostra "Tive um problema para concluir a resposta…". Clicar em "Parar resposta" **não** deve estornar.
 - [ ] **Excluir conversa (Fase 2.4):** excluir pela lista e pelo cabeçalho do chat; conferir que `hermes_messages` da conversa sumiram (cascade) e que outro usuário da mesma org não consegue excluir a conversa alheia (RLS; resposta "Não encontramos esta conversa…").
 - [ ] Alerta de 80% no card "Uso do plano": ajustar manualmente `usage_counters.used` em staging e conferir o aviso amarelo (80%) e vermelho (100%) no `/dashboard` e no `/billing`.
+- [ ] `db push` aplica também a migration `integrations` (Fase 3.1).
+- [ ] **Cofre em produção (Fase 3.1):** depois de conectar a primeira integração real, conferir no SQL Editor que `integration_secrets.access_token_encrypted` começa com `v1:` e não contém o token; e que `select * from integration_secrets` com a chave publishable/usuário logado retorna erro de permissão.
 
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -52,6 +60,7 @@
 - [ ] `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_GROWTH`, `STRIPE_PRICE_SCALE`
 - [ ] `VAULT_ENCRYPTION_KEY` (32 bytes base64; guardar backup seguro — perder a chave = perder todos os tokens de integração)
 - [ ] `ANTHROPIC_API_KEY` (Fase 2.2+, Agente Hermes)
+- [ ] Planejadas para a Fase 3.3 (entram no `.env.example` quando o código usar): `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `OPENAI_API_KEY` (Whisper), `GROQ_API_KEY` (opcional).
 - [ ] White-Label (opcional): `NEXT_PUBLIC_BRAND_*`
 
 ### Supabase (painel)
@@ -74,6 +83,15 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 3.1 Dados das integrações + cofre — ✅ (2026-11-18)
+- **Migration** `supabase/migrations/20261118191755_integrations.sql`: enums `integration_provider` e `integration_status`; `integrations` (membros leem, só admin exclui, servidor grava; unique por org/provedor/conta); `integration_secrets` (sem grants para usuários; `CHECK` exige formato `v1:` do cofre); `telegram_link_codes` (8 caracteres, 10 min, só servidor cria, usuário lê os próprios) + `public.consume_telegram_link_code` (atômico, uso único, só `service_role`).
+- **`lib/integrations/catalog.ts`:** guias pt-BR para iniciantes (requisitos, passos com onde clicar, dicas) de Instagram, Página do Facebook, Meta Ads/BM (conta de anúncios, pagamento, Pixel), Google Meu Negócio, Google Calendar e Telegram (incl. bot próprio via @BotFather). Fonte única para UI e Hermes.
+- **`lib/services/integrations.ts`:** `listIntegrations` (nunca toca segredos), `summarizeIntegrations` (todos os provedores com status), `saveIntegration` (admin; tokens cifrados com AAD = id da integração), `getIntegrationToken` (decifra no servidor, filtra por org), `disconnectIntegration` (RLS admin).
+- **Tools:** `list_integrations`, `get_integration_setup_guide` (`provider` validado por `z.enum`); rótulos em `tool-labels.ts`; system prompt atualizado com as novas capacidades.
+- **Decisões da Fase 3** registradas em `ARCHITECTURE.md` (Telegram híbrido, Whisper/Groq) e no plano acima.
+
+**Testes:** `npm test` 94/94 · `npm run test:db` 72/72 (inclui usuário `member`: lê mas não desconecta; ninguém lê/grava segredos; texto puro recusado; código de vínculo de uso único e com expiração) · `tsc --noEmit` OK · lint limpo · build OK. TDD: RED verificado antes de cada implementação.
 
 ### 2.4 Uso do plano, atividades, estorno e exclusão de conversa — ✅ (2026-11-18) · **Fase 2 concluída**
 - **Migration** `supabase/migrations/20261118151441_usage_refund.sql`: `public.refund_usage` (mesmo período do consumo, nunca abaixo de zero, execute só `service_role`).

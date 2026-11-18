@@ -13,6 +13,11 @@ vi.mock("@/lib/services/brand", async (importOriginal) => ({
 const listRecentActivity = vi.fn();
 vi.mock("@/lib/services/activity", () => ({ listRecentActivity }));
 vi.mock("@/lib/services/account", () => ({ getPlanAndUsage: vi.fn() }));
+const listIntegrations = vi.fn();
+vi.mock("@/lib/services/integrations", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/services/integrations")>()),
+  listIntegrations,
+}));
 
 const { HERMES_TOOLS, buildHermesTools } = await import("./tools");
 const { brandRowFromInput } = await import("@/lib/services/brand");
@@ -51,7 +56,7 @@ describe("registro de Tools", () => {
 
   it("expõe as Tools da Fase 2.2 no formato do AI SDK", () => {
     expect(Object.keys(buildHermesTools(ctx)).sort()).toEqual(
-      ["get_brand_context", "get_plan_and_usage", "list_recent_activity", "update_brand_context"].sort(),
+      ["get_brand_context", "get_integration_setup_guide", "get_plan_and_usage", "list_integrations", "list_recent_activity", "update_brand_context"].sort(),
     );
   });
 });
@@ -83,5 +88,27 @@ describe("list_recent_activity", () => {
     await call("list_recent_activity", {});
     expect(listRecentActivity).toHaveBeenLastCalledWith(ctx, 10);
     expect((await call("list_recent_activity", { limit: 50 })).ok).toBe(false);
+  });
+});
+
+describe("list_integrations", () => {
+  it("lista todos os provedores com o status da organização", async () => {
+    listIntegrations.mockResolvedValueOnce([{ provider: "telegram", status: "connected", display_name: "Ana", external_account_id: "123" }]);
+    const result = await call("list_integrations", {});
+    expect(result.ok).toBe(true);
+    expect(result.data).toHaveLength(6);
+    expect(result.data.find((item: { provider: string }) => item.provider === "telegram").status).toBe("connected");
+  });
+});
+
+describe("get_integration_setup_guide", () => {
+  it("devolve o passo a passo do provedor", async () => {
+    const result = await call("get_integration_setup_guide", { provider: "meta_ads" });
+    expect(result.ok).toBe(true);
+    expect(result.data.steps.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("rejeita provedor desconhecido", async () => {
+    expect((await call("get_integration_setup_guide", { provider: "tiktok" })).ok).toBe(false);
   });
 });

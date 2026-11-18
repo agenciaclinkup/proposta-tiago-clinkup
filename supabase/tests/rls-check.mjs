@@ -134,3 +134,38 @@ check("refund never goes below zero", (await refund(5)) === 0);
 check("refund with no usage row is a no-op", (await asService(`select public.refund_usage('${orgA}', 'scraped_leads', 1) as used`)).rows[0].used === 0);
 await expectFail("refund rejects non-positive amount", () => refund(0));
 await expectFail("authenticated calls refund_usage", () => as(A, `select public.refund_usage('${orgA}', 'ai_credits', 1)`));
+
+// Integrações (Fase 3.1): membros leem, só admin desconecta, servidor grava; segredos invisíveis
+const C = "00000000-0000-0000-0000-00000000000c";
+await db.exec(`insert into auth.users (id) values ('${C}')`);
+await asService(`insert into public.organization_members (organization_id, user_id, role) values ('${orgA}', '${C}', 'member')`);
+const intA = "30000000-0000-0000-0000-00000000000a";
+await asService(`insert into public.integrations (id, organization_id, provider, status, external_account_id, display_name)
+                 values ('${intA}', '${orgA}', 'instagram', 'connected', 'ig-123', '@clinkup')`);
+await asService(`insert into public.integration_secrets (integration_id, organization_id, access_token_encrypted)
+                 values ('${intA}', '${orgA}', 'v1:aXY:dGFn:Y3Q')`);
+check("member reads org integrations", (await as(C, `select display_name from public.integrations`)).rows[0]?.display_name === "@clinkup");
+check("B sees no integrations", (await as(B, `select * from public.integrations`)).rows.length === 0);
+check("member cannot disconnect", (await as(C, `delete from public.integrations returning id`)).rows.length === 0);
+check("B cannot disconnect", (await as(B, `delete from public.integrations returning id`)).rows.length === 0);
+await expectFail("admin cannot insert integration directly", () => as(A, `insert into public.integrations (organization_id, provider, external_account_id) values ('${orgA}', 'telegram', 'x')`));
+await expectFail("admin cannot edit integration directly", () => as(A, `update public.integrations set status = 'connected'`));
+await expectFail("owner reads secrets", () => as(A, `select * from public.integration_secrets`));
+await expectFail("owner writes secrets", () => as(A, `insert into public.integration_secrets (integration_id, organization_id, access_token_encrypted) values ('${intA}', '${orgA}', 'v1:a:b:c')`));
+await expectFail("secret must be encrypted (v1 format)", () => asService(`update public.integration_secrets set access_token_encrypted = 'EAAG-plain-token' where integration_id = '${intA}'`));
+await expectFail("duplicate account per provider", () => asService(`insert into public.integrations (organization_id, provider, external_account_id) values ('${orgA}', 'instagram', 'ig-123')`));
+check("admin disconnects (cascade secret)", (await as(A, `delete from public.integrations where id = '${intA}' returning id`)).rows.length === 1
+  && (await db.query(`select count(*)::int as n from public.integration_secrets`)).rows[0].n === 0);
+
+// Códigos de vínculo do Telegram: gerados pelo servidor, uso único, expiram
+await asService(`insert into public.telegram_link_codes (code, organization_id, user_id) values ('ABCD2345', '${orgA}', '${A}')`);
+await asService(`insert into public.telegram_link_codes (code, organization_id, user_id, expires_at) values ('OLDC0DE9', '${orgA}', '${A}', now() - interval '1 minute')`);
+check("user reads own link code", (await as(A, `select code from public.telegram_link_codes where code = 'ABCD2345'`)).rows.length === 1);
+check("other member cannot read code", (await as(C, `select * from public.telegram_link_codes`)).rows.length === 0);
+await expectFail("user cannot create own code", () => as(A, `insert into public.telegram_link_codes (code, organization_id, user_id) values ('MYCODE11', '${orgA}', '${A}')`));
+const consumeCode = async (code) => (await asService(`select * from public.consume_telegram_link_code('${code}')`)).rows;
+const firstUse = await consumeCode("ABCD2345");
+check("valid code returns org and user", firstUse[0]?.organization_id === orgA && firstUse[0]?.user_id === A);
+check("code is single-use", (await consumeCode("ABCD2345")).length === 0);
+check("expired code is rejected", (await consumeCode("OLDC0DE9")).length === 0);
+await expectFail("authenticated cannot consume codes", () => as(A, `select * from public.consume_telegram_link_code('ABCD2345')`));
