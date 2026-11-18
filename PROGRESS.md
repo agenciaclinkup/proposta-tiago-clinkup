@@ -5,20 +5,19 @@
 ## Estado atual
 
 - **Fase:** 2 — Hermes Core
-- **Etapa em andamento:** 2.3 — Chat `/hermes` com streaming
+- **Etapa em andamento:** 2.4 — Uso do plano + atividades recentes no dashboard
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**2.3 Chat `/hermes` com streaming** (TDD; carregar skill `claude-api` antes de escolher modelo/params):
-1. Migration `hermes_conversations` + `hermes_messages` (RLS por `organization_id`; usuário lê/cria só as próprias conversas) + checks em `supabase/tests/rls-check.mjs`.
-2. `lib/hermes/system-prompt.ts`: prompt em pt-BR com Contexto Mestre, regras (copy completa e profissional, confirmar ações com custo) — testar montagem.
-3. `app/api/hermes/route.ts`: `streamText` + `buildHermesTools(ctx)`; sessão Supabase obrigatória, Zod no body, rate limit por usuário, `consumeUsage(ctx, "ai_credits")` por turno, `stopWhen` limitando passos.
-4. UI `app/(app)/hermes/page.tsx` (chat didático, sugestões de comandos, estados de carregamento/erro) + item "Hermes" no menu.
-5. `ANTHROPIC_API_KEY` no `.env.example` (já no checklist de go-live).
+**2.4 Uso do plano + atividades no dashboard** (TDD):
+1. Card "Uso do plano" no `/dashboard` e em `/billing` com `getUsageSummary` (barras por métrica, aviso didático ao passar de 80% e link para upgrade).
+2. Card "Atividades recentes do Hermes" no `/dashboard` com `listRecentActivity` (nomes de Tools traduzidos para pt-BR, canal e horário; estado vazio explicativo).
+3. Extrair os rótulos pt-BR das Tools para um módulo compartilhado (hoje em `app/(app)/hermes/chat.tsx`) e testar o mapeamento.
+4. Fechar a Fase 2 no `PROGRESS.md`; próxima: Fase 3 (Integrações — `integrations`, `integration_secrets` com `lib/vault.ts`, Telegram `/vincular`).
 
-**Plano da Fase 2:** 2.1 dados + services ✅ · 2.2 Tools ✅ · 2.3 chat `/hermes` com streaming (system prompt com Contexto Mestre, `ai_credits` por turno, `hermes_conversations/messages`) · 2.4 uso do plano + atividades recentes no dashboard.
+**Plano da Fase 2:** 2.1 dados + services ✅ · 2.2 Tools ✅ · 2.3 chat `/hermes` ✅ · 2.4 uso do plano + atividades recentes no dashboard.
 
 ## CHECKLIST OBRIGATÓRIO DE GO-LIVE (NÃO PULAR)
 
@@ -31,6 +30,10 @@
 - [ ] Fluxo manual: cadastro → confirmação de e-mail → onboarding → dashboard; segundo usuário não enxerga a org do primeiro.
 - [ ] Stripe modo teste: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`, checkout, conferir `subscriptions` e `organizations.plan_id`.
 - [ ] Registrar resultado aqui e commitar `test(e2e): ...` / `fix(...)` conforme achados.
+- [ ] `db push` aplica também a migration `hermes_chat` (Fase 2.3) — conferir `npx supabase migration list`.
+- [ ] **Validar o código `42501` (Fase 2.2):** com um segundo usuário de papel `member` na org (inserir em `organization_members` via SQL, pois ainda não há convites), tentar alterar a memória da marca pelo Hermes ("mude o tom de voz para descontraído"). Esperado: "Apenas proprietários e administradores podem alterar a memória da marca." Se o Supabase devolver outro código para violação de RLS no `upsert`, ajustar `saveBrandContext` em `lib/services/brand.ts` e o teste correspondente.
+- [ ] Chat do Hermes com `ANTHROPIC_API_KEY` real: mensagem em `/hermes` com streaming; pergunta que dispara Tool ("Qual é o meu plano?"); conferir linhas em `hermes_messages`, `hermes_logs` e `usage_counters` (`ai_credits` +1 por mensagem); recarregar a página e ver o histórico.
+- [ ] Confirmar que a API aceita `fallbacks: "default"` + beta `server-side-fallback-2026-07-01` com `claude-opus-5-5` via `@ai-sdk/anthropic` (se retornar 400, remover essas duas opções em `app/api/hermes/route.ts`).
 
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -55,8 +58,23 @@
 - [ ] Deploy atrás de proxy que define `x-forwarded-for` (ex.: Vercel); senão o rate limit por IP pode ser burlado.
 - [ ] Monitorar logs `[rate-limit]` e `[hermes-log]` (ambos falham aberto/silencioso por design).
 - [ ] Repositório GitHub privado; nenhum `.env*` no histórico (`git log --all -- .env*` vazio).
+- [ ] Hospedagem suporta `maxDuration = 120` s em `/api/hermes` (streaming do chat); planos gratuitos podem cortar antes.
+- [ ] Anthropic Console: limite de gasto e rate limit da organização compatíveis com o volume (1 crédito de IA = 1 turno, mas o custo real por turno varia com Tools e tamanho da conversa).
+- [ ] Monitorar logs `[hermes]` (falha ao salvar mensagens ou no streaming).
 
 ## Concluído
+
+### 2.3 Chat `/hermes` com streaming — ✅ (2026-11-18)
+- **Migration** `supabase/migrations/20261118042206_hermes_chat.sql`: `hermes_conversations` (privada do usuário na org; `user_id` sempre `auth.uid()`) e `hermes_messages` (só servidor grava; unique `(conversation_id, message_id)`).
+- **`lib/hermes/chat.ts`:** `chatRequestSchema` (só a nova mensagem de texto do usuário, até 4.000 caracteres), `conversationTitle`, `messagesToPersist`.
+- **`lib/hermes/system-prompt.ts`:** prompt em pt-BR acolhedor, Contexto Mestre como dados (`<contexto_mestre>`), regras de Tools/segurança, recursos "em breve"; data por último (cache).
+- **`lib/services/conversations.ts`:** `listConversations`, `ensureConversation`, `loadConversationMessages` (últimas 40), `saveConversationMessages` (admin, idempotente).
+- **`app/api/hermes/route.ts`:** sessão obrigatória (`loadWorkspace`), Zod, rate limit 20/min por usuário, 1 crédito por turno (402 no limite), conversa alheia → 404, histórico do banco, `streamText` com `claude-opus-5-5`, effort `medium`, `fallbacks: "default"`, até 6 passos; salva mensagens no `onEnd`.
+- **`lib/workspace.ts`:** `loadWorkspace` (sem redirect, para APIs) + `requireWorkspace`. **Middleware:** `/api/*` sem sessão → 401 JSON.
+- **UI:** `app/(app)/hermes/page.tsx` (lista de conversas, nova conversa) + `chat.tsx` (boas-vindas didática, o que já faz/em breve, sugestões, status das Tools em pt-BR, erros amigáveis, parar resposta, aviso de crédito). Menu ganhou "Agente Hermes"; dashboard leva ao chat.
+- **Deps:** `@ai-sdk/react`; React atualizado para patch `~19.1.2` (exigência do `@ai-sdk/react` + correções de segurança do 19.1.x). `ANTHROPIC_API_KEY` no `.env.example`.
+
+**Testes:** `npm test` 69/69 (inclui rota com mocks: 401/403/400/429/402/404 e payload enviado ao modelo) · `npm run test:db` 49/49 · `tsc --noEmit` OK · lint limpo · build OK · smoke `next start`: `/api/hermes` sem sessão → 401 JSON, `/hermes` → 307 `/login?next=/hermes`. Sem chamada real ao modelo (sem chave) → item no checklist.
 
 ### 2.2 Registro de Tools do Hermes — ✅ (2026-11-18)
 - **Deps:** `ai@^7` (Vercel AI SDK; API `tool({ description, inputSchema, execute, needsApproval })`) e `@ai-sdk/anthropic@^4`.
@@ -65,7 +83,7 @@
 - **`lib/hermes/tools.ts`:** `HERMES_TOOLS` + `buildHermesTools(ctx)` com `get_brand_context`, `update_brand_context` (patch parcial revalidado), `get_plan_and_usage`, `list_recent_activity`.
 - **Services novos:** `account.ts` (`getPlanAndUsage`), `activity.ts` (`listRecentActivity`, sem coluna `error`); `brand.ts` ganhou `inputFromBrandRow`, `mergeBrandPatch` e erro amigável para membro sem permissão (RLS `42501`).
 
-**Testes:** `npm test` 53/53 · `npm run test:db` 41/41 · `tsc --noEmit` OK · lint limpo · build OK. TDD: RED verificado antes de cada implementação.
+**Testes:** `npm test` 53/53 · `npm run test:db` 37/37 (corrigido em 2.3; antes reportado como 41) · `tsc --noEmit` OK · lint limpo · build OK. TDD: RED verificado antes de cada implementação.
 
 ### 2.1 Dados do Hermes + camada de services — ✅ (2026-11-18)
 - **Migration** `supabase/migrations/20261118040239_hermes_logs_and_usage.sql`: `hermes_logs` (auditoria; membros só leem, servidor grava), `usage_counters` + `public.consume_usage` (consumo atômico mensal, fuso de Brasília, execute só `service_role`).
@@ -73,7 +91,7 @@
 - **Refactor dual-control:** `app/onboarding/actions.ts` usa `saveBrandContext`.
 - **Teste de banco:** stub do `service_role` agora com `bypassrls` + default privileges (igual Supabase).
 
-**Testes:** `npm test` 39/39 · `npm run test:db` 41/41 · lint limpo · build OK. TDD: RED verificado antes de cada implementação.
+**Testes:** `npm test` 39/39 · `npm run test:db` 37/37 (corrigido em 2.3; antes reportado como 41) · lint limpo · build OK. TDD: RED verificado antes de cada implementação.
 
 ### 1.2 Blindagem de segurança — ✅ (2026-11-18)
 - **Governança:** regras permanentes em `AGENTS.md` §6, `CLAUDE.md` e `ARCHITECTURE.md` §5 (revezamento via `PROGRESS.md`, Git semântico, segurança multi-tenant). `.gitignore` rigoroso (env, chaves, certificados, builds, temporários Supabase, skills) e `.gitattributes` (LF).

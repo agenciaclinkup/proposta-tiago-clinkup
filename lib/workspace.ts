@@ -3,13 +3,10 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export type Workspace = Awaited<ReturnType<typeof requireWorkspace>>;
-
-// Usuário autenticado + organização ativa. Sem onboarding concluído, manda para /onboarding.
-export const requireWorkspace = cache(async () => {
+async function fetchWorkspace() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) redirect("/login");
+  if (!auth.user) return { status: "unauthenticated" as const };
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -18,7 +15,7 @@ export const requireWorkspace = cache(async () => {
     .single();
 
   const organizationId = profile?.current_organization_id;
-  if (!organizationId) redirect("/onboarding");
+  if (!organizationId) return { status: "onboarding" as const };
 
   const [{ data: organization }, { data: subscription }] = await Promise.all([
     supabase
@@ -33,7 +30,23 @@ export const requireWorkspace = cache(async () => {
       .single(),
   ]);
 
-  if (!organization?.onboarding_completed_at) redirect("/onboarding");
+  if (!organization?.onboarding_completed_at) return { status: "onboarding" as const };
 
-  return { supabase, user: auth.user, profile: profile!, organization, subscription };
+  return {
+    status: "ok" as const,
+    workspace: { supabase, user: auth.user, profile: profile!, organization, subscription },
+  };
+}
+
+export type Workspace = Extract<Awaited<ReturnType<typeof fetchWorkspace>>, { status: "ok" }>["workspace"];
+
+// Para Route Handlers: o chamador decide a resposta (401/403) em vez de redirecionar.
+export const loadWorkspace = cache(fetchWorkspace);
+
+// Para páginas e Server Actions: sem sessão vai para /login; sem onboarding concluído vai para /onboarding.
+export const requireWorkspace = cache(async (): Promise<Workspace> => {
+  const result = await loadWorkspace();
+  if (result.status === "unauthenticated") redirect("/login");
+  if (result.status === "onboarding") redirect("/onboarding");
+  return result.workspace;
 });

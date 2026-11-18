@@ -65,7 +65,7 @@ Convenções: `id uuid default gen_random_uuid()`, `created_at/updated_at timest
 
 **hermes_logs** — `organization_id`, `user_id`, `channel` (`web|telegram|webhook|system`), `via` (`manual|hermes`), `tool_name`, `input jsonb`, `output jsonb`, `status` (`success|error`), `error`, `duration_ms`. Alimenta "Atividades recentes". Só leitura para membros; gravação via service role (`lib/services/hermes-log.ts`).
 
-**hermes_conversations / hermes_messages** — histórico do chat (web e Telegram).
+**hermes_conversations / hermes_messages** — histórico do chat (web e Telegram). Conversa privada do usuário na org (`user_id` = `auth.uid()` por default, sem grant de coluna). Mensagens (`message_id` do AI SDK, `role`, `parts jsonb`) só o servidor grava: o cliente envia apenas a nova mensagem de texto e o histórico enviado ao modelo vem do banco, impedindo forjar respostas do assistente ou resultados de Tools.
 
 **usage_counters** — `(organization_id, metric, period_start)` pk, `used`. Métricas mensais: `ai_credits`, `scraped_leads`, `scheduled_posts` (conexões = contagem de `integrations`, não contador). Consumo atômico por `public.consume_usage(org, metric, amount, limit)` (execute só service_role; mês em America/Sao_Paulo), chamado por `lib/services/usage.ts` com o limite de `config/plans.ts`.
 

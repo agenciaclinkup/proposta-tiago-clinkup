@@ -104,3 +104,22 @@ check("A reads own usage", (await as(A, `select used from public.usage_counters 
 check("B sees no usage", (await as(B, `select * from public.usage_counters`)).rows.length === 0);
 await expectFail("A resets own usage", () => as(A, `update public.usage_counters set used = 0`));
 await expectFail("authenticated calls consume_usage", () => as(A, `select public.consume_usage('${orgA}', 'ai_credits', 1, 999)`));
+
+// Conversas do Hermes: cada usuário só vê as próprias; mensagens só o servidor grava
+const convA = "20000000-0000-0000-0000-00000000000a";
+await as(A, `insert into public.hermes_conversations (id, organization_id, title) values ('${convA}', '${orgA}', 'Primeira conversa')`);
+check("conversation owner defaults to auth.uid()", (await db.query(`select user_id from public.hermes_conversations where id='${convA}'`)).rows[0]?.user_id === A);
+await asService(`insert into public.hermes_messages (conversation_id, organization_id, message_id, role, parts)
+                 values ('${convA}', '${orgA}', 'm1', 'user', '[{"type":"text","text":"oi"}]')`);
+check("A reads own messages", (await as(A, `select message_id from public.hermes_messages`)).rows[0]?.message_id === "m1");
+check("A renames own conversation", (await as(A, `update public.hermes_conversations set title='Renomeada' where id='${convA}' returning id`)).rows.length === 1);
+check("B sees no conversation", (await as(B, `select * from public.hermes_conversations`)).rows.length === 0);
+check("B sees no messages", (await as(B, `select * from public.hermes_messages`)).rows.length === 0);
+check("B cannot rename A conversation", (await as(B, `update public.hermes_conversations set title='x' returning id`)).rows.length === 0);
+check("B cannot delete A conversation", (await as(B, `delete from public.hermes_conversations returning id`)).rows.length === 0);
+await expectFail("B creates conversation in A org", () => as(B, `insert into public.hermes_conversations (organization_id, title) values ('${orgA}', 'x')`));
+await expectFail("A creates conversation as B", () => as(A, `insert into public.hermes_conversations (organization_id, user_id, title) values ('${orgA}', '${B}', 'x')`));
+await expectFail("A forges assistant message", () => as(A, `insert into public.hermes_messages (conversation_id, organization_id, message_id, role, parts) values ('${convA}', '${orgA}', 'm2', 'assistant', '[]')`));
+await expectFail("duplicate message id in conversation", () => asService(`insert into public.hermes_messages (conversation_id, organization_id, message_id, role, parts) values ('${convA}', '${orgA}', 'm1', 'user', '[]')`));
+check("A deletes own conversation (cascade messages)", (await as(A, `delete from public.hermes_conversations where id='${convA}' returning id`)).rows.length === 1
+  && (await db.query(`select count(*)::int as n from public.hermes_messages`)).rows[0].n === 0);

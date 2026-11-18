@@ -65,12 +65,15 @@ export default async function DashboardPage() {
               <Bot className="size-5 text-primary" aria-hidden /> Agente Hermes
             </CardTitle>
             <CardDescription>
-              A memória da sua marca está pronta. Em breve você poderá pedir ao Hermes, aqui no painel ou pelo
-              Telegram, para agendar posts, criar carrosséis, organizar leads e montar campanhas.
+              A memória da sua marca está pronta e o Hermes já pode conversar com você. Peça ideias de conteúdo,
+              ajustes na memória da marca ou um resumo do seu plano. Agendamento de posts, CRM e campanhas chegam em
+              breve.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Nenhuma atividade registrada ainda.</p>
+            <Button asChild>
+              <Link href="/hermes">Conversar com o Hermes</Link>
+            </Button>
           </CardContent>
         </Card>
 

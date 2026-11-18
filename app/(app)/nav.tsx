@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bot,
   CalendarDays,
   CreditCard,
   KanbanSquare,
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 // `ready: false` = módulo de fase futura (ver ARCHITECTURE.md).
 const ITEMS: { href: string; label: string; icon: LucideIcon; ready: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, ready: true },
+  { href: "/hermes", label: "Agente Hermes", icon: Bot, ready: true },
   { href: "/crm", label: "CRM", icon: KanbanSquare, ready: false },
   { href: "/calendar", label: "Calendário", icon: CalendarDays, ready: false },
   { href: "/studio", label: "Estúdio", icon: Palette, ready: false },

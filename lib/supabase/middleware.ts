@@ -31,6 +31,10 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const pathname = request.nextUrl.pathname;
 
+  if (!data?.claims && pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Sua sessão expirou. Entre novamente para continuar." }, { status: 401 });
+  }
+
   if (!data?.claims && !isPublic(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
