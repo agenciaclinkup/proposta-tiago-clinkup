@@ -4,22 +4,37 @@
 
 ## Estado atual
 
-- **Fase:** 1 — Fundação (Multi-Tenant, Banco, Auth, Planos, Onboarding)
-- **Etapa em andamento:** 1.3 — Validação em ambiente real (bloqueada: aguarda credenciais do usuário)
+- **Fase:** 2 — Hermes Core
+- **Etapa em andamento:** 2.2 — Registro de Tools do Hermes
+- **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**1.3 Validação real** (precisa de credenciais Supabase + Stripe modo teste em `.env.local`):
+**2.2 Registro de Tools** (TDD):
+1. Instalar `ai` + `@ai-sdk/anthropic` (versões fixas no lockfile).
+2. `lib/hermes/run-tool.ts`: wrapper que valida input com Zod, executa o service com `ServiceContext`, mede duração e grava `recordHermesLog` (sucesso/erro; `PlanLimitError` vira resposta amigável).
+3. `lib/hermes/tools.ts`: primeiras Tools — `get_brand_context`, `update_brand_context` (schema parcial de `onboardingSchema`), `get_plan_and_usage` (`getUsageSummary`), `list_recent_activity` (`hermes_logs`).
+4. Testes do wrapper (log em sucesso/erro, validação rejeita input inválido).
+
+**Plano da Fase 2:** 2.1 dados + services ✅ · 2.2 Tools · 2.3 chat `/hermes` com streaming (system prompt com Contexto Mestre, `ai_credits` por turno, `hermes_conversations/messages`) · 2.4 uso do plano + atividades recentes no dashboard.
+
+**1.3 Validação real** (adiada; precisa de credenciais Supabase + Stripe modo teste em `.env.local`):
 1. `npx supabase link --project-ref <ref>` e `npx supabase db push` (2 migrations).
 2. Rodar advisors (`npx supabase db advisors` ou MCP `get_advisors`) e corrigir alertas.
 3. Fluxo manual: cadastro → confirmação de e-mail → onboarding → dashboard; segundo usuário não enxerga a org do primeiro.
 4. Stripe CLI: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`, checkout de teste, conferir `subscriptions`/`organizations.plan_id`.
 5. Registrar resultado aqui e commitar `test(e2e): ...` / `fix(...)` conforme achados.
 
-**Se as credenciais não estiverem disponíveis:** iniciar **Fase 2.1** — migration `hermes_logs` + `usage_counters` (RLS por `organization_id`, teste em `supabase/tests/rls-check.mjs`), depois `lib/services/` com `ServiceContext`.
-
 ## Concluído
+
+### 2.1 Dados do Hermes + camada de services — ✅ (2026-11-18)
+- **Migration** `supabase/migrations/20261118040239_hermes_logs_and_usage.sql`: `hermes_logs` (auditoria; membros só leem, servidor grava), `usage_counters` + `public.consume_usage` (consumo atômico mensal, fuso de Brasília, execute só `service_role`).
+- **Services** (`lib/services/`): `context.ts` (`ServiceContext` + `serviceContext(workspace, via, channel)`), `usage.ts` (`limitFor`, `currentPeriodStart`, `consumeUsage` → `PlanLimitError` com mensagem pt-BR, `getUsageSummary`), `hermes-log.ts` (`recordHermesLog`, não derruba a ação se falhar), `brand.ts` (`getBrandContext`, `saveBrandContext`, `brandRowFromInput`).
+- **Refactor dual-control:** `app/onboarding/actions.ts` usa `saveBrandContext`.
+- **Teste de banco:** stub do `service_role` agora com `bypassrls` + default privileges (igual Supabase).
+
+**Testes:** `npm test` 39/39 · `npm run test:db` 41/41 · lint limpo · build OK. TDD: RED verificado antes de cada implementação.
 
 ### 1.2 Blindagem de segurança — ✅ (2026-11-18)
 - **Governança:** regras permanentes em `AGENTS.md` §6, `CLAUDE.md` e `ARCHITECTURE.md` §5 (revezamento via `PROGRESS.md`, Git semântico, segurança multi-tenant). `.gitignore` rigoroso (env, chaves, certificados, builds, temporários Supabase, skills) e `.gitattributes` (LF).

@@ -63,11 +63,11 @@ Convenções: `id uuid default gen_random_uuid()`, `created_at/updated_at timest
 
 ### Hermes (Fase 2)
 
-**hermes_logs** — `organization_id`, `user_id`, `channel` (`web|telegram|webhook|system`), `tool_name`, `input jsonb`, `output jsonb`, `status` (`success|error`), `error`, `duration_ms`. Alimenta "Atividades recentes".
+**hermes_logs** — `organization_id`, `user_id`, `channel` (`web|telegram|webhook|system`), `via` (`manual|hermes`), `tool_name`, `input jsonb`, `output jsonb`, `status` (`success|error`), `error`, `duration_ms`. Alimenta "Atividades recentes". Só leitura para membros; gravação via service role (`lib/services/hermes-log.ts`).
 
 **hermes_conversations / hermes_messages** — histórico do chat (web e Telegram).
 
-**usage_counters** — `(organization_id, metric, period_start)` pk, `count`. Métricas: `ai_credits`, `scraped_leads`, `scheduled_posts`, `connections`. Incremento via função privada chamada pelos services.
+**usage_counters** — `(organization_id, metric, period_start)` pk, `used`. Métricas mensais: `ai_credits`, `scraped_leads`, `scheduled_posts` (conexões = contagem de `integrations`, não contador). Consumo atômico por `public.consume_usage(org, metric, amount, limit)` (execute só service_role; mês em America/Sao_Paulo), chamado por `lib/services/usage.ts` com o limite de `config/plans.ts`.
 
 ### Integrações (Fase 3)
 

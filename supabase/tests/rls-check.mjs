@@ -9,14 +9,16 @@ const dir = process.argv[2];
 const migrations = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 
 await db.exec(`
-  create role anon nologin; create role authenticated nologin; create role service_role nologin;
+  create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
   create schema auth;
   create table auth.users (id uuid primary key, raw_user_meta_data jsonb default '{}');
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-  grant usage on schema auth to anon, authenticated;
-  grant execute on function auth.uid() to anon, authenticated;
-  grant usage on schema public to anon, authenticated;
+  grant usage on schema auth to anon, authenticated, service_role;
+  grant execute on function auth.uid() to anon, authenticated, service_role;
+  grant usage on schema public to anon, authenticated, service_role;
+  -- Como no Supabase: service_role recebe privilégios nas tabelas novas do public.
+  alter default privileges in schema public grant all on tables to service_role;
 `);
 for (const file of migrations) {
   await db.exec(readFileSync(join(dir, file), "utf8"));
@@ -75,3 +77,30 @@ await expectFail("rate limit rejects bad args", () => asService(`select public.r
 await expectFail("authenticated calls rate_limit_hit", () => as(A, `select public.rate_limit_hit('x', 100, 60)`));
 await expectFail("anon calls rate_limit_hit", async () => { await db.exec("set role anon;"); try { await db.query(`select public.rate_limit_hit('x', 100, 60)`); } finally { await db.exec("reset role;"); } });
 await expectFail("authenticated reads rate_limits", () => as(A, `select * from private.rate_limits`));
+
+// Hermes logs (auditoria: só o servidor grava; membros leem a própria org)
+await asService(`insert into public.hermes_logs (organization_id, user_id, channel, tool_name, input, output, status, duration_ms)
+                 values ('${orgA}', '${A}', 'web', 'get_brand_context', '{}', '{"ok":true}', 'success', 12)`);
+check("A reads own hermes log", (await as(A, `select tool_name from public.hermes_logs`)).rows[0]?.tool_name === "get_brand_context");
+check("B sees no hermes log", (await as(B, `select * from public.hermes_logs`)).rows.length === 0);
+await expectFail("A forges hermes log", () => as(A, `insert into public.hermes_logs (organization_id, channel, tool_name, status) values ('${orgA}', 'web', 'fake', 'success')`));
+await expectFail("A edits hermes log", () => as(A, `update public.hermes_logs set status = 'error'`));
+await expectFail("anon reads hermes logs", async () => { await db.exec("set role anon;"); try { await db.query("select * from public.hermes_logs"); } finally { await db.exec("reset role;"); } });
+
+// Usage counters (consumo atômico por período, limite passado pelo servidor)
+const consume = async (metric, amount, limit) =>
+  (await asService(`select public.consume_usage('${orgA}', '${metric}', ${amount}, ${limit}) as r`)).rows[0].r;
+const u1 = await consume("ai_credits", 3, 5);
+const u2 = await consume("ai_credits", 3, 5);
+const u3 = await consume("ai_credits", 2, 5);
+check("usage allows within limit", u1.allowed === true && u1.used === 3);
+check("usage blocks over limit without consuming", u2.allowed === false && u2.used === 3);
+check("usage allows exact limit", u3.allowed === true && u3.used === 5);
+const u4 = await consume("scraped_leads", 10, 5);
+check("usage blocks amount above limit on first use", u4.allowed === false && u4.used === 0);
+await expectFail("usage rejects unknown metric", () => consume("hack", 1, 5));
+await expectFail("usage rejects non-positive amount", () => consume("ai_credits", 0, 5));
+check("A reads own usage", (await as(A, `select used from public.usage_counters where metric = 'ai_credits'`)).rows[0]?.used === 5);
+check("B sees no usage", (await as(B, `select * from public.usage_counters`)).rows.length === 0);
+await expectFail("A resets own usage", () => as(A, `update public.usage_counters set used = 0`));
+await expectFail("authenticated calls consume_usage", () => as(A, `select public.consume_usage('${orgA}', 'ai_credits', 1, 999)`));

@@ -2,7 +2,8 @@
 
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
-import { buildMasterContext, onboardingSchema, slugify } from "@/lib/onboarding";
+import { onboardingSchema, slugify } from "@/lib/onboarding";
+import { saveBrandContext } from "@/lib/services/brand";
 import { RATE_LIMIT_MESSAGE, RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -49,24 +50,11 @@ export async function completeOnboarding(_: OnboardingState, formData: FormData)
     organizationId = id;
   }
 
-  const { error: brandError } = await supabase.from("brand_context").upsert({
-    organization_id: organizationId,
-    company_name: input.companyName,
-    niche: input.niche,
-    products_services: input.productsServices,
-    average_ticket: input.averageTicket ?? null,
-    target_audience: input.targetAudience,
-    differentiators: input.differentiators,
-    tone_of_voice: input.toneOfVoice,
-    visual_identity: {
-      primary_color: input.primaryColor,
-      secondary_color: input.secondaryColor,
-      logo_url: input.logoUrl || null,
-      style_notes: input.styleNotes || null,
-    },
-    master_context: buildMasterContext(input),
-  });
-  if (brandError) return { error: "Não foi possível salvar a memória da marca. Tente novamente." };
+  try {
+    await saveBrandContext({ supabase, organizationId }, input);
+  } catch {
+    return { error: "Não foi possível salvar a memória da marca. Tente novamente." };
+  }
 
   const { error: completeError } = await supabase
     .from("organizations")
