@@ -1,0 +1,1517 @@
+{
+  "version": 2,
+  "skills": {
+    "academy-guide": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/academy-guide/SKILL.md",
+      "computedHash": "cc7e2ace6f4953fc564189865fb5529ba557a322826bbc73f3599d6441ce741f"
+    },
+    "accessibility-compliance": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/accessibility-compliance/SKILL.md",
+      "computedHash": "c8ad5b5f83e413bb69e7a7ad251662c91e27cdf7db7d104df68b11aab6d3c534"
+    },
+    "ai-debt-detector": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/skill-forge-essentials/skills/ai-debt-detector/SKILL.md",
+      "computedHash": "a093e44afab76dcaa43d872bfb9b3b455027cbaaf850c3739a672b084e97e3a2"
+    },
+    "airflow-dag-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/data-engineering/skills/airflow-dag-patterns/SKILL.md",
+      "computedHash": "fd8da4c0c78300e121ff48b2fdec8c8462a510df2ba4756f1ee1624995cfaf84"
+    },
+    "algorithmic-art": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/algorithmic-art/SKILL.md",
+      "computedHash": "4a85abfeaa09f2dd2c4b76c85d57b65f61dc10d55c3cca245989cee8897c2be5"
+    },
+    "angular-migration": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/framework-migration/skills/angular-migration/SKILL.md",
+      "computedHash": "3f1adc4eda6eb6c72549c44b68daa940dba88be97a47deb79dc6a6b6c5c077c8"
+    },
+    "anti-reversing-techniques": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/reverse-engineering/skills/anti-reversing-techniques/SKILL.md",
+      "computedHash": "960a1c499cbeb438cf59c17496dce99697818b00b411a4db1f708a32a1da4a9a"
+    },
+    "api-design-principles": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/backend-development/skills/api-design-principles/SKILL.md",
+      "computedHash": "cd8889e86d651fbc7ec5f1cdf1920cdc0fa6bd2ca6ca01b8d93e9d2f6b54c7a6"
+    },
+    "architecture-decision-records": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/documentation-generation/skills/architecture-decision-records/SKILL.md",
+      "computedHash": "91ce0d21af91eb510f2deabda57e95bb84584593a2e1ea8a873122d2a582357f"
+    },
+    "architecture-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/backend-development/skills/architecture-patterns/SKILL.md",
+      "computedHash": "bfd02e3b52c08838d3a93ac17def96318a41a00f77798f162bfb78669d38e713"
+    },
+    "async-python-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/async-python-patterns/SKILL.md",
+      "computedHash": "5ed4e3ea95b394323088b0754668d72d8d0f70905826be41bf3b440f71fa9f07"
+    },
+    "attack-tree-construction": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/security-scanning/skills/attack-tree-construction/SKILL.md",
+      "computedHash": "30559b39efca4f2e3b870c5ab6ec18054ce3ffaf1b66b260c52afc8f3343498a"
+    },
+    "auth-implementation-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/auth-implementation-patterns/SKILL.md",
+      "computedHash": "c53f2130133d8e4f36ee586442d4aefd92fb356a205ee1e48c4a86f7911cbe56"
+    },
+    "avoid-ai-writing": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
+      "computedHash": "adfadc0143d848aa5a1021f0fe8a238c1b10091bf4a07dff7ef25bc3442c458a"
+    },
+    "backtesting-frameworks": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/quantitative-trading/skills/backtesting-frameworks/SKILL.md",
+      "computedHash": "06911073e6cb32003d4057134ab32548e7efd59d87e878c9f7f8915ca06ac260"
+    },
+    "bash-defensive-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/shell-scripting/skills/bash-defensive-patterns/SKILL.md",
+      "computedHash": "ef4e019e1278e21bf28219ebc715082eb42c2e019bd45d205591f2f76318f3d5"
+    },
+    "bats-testing-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/shell-scripting/skills/bats-testing-patterns/SKILL.md",
+      "computedHash": "352fe7871adc33210cbb48836c6ac5378560a9f6925be61957d21303170a0434"
+    },
+    "bazel-build-optimization": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/bazel-build-optimization/SKILL.md",
+      "computedHash": "3284e34f6a58950a2688d3be7bd1e6352de82fa91b9234dc264e20820aee570c"
+    },
+    "before-you-build": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/before-you-build/skills/before-you-build/SKILL.md",
+      "computedHash": "2e32fee5864a438144d5fd4867cf1580cb185388b8e784faadff6122cdf137f5"
+    },
+    "billing-automation": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/payment-processing/skills/billing-automation/SKILL.md",
+      "computedHash": "d9afb6c1c95ff2f8b95f08c77bfdefbb258e2bcae40f659e3a126b674be76333"
+    },
+    "binary-analysis-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/reverse-engineering/skills/binary-analysis-patterns/SKILL.md",
+      "computedHash": "e98053146672025b0223db2a594682cd2fb3775b825c619b34634702aef58d36"
+    },
+    "block-no-verify-hook": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/block-no-verify/skills/block-no-verify-hook/SKILL.md",
+      "computedHash": "d56185bf5d4b82e239276de4a7b311d296e9769be7de51406af7e1d74a19fa38"
+    },
+    "brand-guidelines": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/brand-guidelines/SKILL.md",
+      "computedHash": "10067cdd9be9cd5d97c741fc6e25830135afa0e11cc71e567b75763e26d08799"
+    },
+    "brand-landingpage": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/brand-landingpage/skills/brand-landingpage/SKILL.md",
+      "computedHash": "98f4677c15564cc60e0211acea681edc4e39fc913e7b7fc59840f1015f805bc5"
+    },
+    "canvas-design": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/canvas-design/SKILL.md",
+      "computedHash": "1866477474e694f562261008bb6a817e53f027b6347b062fbd1e2ee2eb83f20d"
+    },
+    "changelog-automation": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/documentation-generation/skills/changelog-automation/SKILL.md",
+      "computedHash": "01e8c2b9e3976c4f023f510be86ed89b085a71de343a84cd0836a1da8077344e"
+    },
+    "checkpoint-promotion": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-finetuning/skills/checkpoint-promotion/SKILL.md",
+      "computedHash": "fa1ea694b3685a87a0b9f870d64439b905859da034175e231fad80ccd83ae7d3"
+    },
+    "claude-api": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/claude-api/SKILL.md",
+      "computedHash": "c567eeb8da5332098cb747d97f1a1f482c401a80e089ee069e673744575191bf"
+    },
+    "code-review-excellence": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/code-review-excellence/SKILL.md",
+      "computedHash": "1cc17f0cc82c1bcf1282b7a2de968ed9509f93c78f01fe511b2b4a36a79ffa08"
+    },
+    "competitive-landscape": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/startup-business-analyst/skills/competitive-landscape/SKILL.md",
+      "computedHash": "8870a58589a4a50ffc06e58002ed2a8c0c7fd70249d7fab19d8846885047d18d"
+    },
+    "connectivity-triage": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/incident-response/skills/connectivity-triage/SKILL.md",
+      "computedHash": "aa9417244a2aa74fd218ff39101fd0213683ebe9496086f9d4838d098626884c"
+    },
+    "context-driven-development": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/conductor/skills/context-driven-development/SKILL.md",
+      "computedHash": "6ea7887e68ecb14cbfb4493d5e5b8b88b6069141d25426893fcb87ea91b4b86b"
+    },
+    "cost-optimization": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cloud-infrastructure/skills/cost-optimization/SKILL.md",
+      "computedHash": "82b8b32bbc4db2ab8b53c75396bb12d20856cb15e730e680c7d09946de1bb549"
+    },
+    "cqrs-implementation": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/backend-development/skills/cqrs-implementation/SKILL.md",
+      "computedHash": "efed1fc32e0a96b084df14e09eafced2a70447633ed178dce023cd6d6c42b2bf"
+    },
+    "data-quality-frameworks": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/data-engineering/skills/data-quality-frameworks/SKILL.md",
+      "computedHash": "32b4d751731c2b3760bd962b2d78f6981c46a4e6303b370b141da1de0ddd1ebd"
+    },
+    "data-storytelling": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/business-analytics/skills/data-storytelling/SKILL.md",
+      "computedHash": "ddf010accb6f29bb6c751f216b6423af74d20c025b4188762d25c1e71081af01"
+    },
+    "database-migration": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/framework-migration/skills/database-migration/SKILL.md",
+      "computedHash": "fc0dcc47afdc6ffc37d79578fb7add5e627c650ef8a71cc6fe8484525f6e624e"
+    },
+    "dataset-curation": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-finetuning/skills/dataset-curation/SKILL.md",
+      "computedHash": "ef6ce66a0a0cf8e0c4370845d09633fbdcc78719e47df206f5d800fc46576bf3"
+    },
+    "dbt-transformation-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/data-engineering/skills/dbt-transformation-patterns/SKILL.md",
+      "computedHash": "5c34bd3df708bf007d0850c10f88b8239405a7910db2e5da17fb09304e5e9df5"
+    },
+    "debugging-strategies": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/debugging-strategies/SKILL.md",
+      "computedHash": "dde59f5960827ee0ce971e1b8c264247b8ac663ccf4406dc8c6a322a8a51d100"
+    },
+    "defi-protocol-templates": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/blockchain-web3/skills/defi-protocol-templates/SKILL.md",
+      "computedHash": "831c563098d013004509f233a225f4d9d8170af7a6582aa9e4308d6ef29c6252"
+    },
+    "dependency-upgrade": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/framework-migration/skills/dependency-upgrade/SKILL.md",
+      "computedHash": "6e1834d1b787ac418b4a0f18186bdecccf9a7f5cf7634cf3fda104b923ea3f5a"
+    },
+    "deploy-to-vercel": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "sourceType": "github",
+      "skillPath": "skills/deploy-to-vercel/SKILL.md",
+      "computedHash": "66b99dfa063b1c405155e9bffd99c04ca3e312e81b168d540b757bb194b7400a"
+    },
+    "deployment-pipeline-design": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cicd-automation/skills/deployment-pipeline-design/SKILL.md",
+      "computedHash": "92446883c59ebe1afa2cdd36c064d33775975ae7e58476180791d853a5043475"
+    },
+    "design-system-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/design-system-patterns/SKILL.md",
+      "computedHash": "b2eb6f062b2b5c716eb0a33ff937559b2bf26440aaba88d0cc3d4e88517db0b1"
+    },
+    "discernment-nudge": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/discernment-nudge/SKILL.md",
+      "computedHash": "c3f503f343e5e32f7c8539e47853ca4d69e0cfdbd294789510c8203ae8f92e1d"
+    },
+    "distributed-tracing": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/observability-monitoring/skills/distributed-tracing/SKILL.md",
+      "computedHash": "1b86b330146da4e703c0ae13f7c429273ec44e6269acf0cd1024f152fe22a6f3"
+    },
+    "doc-coauthoring": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/doc-coauthoring/SKILL.md",
+      "computedHash": "d32facc16a25b47a21a90e79c1e6c072d342a9e41b595b58b86f869ff33ccc26"
+    },
+    "docx": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/docx/SKILL.md",
+      "computedHash": "20881307726dc87b9a1b0b2f9770ae869c2753081faedb5f89249d89a94e30a2"
+    },
+    "dotnet-backend-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/dotnet-contribution/skills/dotnet-backend-patterns/SKILL.md",
+      "computedHash": "afad41d2d4878462a6d49dfc9ef7844e413f58d797ecbe9fd998b84d4e68d342"
+    },
+    "e2e-testing-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/e2e-testing-patterns/SKILL.md",
+      "computedHash": "4cbd1f5464140eceee76fb75df11e3a30a4d6b3386bfc51af062688aaa425d92"
+    },
+    "embedding-strategies": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/embedding-strategies/SKILL.md",
+      "computedHash": "04fd89759d7f1e2c66f51aa7db19ae57097284d0688a31bc45c356d2a7e35a90"
+    },
+    "employment-contract-templates": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/hr-legal-compliance/skills/employment-contract-templates/SKILL.md",
+      "computedHash": "eb71289d96dc28fee4091a504bd5cec3c98beb87962972fe1b89e5f1584b4b80"
+    },
+    "error-handling-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/error-handling-patterns/SKILL.md",
+      "computedHash": "0d8261af77de6bae32b82dd28ee58975316d3bad99634699cc34c82f3cb4cb07"
+    },
+    "eval-harness-first": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-finetuning/skills/eval-harness-first/SKILL.md",
+      "computedHash": "0e6af8dfaffb00be15160a7941e05b032e418ca67a0c978cf3b404f1729e0896"
+    },
+    "evaluation-methodology": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/plugin-eval/skills/evaluation-methodology/SKILL.md",
+      "computedHash": "828390e9a618e66bce9b7369ece5012f000cd689f95e2cf471d841ae1c02d12e"
+    },
+    "event-store-design": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/backend-development/skills/event-store-design/SKILL.md",
+      "computedHash": "884317ab35bc125bcc6d929644fba0c1edd3a363a6a86c97d0a4e7ca89ed68f5"
+    },
+    "fastapi-templates": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/api-scaffolding/skills/fastapi-templates/SKILL.md",
+      "computedHash": "ff45d61c054d67cf62da1b1ce0107ac8185cf5061e80bbf38ac6156f4a5d0542"
+    },
+    "file-conversion": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/file-conversion/skills/file-conversion/SKILL.md",
+      "computedHash": "77b7d4b02c2c998c7224de6d4f768334d51ffea60dcb7237e99d7f55e582d7dd"
+    },
+    "finetuning-method-selection": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-finetuning/skills/finetuning-method-selection/SKILL.md",
+      "computedHash": "e6b683f11978405bd4db8a5b3e221e774251033c6bb5c2fbc49e92d5efa68265"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "83485963700bcf11d5bf78118facb301676b69d918fee2e45a95e7f1a2840f6c"
+    },
+    "gdpr-data-handling": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/hr-legal-compliance/skills/gdpr-data-handling/SKILL.md",
+      "computedHash": "fc291b72266f14e4c721080a237cbb1a6ea518fb4148ea846c73a6a2e715685d"
+    },
+    "git-advanced-workflows": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/git-advanced-workflows/SKILL.md",
+      "computedHash": "7be643edc1fa9aac71bc1478e0d1c2ca035646a39b218d88fe73dd09d3de1be2"
+    },
+    "github-actions-templates": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cicd-automation/skills/github-actions-templates/SKILL.md",
+      "computedHash": "4cfaaba2a265ae01444e6d0b4f629ef6ce190c6ca336c83c99b8a9afec70f702"
+    },
+    "gitlab-ci-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cicd-automation/skills/gitlab-ci-patterns/SKILL.md",
+      "computedHash": "b351a8fc8046d91e4d4166f2e37ee84375b8f76efc525617182e2956f8a40cf5"
+    },
+    "gitops-workflow": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/kubernetes-operations/skills/gitops-workflow/SKILL.md",
+      "computedHash": "c07f5f785f491331baeb5c4ea31ff7dba039136220e29e4e3c9a3b6b91fed7b7"
+    },
+    "go-concurrency-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/systems-programming/skills/go-concurrency-patterns/SKILL.md",
+      "computedHash": "2e5700b01f07d3469f99a60651a7205a819816145920fed75ad79256aae2345e"
+    },
+    "godot-gdscript-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/game-development/skills/godot-gdscript-patterns/SKILL.md",
+      "computedHash": "78195eaebec02434bd7cdb90a78bcf1573d1ec36c2a590649d9839a7a3350767"
+    },
+    "grafana-dashboards": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/observability-monitoring/skills/grafana-dashboards/SKILL.md",
+      "computedHash": "747ec4d65f01db5d44f3f2913d22df51129f50e1792d9bfabe8029e3eb4b3aff"
+    },
+    "grounded-vault": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/documentation-standards/skills/grounded-vault/SKILL.md",
+      "computedHash": "45e63f1060f64bece50ea7b3b7646c8c4b3709378a6aa8b499dc4f05c6bfa4f6"
+    },
+    "grpo-rlvr-training": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-finetuning/skills/grpo-rlvr-training/SKILL.md",
+      "computedHash": "f40ad6505f700a1619dae5c44fab46469fac0034eef9410b0bdb825f52181446"
+    },
+    "hads": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/documentation-standards/skills/hads/SKILL.md",
+      "computedHash": "1ae67aff55b4592eed26dfd7a40d30af84c7846f5376bab20ffd263344d8679e"
+    },
+    "helm-chart-scaffolding": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/kubernetes-operations/skills/helm-chart-scaffolding/SKILL.md",
+      "computedHash": "1f4d52efa44e6f6aa935951007a57403b0ef400275ac09bfe2bd8492c6d0bd9d"
+    },
+    "hermes-tweet": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/hermes-tweet/skills/hermes-tweet/SKILL.md",
+      "computedHash": "cd7264d6f3275132a9f07c5b8d663d5438919b78ed5e5850da07f6827df515a5"
+    },
+    "hybrid-cloud-networking": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cloud-infrastructure/skills/hybrid-cloud-networking/SKILL.md",
+      "computedHash": "1876f0c81b60fb7e749c81a5e79a7ad29e355882f44b7e9e07c6900043725518"
+    },
+    "hybrid-search-implementation": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/hybrid-search-implementation/SKILL.md",
+      "computedHash": "9c2de36a9f82940de449fa550bbad7d6be9d53b5ecd5e9f2d93c548c3fa6cfaf"
+    },
+    "incident-runbook-templates": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/incident-response/skills/incident-runbook-templates/SKILL.md",
+      "computedHash": "9da16c5472c36762d161637bae72093cc6924939f651c659d184b65a8d5373b7"
+    },
+    "interaction-design": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/interaction-design/SKILL.md",
+      "computedHash": "584caf0ce8817a4b93ec9d253d3d36e67d2ea3d137764653652caba89002c47d"
+    },
+    "internal-comms": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/internal-comms/SKILL.md",
+      "computedHash": "a864e111fed981a514102493dafd2bf426929af06cf35e8943ccbdeb4be65724"
+    },
+    "istio-traffic-management": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cloud-infrastructure/skills/istio-traffic-management/SKILL.md",
+      "computedHash": "32dba3ec6adc9328bbb255cf32a5551025a7700c3c333cae30f24ce5b9f4735f"
+    },
+    "javascript-testing-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/javascript-typescript/skills/javascript-testing-patterns/SKILL.md",
+      "computedHash": "df9a91c014dd91ee65d7008cd23929cbe4b9e2087d67cdb31ebd0ab3831134af"
+    },
+    "k8s-manifest-generator": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/kubernetes-operations/skills/k8s-manifest-generator/SKILL.md",
+      "computedHash": "d947d2127c784f225571b59c6a3de432f8faf0b9e78915bdbca5d72f8fd29142"
+    },
+    "k8s-security-policies": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/kubernetes-operations/skills/k8s-security-policies/SKILL.md",
+      "computedHash": "e53f7f282fa29a7581d06479e02f92819fce278219edb1e5f7a2d8dfe40fa5c9"
+    },
+    "kpi-dashboard-design": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/business-analytics/skills/kpi-dashboard-design/SKILL.md",
+      "computedHash": "2ef14e74c531b56105ec44299b71fca9ecd43ae0ce6f393b5a1c7f97b2b3da90"
+    },
+    "langchain-architecture": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/langchain-architecture/SKILL.md",
+      "computedHash": "d608ed5649fb5aff04144e3190b237120779a6adcc2d363aa0ab1ec30c0508cf"
+    },
+    "linkerd-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cloud-infrastructure/skills/linkerd-patterns/SKILL.md",
+      "computedHash": "48a3074770245304740968fd81d8218abbd8031584f98d3aae4d77861f0dd45d"
+    },
+    "llm-evaluation": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/llm-evaluation/SKILL.md",
+      "computedHash": "3986d5cdb5f5e240b16555d5d94c7759f741432b3c0595c0833a3c4ba31613dc"
+    },
+    "lora-qlora-recipes": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-finetuning/skills/lora-qlora-recipes/SKILL.md",
+      "computedHash": "595e0fcfe800122670b375ca7326be738a11baefff403ee9090059a44ccd41e3"
+    },
+    "market-sizing-analysis": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/startup-business-analyst/skills/market-sizing-analysis/SKILL.md",
+      "computedHash": "6a53eef35e41b7f59c3a022644646984c20422d001422cc9d057999812832205"
+    },
+    "mcp-builder": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/mcp-builder/SKILL.md",
+      "computedHash": "5a699fa929d99d7e6b1ebe10f13bf960d9ad452b70bd0733efd5d1de9524e285"
+    },
+    "memory-forensics": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/reverse-engineering/skills/memory-forensics/SKILL.md",
+      "computedHash": "cea956e106de37f243d19fd1ed036375a266066dbd4a2de2aa9c503e9164c95a"
+    },
+    "memory-safety-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/systems-programming/skills/memory-safety-patterns/SKILL.md",
+      "computedHash": "e31d1e61407333138c87c05313abec6e8cda374f970d82b8d283156bced7ec55"
+    },
+    "microservices-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/backend-development/skills/microservices-patterns/SKILL.md",
+      "computedHash": "6bd575e75894f828f8c922b55d3d10a118849d37db7d69185c4fc0476372a5e8"
+    },
+    "ml-pipeline-workflow": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/machine-learning-ops/skills/ml-pipeline-workflow/SKILL.md",
+      "computedHash": "df13d36e8c3b505554278b51302185d6ca0afb3c9af5a9f8a2693e05912785ed"
+    },
+    "mobile-android-design": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/mobile-android-design/SKILL.md",
+      "computedHash": "55efd53301a7dedb208b426587aa66672e3450449c59f4729340f5fa1b96f7ff"
+    },
+    "mobile-ios-design": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/mobile-ios-design/SKILL.md",
+      "computedHash": "5570323b61733522a95d857151be5114391694884c50ede155bdad620e018f20"
+    },
+    "modern-javascript-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/javascript-typescript/skills/modern-javascript-patterns/SKILL.md",
+      "computedHash": "9b0a9226c7006b041f30969d055e1ed9ef8267cc1cf59819552503ff477cae36"
+    },
+    "monorepo-management": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/monorepo-management/SKILL.md",
+      "computedHash": "5564dab4bcade8f4c61fc81220cecc5cf62802574a1c90ee30b47c830e4410c3"
+    },
+    "mtls-configuration": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cloud-infrastructure/skills/mtls-configuration/SKILL.md",
+      "computedHash": "5294b643dc80bc31424cf268a21950e5823b45152fb1ea2de5b5f6f151847be7"
+    },
+    "multi-cloud-architecture": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cloud-infrastructure/skills/multi-cloud-architecture/SKILL.md",
+      "computedHash": "5a9e00fdf41dd48ac392df46fe47f1ad9e1b1c930a97dd8b03bcd0a190dc6fbf"
+    },
+    "multi-reviewer-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/agent-teams/skills/multi-reviewer-patterns/SKILL.md",
+      "computedHash": "f8d2689edf108301abf70d34e62ebc32698a356c66790d82f79bcce0fa5122e9"
+    },
+    "nextjs-app-router-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend-mobile-development/skills/nextjs-app-router-patterns/SKILL.md",
+      "computedHash": "39b84480d3a62355fd1199173dc70b97efe1daf6dbfae560cc7b85e127934a98"
+    },
+    "nft-standards": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/blockchain-web3/skills/nft-standards/SKILL.md",
+      "computedHash": "439033e0d45a25302cb67c1e873e9e98323419fc959b66627c94563d58a27ac8"
+    },
+    "nodejs-backend-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/javascript-typescript/skills/nodejs-backend-patterns/SKILL.md",
+      "computedHash": "e478380e9c9d245d0c4caf6574d00934aca71fc62101e571262cdd26f958f4f1"
+    },
+    "nx-workspace-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/nx-workspace-patterns/SKILL.md",
+      "computedHash": "db6f0ed0891d3dd1dc8e5c9b02582fe79f97e1bd3069d0753596079d4945453e"
+    },
+    "on-call-handoff-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/incident-response/skills/on-call-handoff-patterns/SKILL.md",
+      "computedHash": "5b935d055ce149e70ad856c7fa2d3c0ee4634ca58223c7a1b951aeff17176b79"
+    },
+    "openapi-spec-generation": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/documentation-generation/skills/openapi-spec-generation/SKILL.md",
+      "computedHash": "7d034b06630d89c13d4ac440529eb1832ac8643beddb62ba68fc05324e0a21f1"
+    },
+    "parallel-debugging": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/agent-teams/skills/parallel-debugging/SKILL.md",
+      "computedHash": "d331f5b01beaf8cb1c4fe0901ecff702095aeddeff586de279b03895f2dd1497"
+    },
+    "parallel-feature-development": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/agent-teams/skills/parallel-feature-development/SKILL.md",
+      "computedHash": "c489375f62dd7c4a4e960d69fd378fa330d21b587afbd2201ed6616ef7eecfeb"
+    },
+    "paypal-integration": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/payment-processing/skills/paypal-integration/SKILL.md",
+      "computedHash": "465d06cbc988d7e65c0155e310fb086293921c6409807b639f73a38c18865d72"
+    },
+    "pci-compliance": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/payment-processing/skills/pci-compliance/SKILL.md",
+      "computedHash": "d0b58444f0f7af7e1f5c7ee713898ffddcf275e3f74ea32b1d81a457a8b1ffb5"
+    },
+    "pdf": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/pdf/SKILL.md",
+      "computedHash": "c9c58ce1e1c334d4beb50dfe97aee27aee1d074aed17b3aa1df03b8982028200"
+    },
+    "postgresql-table-design": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/database-design/skills/postgresql-table-design/SKILL.md",
+      "computedHash": "c2d9f4b5037b4320be0cc2489eeb287d3147477ae1f48b33f5f897e2c562ed06"
+    },
+    "postmortem-writing": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/incident-response/skills/postmortem-writing/SKILL.md",
+      "computedHash": "0aa99231ee7a37e8ea94294a11d997175c808b1a2d0d4b88b17fb46635af8836"
+    },
+    "pptx": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/pptx/SKILL.md",
+      "computedHash": "e3c37c284de3a271a7e135d0cea5ead7cfaf002b83719d72e958963ccc5dd52f"
+    },
+    "pptx-deck-context": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/pptx-deck-creation/skills/pptx-deck-context/SKILL.md",
+      "computedHash": "1ec94f5ed6018e1f58e5ac9fdd1d0f0398e925de48dba54cf2f68765cdf80ee8"
+    },
+    "pptx-quality-gates": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/pptx-deck-creation/skills/pptx-quality-gates/SKILL.md",
+      "computedHash": "6633501be957ae0b53a8c31bd8b4aa3ad08ae22dc61d61c909de7d0abdbf5a90"
+    },
+    "pptx-reference-deck-analysis": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/pptx-deck-creation/skills/pptx-reference-deck-analysis/SKILL.md",
+      "computedHash": "1cb5b50551c64899b78d12cdd6543aab3661a45a66b6d03eb21bf6e896653cbf"
+    },
+    "pptx-slide-specification": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/pptx-deck-creation/skills/pptx-slide-specification/SKILL.md",
+      "computedHash": "44f2ce3a9211ad0be582954c2cc2911aaaa8aeb216eaba7ee7ec3780bfe66799"
+    },
+    "pptx-visual-assets": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/pptx-deck-creation/skills/pptx-visual-assets/SKILL.md",
+      "computedHash": "b8e508ab267e9f8298c6d34775a9d896ced5b91eef9d0eeeb46281b7b55948f4"
+    },
+    "preference-optimization": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-finetuning/skills/preference-optimization/SKILL.md",
+      "computedHash": "2783632f188d08de7ab8f7c8fd7938ada3fdfe34c88b7cd5d57fb0a24a6491f7"
+    },
+    "projection-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/backend-development/skills/projection-patterns/SKILL.md",
+      "computedHash": "795070bd069387b5074f9c2e49d04417d713001bcc44c9678af0086ee2ecaec5"
+    },
+    "prometheus-configuration": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/observability-monitoring/skills/prometheus-configuration/SKILL.md",
+      "computedHash": "b4df09e58ce990145ce4f8a13a208da6d259a7729b31aabdf31edde38a0abeb7"
+    },
+    "prompt-engineering-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/prompt-engineering-patterns/SKILL.md",
+      "computedHash": "19df76da97709cf86875b769626a5c178ce20f9cc9e5e3bf96821518a736b38c"
+    },
+    "protect-mcp-setup": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/protect-mcp/skills/protect-mcp-setup/SKILL.md",
+      "computedHash": "39f7cd7ab03f61cfab13f4bcb82075a6fd1d1da09bbd4f9ed63939708a50b4b4"
+    },
+    "protocol-reverse-engineering": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/reverse-engineering/skills/protocol-reverse-engineering/SKILL.md",
+      "computedHash": "9750e59b6cb9c7b59dc818167711ee2daf2f8e5e4a7fb1443c5f307ea8c5e675"
+    },
+    "python-anti-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-anti-patterns/SKILL.md",
+      "computedHash": "9a98a1ddf7517582a43d9d27e3c84c3e3763791bb1f38926f1fe9bf49ad8e33a"
+    },
+    "python-background-jobs": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-background-jobs/SKILL.md",
+      "computedHash": "74b5aeceee7e46b51e1b9eafb082b3dc8134e71797e4aae4b049b04e0d0160b0"
+    },
+    "python-code-style": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-code-style/SKILL.md",
+      "computedHash": "ac7538b1ccb0e4b1cbcccfe883ff3d5e004e138af1b6830359a81a0400abc71c"
+    },
+    "python-configuration": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-configuration/SKILL.md",
+      "computedHash": "ecc7b745bf5169e8ca9c34c336a03caf28ed2ef017bb17cedb0d0248988c6b1c"
+    },
+    "python-design-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-design-patterns/SKILL.md",
+      "computedHash": "bb31c26764cb2bf8f19955e1610e8102509cb1569e1575a413ffb3ada23a3c16"
+    },
+    "python-error-handling": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-error-handling/SKILL.md",
+      "computedHash": "1f1da6dd6e89c36d28660728512bcb93b17d4f210ddfa727e1b519147fea20b9"
+    },
+    "python-observability": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-observability/SKILL.md",
+      "computedHash": "1b8c7781322aed606f23cf002d3d6b3b4e6c831c491cd1c029cd8a14b70f0c4e"
+    },
+    "python-packaging": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-packaging/SKILL.md",
+      "computedHash": "4e9803c12a046de6aebda1ce337779affb69fb9cc9233fee8c944c3659ae2b0a"
+    },
+    "python-performance-optimization": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-performance-optimization/SKILL.md",
+      "computedHash": "81a1369058d4089e208104bbfc384cd73eb6b62d654bda87cf33cb97ea296ccd"
+    },
+    "python-project-structure": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-project-structure/SKILL.md",
+      "computedHash": "b7d35eb6783ddf2a99c130dc570e47341fd78749024382a6f74d146024404918"
+    },
+    "python-resilience": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-resilience/SKILL.md",
+      "computedHash": "ca23b9a771929ad20e2ff59df7d39b5439789efc09ac70ef20db5de79c1d57f2"
+    },
+    "python-resource-management": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-resource-management/SKILL.md",
+      "computedHash": "beb4a78c6a5a4e9f43891fa37debcdf9a883cadec4a43c903fef60727c9f57ab"
+    },
+    "python-testing-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-testing-patterns/SKILL.md",
+      "computedHash": "8113c05a831d4872c9294b0df26a335c09af423ee2e23d8b9b6817b300d96796"
+    },
+    "python-type-safety": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/python-type-safety/SKILL.md",
+      "computedHash": "f993e4c721397568ebfa3f40693c768470c10bf5966fc0aa071925eaa3b61918"
+    },
+    "quantized-export": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-finetuning/skills/quantized-export/SKILL.md",
+      "computedHash": "f082ddfc50fca93d60650003539f81a50a0555b93cd1da7d7d7bfadf85fe81b0"
+    },
+    "rag-implementation": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/rag-implementation/SKILL.md",
+      "computedHash": "f488cd68c88657f8e0fb6476b4b6acf0142ab4aa17ceb036f0106829a94935ab"
+    },
+    "react-modernization": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/framework-migration/skills/react-modernization/SKILL.md",
+      "computedHash": "19fdebe51c6550cd34d98f8c88b2a636e45bd9e99cafa7317f7eae76d4e22f65"
+    },
+    "react-native-architecture": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend-mobile-development/skills/react-native-architecture/SKILL.md",
+      "computedHash": "de069a2d3dde56002ce37ebb8feea6fb770a300b671d83d1fb50bae200babcd1"
+    },
+    "react-native-design": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/react-native-design/SKILL.md",
+      "computedHash": "b2fd6aef0d35018c5d7eba1e5c5a3c538f762d5b0f3e8c84eb16e9b4c8c3a06f"
+    },
+    "react-state-management": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend-mobile-development/skills/react-state-management/SKILL.md",
+      "computedHash": "7a4b0f2a0c38d0c3873db3662a5d8943aa43acd253e5375ec3a78c055ceba63a"
+    },
+    "recsys-pipeline-architect": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/machine-learning-ops/skills/recsys-pipeline-architect/SKILL.md",
+      "computedHash": "a0bea1d8ba3253a98e9cac9ec240ec1d029809878c5e2f82458df77fdff236e0"
+    },
+    "responsive-design": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/responsive-design/SKILL.md",
+      "computedHash": "3ff2c1acd7067b5fbd30dc370364054f7d470d26e288cf3d454fed457478cdc0"
+    },
+    "review-agent-setup": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/review-agent-governance/skills/review-agent-setup/SKILL.md",
+      "computedHash": "a307a190a9559b98adccf9a02836dc868c406ed1f0968e73c5a06a68cf302682"
+    },
+    "risk-metrics-calculation": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/quantitative-trading/skills/risk-metrics-calculation/SKILL.md",
+      "computedHash": "c9139015eef55e406260701eb355dc1ec548776fb8d91049797cdb0d7dab49de"
+    },
+    "rust-async-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/systems-programming/skills/rust-async-patterns/SKILL.md",
+      "computedHash": "286b73077a434af5844dd480e5b98026bea5b31fcfafce3c04405a7392331601"
+    },
+    "saga-orchestration": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/backend-development/skills/saga-orchestration/SKILL.md",
+      "computedHash": "ef1a8f8f283e73fd3f72a00cbd28b3ffeb73a46b5c97f6f89ef81c327a37dffc"
+    },
+    "sast-configuration": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/security-scanning/skills/sast-configuration/SKILL.md",
+      "computedHash": "1310c7848e693da325c204f0d5d469342aaeed3583baef7b3e215469f6255b90"
+    },
+    "scan": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/ship-mate/skills/scan/SKILL.md",
+      "computedHash": "39a951aad155c826a4025a22bf36b724bcb22e1bab3b67488c3cbaef40b333a1"
+    },
+    "screen-reader-testing": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/accessibility-compliance/skills/screen-reader-testing/SKILL.md",
+      "computedHash": "79c2a7b6ffc5ece8d550b9406f6817cf69d17dfb14fe4b88179ef740643d4c60"
+    },
+    "secrets-management": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cicd-automation/skills/secrets-management/SKILL.md",
+      "computedHash": "29151cb60e6494d6528526fc32ccef4d21758c220283c87dbcde41b406a68599"
+    },
+    "security-requirement-extraction": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/security-scanning/skills/security-requirement-extraction/SKILL.md",
+      "computedHash": "a3a9b001e28ece9a792c92d9a25530ed56c2f2651f9d1de933130edee8e94480"
+    },
+    "service-mesh-observability": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cloud-infrastructure/skills/service-mesh-observability/SKILL.md",
+      "computedHash": "8df6f24d16d28eebd5a6d12194e69ed86b09aea661d3d2fe9bddd76ddc6e418f"
+    },
+    "session-guard": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/skill-forge-essentials/skills/session-guard/SKILL.md",
+      "computedHash": "8a246e5e5505ebceb30125c948cb1c9f5e6047b8b79ee621373c53c162502be2"
+    },
+    "shellcheck-configuration": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/shell-scripting/skills/shellcheck-configuration/SKILL.md",
+      "computedHash": "e4a65482cd932438bf6d98cc404814ad3cb8e21b13ad3589215489db1bd9df63"
+    },
+    "signed-audit-trails-recipe": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/signed-audit-trails/skills/signed-audit-trails-recipe/SKILL.md",
+      "computedHash": "75cb71e8efbe2cf26a0a10246a3ea44525be620ec597c817fd43ea6811d72cdd"
+    },
+    "similarity-search-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/similarity-search-patterns/SKILL.md",
+      "computedHash": "a18d374dd5b0c04c680680b5000e759ea9313c31861a0f4040e9300729510fc1"
+    },
+    "skill-creator": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/skill-creator/SKILL.md",
+      "computedHash": "2d7f889e6ae93c6c27d699856942c336b5b8644537496987d5571043d059b1dc"
+    },
+    "slack-gif-creator": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/slack-gif-creator/SKILL.md",
+      "computedHash": "25581243f719e75121f9051ec671e810e53375fe648a6362d673d6bfbbe9d479"
+    },
+    "slo-implementation": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/observability-monitoring/skills/slo-implementation/SKILL.md",
+      "computedHash": "7e454f756ea342a8c04e86969397f628a1edcccc536d90f7e161f9a42d14d4de"
+    },
+    "social-evidence-research": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/content-marketing/skills/social-evidence-research/SKILL.md",
+      "computedHash": "0c30d2d5c013aa0d022819a0bbd4f49c3ccb03c59655ad3132f29210ce536665"
+    },
+    "social-publishing": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/social-publishing/skills/social-publishing/SKILL.md",
+      "computedHash": "4e2e541bf6885dc3bfd4abf5338b7ca06b2df619861b98db20f01d0c821bbcab"
+    },
+    "solidity-security": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/blockchain-web3/skills/solidity-security/SKILL.md",
+      "computedHash": "38d17019e74718c467df0db165ee3b912b6513a9b6e3559747a0ee4275e16cc8"
+    },
+    "spark-environment-setup": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/dgx-spark-ops/skills/spark-environment-setup/SKILL.md",
+      "computedHash": "fc8df50c143d1a3acadd057a1e3af40dd3d28f80c8be837b32818275d8a3bfeb"
+    },
+    "spark-memory-thermal-ops": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/dgx-spark-ops/skills/spark-memory-thermal-ops/SKILL.md",
+      "computedHash": "6b20d4e4b24d12fc8bdeeb4d0a7eb35325b864eb01d698058da968b5fe96a512"
+    },
+    "spark-optimization": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/data-engineering/skills/spark-optimization/SKILL.md",
+      "computedHash": "013a3cfbeeafae25361b7d16ba5b3b0d85c1e16f3384667f6e8a96e2ef98c9cf"
+    },
+    "spark-training-gotchas": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/dgx-spark-ops/skills/spark-training-gotchas/SKILL.md",
+      "computedHash": "7611894624b0d6c2aaffc6e1c7553d94f8a9d9ad93770dfd0d7eef51da37aa75"
+    },
+    "sql-optimization-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/sql-optimization-patterns/SKILL.md",
+      "computedHash": "99731ea4f27308d7082ae2931a08159e6e91352a5b7658b0b1f68a9e677abd4c"
+    },
+    "startup-financial-modeling": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/startup-business-analyst/skills/startup-financial-modeling/SKILL.md",
+      "computedHash": "83f2ce67d578afe504753dc8216c8d4c657c21c1667ff1cbe1be17dabf0f70b3"
+    },
+    "startup-metrics-framework": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/startup-business-analyst/skills/startup-metrics-framework/SKILL.md",
+      "computedHash": "b74682aea8ee2f5818694766dd124418b7c9739e8dc6a48f64a74a510c6b9ae9"
+    },
+    "stride-analysis-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/security-scanning/skills/stride-analysis-patterns/SKILL.md",
+      "computedHash": "1c5c27af1b36ddd478ba37e5429ad176aec0cac52eeb8fec8df2bb8c504772c6"
+    },
+    "stripe-integration": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/payment-processing/skills/stripe-integration/SKILL.md",
+      "computedHash": "e11fcaa29dc2e43e5f088818ebeca873dda8302bb7c161f9da505d7b38f6f860"
+    },
+    "supabase": {
+      "source": "supabase/agent-skills",
+      "commit": "c9be0e931b7930f7d02126d04774d904c381e7d7",
+      "sourceType": "github",
+      "skillPath": "skills/supabase/SKILL.md",
+      "computedHash": "2fbff32fd63b7d31585cacf0ed43e5bf8d05dd20d6c0c751d256cb967a00eec1"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "commit": "c9be0e931b7930f7d02126d04774d904c381e7d7",
+      "sourceType": "github",
+      "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
+      "computedHash": "3eb972c2d7c818e544e35cc33ea8d7147d4d78ae08142ef40037b0fbac7a2505"
+    },
+    "superself": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/superself/skills/superself/SKILL.md",
+      "computedHash": "600c3b67c33111c4b4987dd8247243fffa66540e6c79e5a316211667d0d13c1b"
+    },
+    "tailwind-design-system": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend-mobile-development/skills/tailwind-design-system/SKILL.md",
+      "computedHash": "c807f0c9619e8c389879f55846c2e395956f1073ab6d01a93fbb30b340015ab1"
+    },
+    "task-coordination-strategies": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/agent-teams/skills/task-coordination-strategies/SKILL.md",
+      "computedHash": "b88ec1302f0b56f0929b544993ee943c49437590528a295845fa1cd468eda503"
+    },
+    "team-communication-protocols": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/agent-teams/skills/team-communication-protocols/SKILL.md",
+      "computedHash": "2ffda61d11b9686eb0d3be04f5bcc68b7649d363f71df40d7bf85d97e08d6adb"
+    },
+    "team-composition-analysis": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/startup-business-analyst/skills/team-composition-analysis/SKILL.md",
+      "computedHash": "75c1215478054c106723b6d1647e25153131a3829e2c43c3f37eba016d7a0f6f"
+    },
+    "team-composition-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/agent-teams/skills/team-composition-patterns/SKILL.md",
+      "computedHash": "c90c85bb312806a470b2611b08ef73378101758d4fbe10573564775f76af274c"
+    },
+    "template-skill": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "template/SKILL.md",
+      "computedHash": "143ecbef94ad1b41d05d13ed6a1f52a80aef7ae7114d9cfa88a3fdf2f2049754"
+    },
+    "temporal-python-testing": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/backend-development/skills/temporal-python-testing/SKILL.md",
+      "computedHash": "f51b09d5fb63aaa06f3e59041b0377e4ee1e5fb7aca3c352ddd3f8671145429e"
+    },
+    "terraform-module-library": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/cloud-infrastructure/skills/terraform-module-library/SKILL.md",
+      "computedHash": "fb4882983958de12dfb3088662850edb033564762d5a91381f6e7b01a9559646"
+    },
+    "theme-factory": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/theme-factory/SKILL.md",
+      "computedHash": "f426a07c06316201360be19324f2689c5bd3ab2d1669848c9383c321efa4386f"
+    },
+    "threat-mitigation-mapping": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/security-scanning/skills/threat-mitigation-mapping/SKILL.md",
+      "computedHash": "3594154c972c2c5f1759090b5e68c9226472b480a5a6de986f3d346e9aa9e714"
+    },
+    "trace-to-training-data": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-finetuning/skills/trace-to-training-data/SKILL.md",
+      "computedHash": "99e36c73e34fa281818a8300a39f964d7ab4136304f0b38c395c0b14824c4bc8"
+    },
+    "track-management": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/conductor/skills/track-management/SKILL.md",
+      "computedHash": "1844d0b4b028105da53d692dad5cc4eeb9046b7299f111f6815b1d82ff1a94ea"
+    },
+    "turborepo-caching": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/turborepo-caching/SKILL.md",
+      "computedHash": "6633d5553890e4aea4f7c0247467bb4b399e9e61de80ad425a8e592ec6425479"
+    },
+    "typescript-advanced-types": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/javascript-typescript/skills/typescript-advanced-types/SKILL.md",
+      "computedHash": "34c5b3863fde1fc85981ac583ecaf0140471b374d0b7002ac5bc0bea2cf38b24"
+    },
+    "unity-ecs-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/game-development/skills/unity-ecs-patterns/SKILL.md",
+      "computedHash": "471940d7a5e2b2a74de90b5672a5602be285097f71f25087a54f36a940e7319e"
+    },
+    "uv-package-manager": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/python-development/skills/uv-package-manager/SKILL.md",
+      "computedHash": "adecd8faec01ee261801680942c6a97159d73c3ae9f355568cf9426edc61c1c3"
+    },
+    "vector-index-tuning": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/vector-index-tuning/SKILL.md",
+      "computedHash": "de256b36044dc08798e1d0e692e278ab6087527d66b26e50ba34c49bd6ffd0e2"
+    },
+    "vercel-cli-with-tokens": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "sourceType": "github",
+      "skillPath": "skills/vercel-cli-with-tokens/SKILL.md",
+      "computedHash": "a294080c5464284c5ed06bde9e5bf0fb16981958600f4ae829eaab5d7f17d29a"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "sourceType": "github",
+      "skillPath": "skills/composition-patterns/SKILL.md",
+      "computedHash": "f711ed8b16162eaa712abbcdbbae6c926f86c57e60127735fecc3ad0dd85b3fa"
+    },
+    "vercel-optimize": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "sourceType": "github",
+      "skillPath": "skills/vercel-optimize/SKILL.md",
+      "computedHash": "f69b2d70e9928eb4ae0b0acdaabb2ba2f42ba694aa33df52b4ee41e8fb9ced60"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "7991ed4fbecdac23f47c1a40c243e00a212a9e7f3604db93959b3ae11dffe299"
+    },
+    "vercel-react-native-skills": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "sourceType": "github",
+      "skillPath": "skills/react-native-skills/SKILL.md",
+      "computedHash": "4c160f1f4e623b989cadb71f42a0813be574d172acf5e32a6411c87f3e28c05a"
+    },
+    "vercel-react-view-transitions": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "sourceType": "github",
+      "skillPath": "skills/react-view-transitions/SKILL.md",
+      "computedHash": "d5bdffc1f132ae0d6d9260c260ae206d48cd83cb148e3e3b75fc1a3b94b249fa"
+    },
+    "vision-sft": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-finetuning/skills/vision-sft/SKILL.md",
+      "computedHash": "bdc36379b8ea7b685e455bc3ab42a625907479041fcbf530c3b2b694c26bc3fc"
+    },
+    "visual-design-foundations": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/visual-design-foundations/SKILL.md",
+      "computedHash": "ca2bebbf7c248e5e32356bc074bc899285243c5a169782f4e163346b758fa1c9"
+    },
+    "visual-edit-precision": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/skill-forge-essentials/skills/visual-edit-precision/SKILL.md",
+      "computedHash": "cf8c389753b9de2f9e211b10d9ac4726df95eaea05ac20c481d0d4ec9b23f67d"
+    },
+    "wcag-audit-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/accessibility-compliance/skills/wcag-audit-patterns/SKILL.md",
+      "computedHash": "66fe98ef98ec39d6ecf5920d02b9ed01b0e3c3be9e0eb0bfcfdae9ee220e0cb1"
+    },
+    "web-artifacts-builder": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/web-artifacts-builder/SKILL.md",
+      "computedHash": "7a081b86fd5068d3ca2c4d9c059956634feff65ccbf1c39c3d34a6e5d0971139"
+    },
+    "web-component-design": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/web-component-design/SKILL.md",
+      "computedHash": "94391577833fb07e17f03dc4438645a0e3bc056c883083467e8f723cd04cb260"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "4f68ae07187fb0d1fb78c88b503d089da4cf5a9d9625d1f2e425b1590bf96d92"
+    },
+    "web3-testing": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/blockchain-web3/skills/web3-testing/SKILL.md",
+      "computedHash": "6e2b5e6e75deb18d0455e981f02d5d20eabccc15cd5435119dd791acfeeacf62"
+    },
+    "webapp-testing": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/webapp-testing/SKILL.md",
+      "computedHash": "48cd9a742a59250edec6db89cf081ef5465f365e2133f6d6c5e29c380b754b7d"
+    },
+    "workflow-orchestration-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/backend-development/skills/workflow-orchestration-patterns/SKILL.md",
+      "computedHash": "1dd933a4d3e1944d22669a04f0c756328ed96911824d9036821e87b8573642a5"
+    },
+    "workflow-patterns": {
+      "source": "wshobson/agents",
+      "commit": "9c61ab243def98f72da12abd41cfcf5bcd91af9d",
+      "sourceType": "github",
+      "skillPath": "plugins/conductor/skills/workflow-patterns/SKILL.md",
+      "computedHash": "e37ba796e9f17fc84e68d054e5f3fb0aea78ce00f22356b0e0d6e403578e414b"
+    },
+    "writing-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "sourceType": "github",
+      "skillPath": "skills/writing-guidelines/SKILL.md",
+      "computedHash": "fe1390adbe2f7ba68d5fb85d3b14a1d55e71ce04cff5c175245c550d1c3a6f7e"
+    },
+    "xlsx": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/xlsx/SKILL.md",
+      "computedHash": "5100b54957a73ce2cb55933b224a483793f5f71555a181f287f43f94a9c1e149"
+    }
+  }
+}
