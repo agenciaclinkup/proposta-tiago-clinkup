@@ -6,7 +6,7 @@
 
 - **Fase:** 2 — Hermes Core
 - **Etapa em andamento:** 2.2 — Registro de Tools do Hermes
-- **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção.
+- **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
@@ -19,12 +19,41 @@
 
 **Plano da Fase 2:** 2.1 dados + services ✅ · 2.2 Tools · 2.3 chat `/hermes` com streaming (system prompt com Contexto Mestre, `ai_credits` por turno, `hermes_conversations/messages`) · 2.4 uso do plano + atividades recentes no dashboard.
 
-**1.3 Validação real** (adiada; precisa de credenciais Supabase + Stripe modo teste em `.env.local`):
-1. `npx supabase link --project-ref <ref>` e `npx supabase db push` (2 migrations).
-2. Rodar advisors (`npx supabase db advisors` ou MCP `get_advisors`) e corrigir alertas.
-3. Fluxo manual: cadastro → confirmação de e-mail → onboarding → dashboard; segundo usuário não enxerga a org do primeiro.
-4. Stripe CLI: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`, checkout de teste, conferir `subscriptions`/`organizations.plan_id`.
-5. Registrar resultado aqui e commitar `test(e2e): ...` / `fix(...)` conforme achados.
+## CHECKLIST OBRIGATÓRIO DE GO-LIVE (NÃO PULAR)
+
+> Executar antes de qualquer deploy de produção. Todo agente que criar env, webhook, migration ou configuração externa **acrescenta o item aqui na mesma tarefa**. Nunca remover itens; marcar `[x]` só com evidência.
+
+### Etapa 1.3 — Validação em ambiente real (adiada pelo usuário para o fim da construção)
+- [ ] Criar projeto Supabase e preencher `.env.local` (modelo: `.env.example`).
+- [ ] `npx supabase link --project-ref <ref>` e `npx supabase db push` (migrations: `foundation`, `rate_limits`, `hermes_logs_and_usage`).
+- [ ] Rodar advisors (`npx supabase db advisors` ou MCP `get_advisors`) e corrigir alertas.
+- [ ] Fluxo manual: cadastro → confirmação de e-mail → onboarding → dashboard; segundo usuário não enxerga a org do primeiro.
+- [ ] Stripe modo teste: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`, checkout, conferir `subscriptions` e `organizations.plan_id`.
+- [ ] Registrar resultado aqui e commitar `test(e2e): ...` / `fix(...)` conforme achados.
+
+### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
+- [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- [ ] `SUPABASE_SECRET_KEY` (somente servidor)
+- [ ] `NEXT_PUBLIC_SITE_URL` (domínio de produção)
+- [ ] `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_GROWTH`, `STRIPE_PRICE_SCALE`
+- [ ] `VAULT_ENCRYPTION_KEY` (32 bytes base64; guardar backup seguro — perder a chave = perder todos os tokens de integração)
+- [ ] `ANTHROPIC_API_KEY` (Fase 2.2+, Agente Hermes)
+- [ ] White-Label (opcional): `NEXT_PUBLIC_BRAND_*`
+
+### Supabase (painel)
+- [ ] Auth → URL Configuration: Site URL = domínio de produção; Redirect URLs inclui `https://<domínio>/auth/callback`.
+- [ ] Auth → SMTP próprio configurado (plano free não permite customizar templates de e-mail no SMTP padrão).
+- [ ] Data API: confirmar que as tabelas do `public` respondem para `authenticated` (grants explícitos já nas migrations).
+
+### Stripe (painel, modo live)
+- [ ] 3 produtos/prices mensais (Starter, Growth, Scale) → IDs nas envs `STRIPE_PRICE_*`.
+- [ ] Webhook `https://<domínio>/api/webhooks/stripe` com eventos `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` → secret em `STRIPE_WEBHOOK_SECRET`.
+- [ ] Customer Portal: habilitar troca de plano entre os 3 prices, cancelamento e atualização de pagamento.
+
+### Segurança operacional
+- [ ] Deploy atrás de proxy que define `x-forwarded-for` (ex.: Vercel); senão o rate limit por IP pode ser burlado.
+- [ ] Monitorar logs `[rate-limit]` e `[hermes-log]` (ambos falham aberto/silencioso por design).
+- [ ] Repositório GitHub privado; nenhum `.env*` no histórico (`git log --all -- .env*` vazio).
 
 ## Concluído
 

@@ -56,6 +56,7 @@ Plano de arquitetura, schema do banco, Tools do Hermes e fases: ver [`ARCHITECTU
 - **Antes de começar:** leia `PROGRESS.md` e retome exatamente da "Próxima microtarefa". Não refaça o que está marcado como concluído.
 - **Ao final de cada tarefa ou módulo concluído:** atualize `PROGRESS.md` com o que foi feito, arquivos criados/alterados, status dos testes (`npm test`, `npm run lint`, `npm run build`) e a próxima microtarefa exata.
 - `PROGRESS.md` é a fonte de verdade do estado do projeto entre agentes; `ARCHITECTURE.md` é a fonte de verdade do plano.
+- A seção **`## CHECKLIST OBRIGATÓRIO DE GO-LIVE (NÃO PULAR)`** do `PROGRESS.md` nunca é removida nem encurtada. Toda nova variável de ambiente, webhook, migration ou configuração externa entra nela na mesma tarefa que a criou.
 
 ### 6.2 Versionamento Git & backup contínuo
 - `.gitignore` rigoroso: nunca versionar `.env*` (exceto `.env.example` sem valores), chaves privadas/certificados, `node_modules`, builds (`.next`, `out`, `build`) e arquivos temporários do Supabase.
