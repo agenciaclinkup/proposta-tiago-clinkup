@@ -5,19 +5,20 @@
 ## Estado atual
 
 - **Fase:** 2 — Hermes Core
-- **Etapa em andamento:** 2.2 — Registro de Tools do Hermes
+- **Etapa em andamento:** 2.3 — Chat `/hermes` com streaming
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**2.2 Registro de Tools** (TDD):
-1. Instalar `ai` + `@ai-sdk/anthropic` (versões fixas no lockfile).
-2. `lib/hermes/run-tool.ts`: wrapper que valida input com Zod, executa o service com `ServiceContext`, mede duração e grava `recordHermesLog` (sucesso/erro; `PlanLimitError` vira resposta amigável).
-3. `lib/hermes/tools.ts`: primeiras Tools — `get_brand_context`, `update_brand_context` (schema parcial de `onboardingSchema`), `get_plan_and_usage` (`getUsageSummary`), `list_recent_activity` (`hermes_logs`).
-4. Testes do wrapper (log em sucesso/erro, validação rejeita input inválido).
+**2.3 Chat `/hermes` com streaming** (TDD; carregar skill `claude-api` antes de escolher modelo/params):
+1. Migration `hermes_conversations` + `hermes_messages` (RLS por `organization_id`; usuário lê/cria só as próprias conversas) + checks em `supabase/tests/rls-check.mjs`.
+2. `lib/hermes/system-prompt.ts`: prompt em pt-BR com Contexto Mestre, regras (copy completa e profissional, confirmar ações com custo) — testar montagem.
+3. `app/api/hermes/route.ts`: `streamText` + `buildHermesTools(ctx)`; sessão Supabase obrigatória, Zod no body, rate limit por usuário, `consumeUsage(ctx, "ai_credits")` por turno, `stopWhen` limitando passos.
+4. UI `app/(app)/hermes/page.tsx` (chat didático, sugestões de comandos, estados de carregamento/erro) + item "Hermes" no menu.
+5. `ANTHROPIC_API_KEY` no `.env.example` (já no checklist de go-live).
 
-**Plano da Fase 2:** 2.1 dados + services ✅ · 2.2 Tools · 2.3 chat `/hermes` com streaming (system prompt com Contexto Mestre, `ai_credits` por turno, `hermes_conversations/messages`) · 2.4 uso do plano + atividades recentes no dashboard.
+**Plano da Fase 2:** 2.1 dados + services ✅ · 2.2 Tools ✅ · 2.3 chat `/hermes` com streaming (system prompt com Contexto Mestre, `ai_credits` por turno, `hermes_conversations/messages`) · 2.4 uso do plano + atividades recentes no dashboard.
 
 ## CHECKLIST OBRIGATÓRIO DE GO-LIVE (NÃO PULAR)
 
@@ -56,6 +57,15 @@
 - [ ] Repositório GitHub privado; nenhum `.env*` no histórico (`git log --all -- .env*` vazio).
 
 ## Concluído
+
+### 2.2 Registro de Tools do Hermes — ✅ (2026-11-18)
+- **Deps:** `ai@^7` (Vercel AI SDK; API `tool({ description, inputSchema, execute, needsApproval })`) e `@ai-sdk/anthropic@^4`.
+- **`lib/services/errors.ts`:** `ServiceError` (mensagem segura para o usuário); `PlanLimitError` agora estende `ServiceError`.
+- **`lib/hermes/run-tool.ts`:** `defineTool`, `runTool` (Zod → execute → `recordHermesLog`; erro interno nunca vaza para o usuário).
+- **`lib/hermes/tools.ts`:** `HERMES_TOOLS` + `buildHermesTools(ctx)` com `get_brand_context`, `update_brand_context` (patch parcial revalidado), `get_plan_and_usage`, `list_recent_activity`.
+- **Services novos:** `account.ts` (`getPlanAndUsage`), `activity.ts` (`listRecentActivity`, sem coluna `error`); `brand.ts` ganhou `inputFromBrandRow`, `mergeBrandPatch` e erro amigável para membro sem permissão (RLS `42501`).
+
+**Testes:** `npm test` 53/53 · `npm run test:db` 41/41 · `tsc --noEmit` OK · lint limpo · build OK. TDD: RED verificado antes de cada implementação.
 
 ### 2.1 Dados do Hermes + camada de services — ✅ (2026-11-18)
 - **Migration** `supabase/migrations/20261118040239_hermes_logs_and_usage.sql`: `hermes_logs` (auditoria; membros só leem, servidor grava), `usage_counters` + `public.consume_usage` (consumo atômico mensal, fuso de Brasília, execute só `service_role`).

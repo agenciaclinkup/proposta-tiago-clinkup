@@ -51,3 +51,10 @@ describe("consumeUsage", () => {
     await expect(consumeUsage(ctx, "ai_credits")).rejects.toThrow("down");
   });
 });
+
+describe("PlanLimitError", () => {
+  it("é um ServiceError (mensagem segura para o usuário)", async () => {
+    const { ServiceError } = await import("./errors");
+    expect(new PlanLimitError("ai_credits", 1, 1, "Starter")).toBeInstanceOf(ServiceError);
+  });
+});

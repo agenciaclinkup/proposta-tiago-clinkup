@@ -2,6 +2,7 @@ import "server-only";
 import { getPlan, type PlanId, type PlanLimits } from "@/config/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServiceContext } from "./context";
+import { ServiceError } from "./errors";
 
 export type UsageMetric = "ai_credits" | "scraped_leads" | "scheduled_posts";
 
@@ -11,7 +12,7 @@ const METRICS: Record<UsageMetric, { limitKey: keyof PlanLimits; label: string }
   scheduled_posts: { limitKey: "scheduledPostsPerMonth", label: "posts agendados" },
 };
 
-export class PlanLimitError extends Error {
+export class PlanLimitError extends ServiceError {
   constructor(
     readonly metric: UsageMetric,
     readonly used: number,

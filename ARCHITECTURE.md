@@ -98,7 +98,7 @@ Convenções: `id uuid default gen_random_uuid()`, `created_at/updated_at timest
 
 ## 3. Tools do Agente Hermes
 
-Cada Tool = wrapper de um service com o mesmo schema Zod. Toda execução grava `hermes_logs` e consome `ai_credits`. Ações com custo (campanhas, publicação imediata) pedem confirmação explícita do usuário antes de executar.
+Cada Tool = wrapper de um service com o mesmo schema Zod, executada sempre por `runTool` (`lib/hermes/run-tool.ts`): valida com Zod, executa, grava `hermes_logs` e devolve `{ ok, data | error }` — `ServiceError` vira mensagem amigável; erro interno vira mensagem genérica (detalhe só no log). `ai_credits` é cobrado por turno do agente (Fase 2.3), não por Tool. Ações com custo (campanhas, publicação imediata) usam `needsApproval` e pedem confirmação explícita do usuário. Registro: `lib/hermes/tools.ts` (`HERMES_TOOLS`, `buildHermesTools(ctx)`).
 
 | Domínio | Tools |
 |---|---|

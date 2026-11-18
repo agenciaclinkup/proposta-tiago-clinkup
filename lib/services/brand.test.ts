@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { onboardingSchema } from "@/lib/onboarding";
-import { brandRowFromInput } from "./brand";
+import { brandRowFromInput, inputFromBrandRow, mergeBrandPatch } from "./brand";
+import { ServiceError } from "./errors";
 
 const input = onboardingSchema.parse({
   companyName: "Clinkup",
@@ -24,5 +25,25 @@ describe("brandRowFromInput", () => {
       visual_identity: { primary_color: "#00D4FF", secondary_color: "#2563EB", logo_url: null, style_notes: null },
     });
     expect(row.master_context).toContain("Empresa: Clinkup");
+  });
+});
+
+describe("inputFromBrandRow", () => {
+  it("reconstrói o formulário a partir da linha salva", () => {
+    expect(inputFromBrandRow(brandRowFromInput("org-1", input))).toEqual(input);
+  });
+});
+
+describe("mergeBrandPatch", () => {
+  const row = brandRowFromInput("org-1", input);
+
+  it("aplica alteração parcial e regenera o Contexto Mestre", () => {
+    const merged = mergeBrandPatch(row, { toneOfVoice: "Descontraído e bem-humorado" });
+    expect(merged.toneOfVoice).toBe("Descontraído e bem-humorado");
+    expect(merged.companyName).toBe("Clinkup");
+  });
+
+  it("rejeita alteração inválida com mensagem para o usuário", () => {
+    expect(() => mergeBrandPatch(row, { primaryColor: "azul" })).toThrow(ServiceError);
   });
 });
