@@ -139,8 +139,16 @@ export default async function DashboardPage() {
             <CardContent className="space-y-3 text-sm">
               <ol className="list-decimal space-y-2 pl-4 text-muted-foreground">
                 <li className="text-foreground">Memória da marca configurada ✓</li>
-                <li>Conectar Instagram, Facebook e Google Meu Negócio</li>
-                <li>Vincular o Hermes ao seu Telegram</li>
+                <li>
+                  <Link href="/integrations" className="text-primary hover:underline">
+                    Preparar Instagram, Facebook e Google Meu Negócio
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/integrations" className="text-primary hover:underline">
+                    Vincular o Hermes ao seu Telegram
+                  </Link>
+                </li>
               </ol>
               <Button asChild variant="outline" size="sm" className="w-full">
                 <Link href="/billing">Ver planos e assinatura</Link>

@@ -5,23 +5,23 @@
 ## Estado atual
 
 - **Fase:** 3 — Integrações (Fase 2 — Hermes Core ✅ concluída)
-- **Etapa em andamento:** 3.2 — Página `/integrations` com guias didáticos
+- **Etapa em andamento:** 3.3a — Telegram: bot da plataforma, vínculo e mensagens de texto
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**3.2 Página `/integrations`** (TDD onde houver lógica):
-1. `app/(app)/integrations/page.tsx`: um card por provedor a partir de `summarizeIntegrations(await listIntegrations(ctx))` + `INTEGRATION_CATALOG` (status com selo: Conectado / Precisa de atenção / Não conectado; contas conectadas).
-2. Guia passo a passo expansível em cada card (requisitos, passos numerados, dicas) — mesmo conteúdo da Tool `get_integration_setup_guide` (fonte única `lib/integrations/catalog.ts`).
-3. Botão Conectar desabilitado com "Disponível em breve" para Meta/Google (OAuth chega em 3.4/3.5); Telegram com "Gerar código" fica para 3.3.
-4. Desconectar (só admin): Server Action com Zod uuid + rate limit + `disconnectIntegration` (RLS) e confirmação na UI; teste da action no padrão de `app/(app)/hermes/actions.test.ts`.
-5. Marcar "Integrações" como `ready` em `app/(app)/nav.tsx` e atualizar o item "Próximos passos" do dashboard com link para a página.
+**3.3a Telegram — bot da plataforma, vínculo e texto** (TDD):
+1. `createTelegramLinkCode(ctx)` em `lib/services/integrations.ts` (código de 8 caracteres de alfabeto sem ambíguos, gerado com `crypto`, gravado via admin; testar formato e entropia) + Server Action "Gerar código" (Zod, rate limit) no card Telegram de `/integrations` mostrando código, validade e link do bot (`NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`); remover o aviso "em breve" desse card.
+2. `lib/telegram/` com schema Zod do update (só `message.text`/`message.voice` usados), parser de `/vincular CODIGO` e cliente mínimo `sendMessage` via `fetch` (sem dependência nova).
+3. `app/api/webhooks/telegram/route.ts`: header `X-Telegram-Bot-Api-Secret-Token` comparado em tempo constante com `TELEGRAM_WEBHOOK_SECRET`, Zod, rate limit por `chat_id`, sempre responde 200 rápido ao Telegram. `/vincular` → `consume_telegram_link_code` → `saveIntegration(provider "telegram", externalAccountId chat_id, metadata { user_id }, accessToken: marcador cifrado)`; chat não vinculado recebe instruções didáticas.
+4. Mensagem de texto de chat vinculado → Hermes no canal `telegram` (mesmo system prompt e Tools, `generateText`, 1 crédito com estorno em falha, `hermes_logs`) e resposta no chat. Reaproveitar o máximo de `app/api/hermes/route.ts` extraindo o núcleo do turno para `lib/hermes/` (sem duplicar lógica).
+5. `.env.example` + checklist: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`, comando `setWebhook` documentado.
 
 **Plano da Fase 3:**
 - 3.1 dados + cofre ✅.
-- 3.2 `/integrations` (acima).
-- 3.3 Telegram (decisões fechadas em 2026-11-18, ver `ARCHITECTURE.md` §1):
+- 3.2 `/integrations` ✅.
+- 3.3 Telegram, dividido em **3.3a** (acima), **3.3b** áudio (Whisper/Groq) e **3.3c** bot próprio White-Label. Decisões fechadas em 2026-11-18, ver `ARCHITECTURE.md` §1:
   - SaaS: bot único da plataforma (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`), webhook `/api/webhooks/telegram`; "Gerar código" na UI (Server Action, código de 8 caracteres `[A-Z0-9]` sem ambíguos, gravado via admin) e `/vincular CODIGO` → `consume_telegram_link_code` → `saveIntegration(provider: "telegram", externalAccountId: chat_id, metadata: { user_id })`.
   - White-Label/Enterprise: admin cadastra o token do próprio bot (cifrado em `integration_secrets`), plataforma chama `setWebhook` para `/api/webhooks/telegram/[slug]` com segredo próprio por bot.
   - Mensagens: Zod no update, header `X-Telegram-Bot-Api-Secret-Token`, rate limit por `chat_id`, Hermes no canal `telegram` (mesmas Tools, 1 crédito por mensagem, estorno em falha; resposta via `generateText`).
@@ -52,6 +52,7 @@
 - [ ] Alerta de 80% no card "Uso do plano": ajustar manualmente `usage_counters.used` em staging e conferir o aviso amarelo (80%) e vermelho (100%) no `/dashboard` e no `/billing`.
 - [ ] `db push` aplica também a migration `integrations` (Fase 3.1).
 - [ ] **Cofre em produção (Fase 3.1):** depois de conectar a primeira integração real, conferir no SQL Editor que `integration_secrets.access_token_encrypted` começa com `v1:` e não contém o token; e que `select * from integration_secrets` com a chave publishable/usuário logado retorna erro de permissão.
+- [ ] **Desconectar integração (Fase 3.2):** com integração real conectada, desconectar como owner/admin em `/integrations` (confirmação aparece; linha some e `integration_secrets` correspondente é apagado em cascata). Logado como `member`, conferir que o botão Desconectar não aparece e que o aviso "Apenas proprietários e administradores…" é exibido.
 
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -83,6 +84,14 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 3.2 Página `/integrations` — ✅ (2026-11-18)
+- **`app/(app)/integrations/page.tsx`:** um card por provedor (ícone, descrição, selo Conectado / Precisa de atenção / Não conectado, contas conectadas), guia expansível com `<details>` nativo (requisitos, passos numerados, dicas) vindo de `lib/integrations/catalog.ts`, botões "Conectar com a Meta/Google" e "Gerar código" desabilitados com aviso acolhedor de liberação em breve (3.3–3.5), aviso para `member`, atalho "Pedir ajuda ao Hermes".
+- **`app/(app)/integrations/actions.ts`:** `disconnectIntegrationAction` (Zod uuid, rate limit `integrationsUser` 20/min, `disconnectIntegration` via RLS de admin, `revalidatePath`, mensagens pt-BR). Botão só aparece para owner/admin; a regra real é o RLS.
+- **`components/confirm-action-button.tsx`:** botão genérico de Server Action com confirmação, carregando e mensagens de erro/sucesso; `DeleteConversationButton` passou a usá-lo (sem código duplicado).
+- Menu: "Integrações" ativo. Dashboard: "Próximos passos" com links para `/integrations`.
+
+**Testes:** `npm test` 98/98 (4 novos da action; RED verificado antes) · `npm run test:db` 72/72 · `tsc --noEmit` OK · lint limpo · build OK. Página verificada só por build/tipos (sem navegador).
 
 ### 3.1 Dados das integrações + cofre — ✅ (2026-11-18)
 - **Migration** `supabase/migrations/20261118191755_integrations.sql`: enums `integration_provider` e `integration_status`; `integrations` (membros leem, só admin exclui, servidor grava; unique por org/provedor/conta); `integration_secrets` (sem grants para usuários; `CHECK` exige formato `v1:` do cofre); `telegram_link_codes` (8 caracteres, 10 min, só servidor cria, usuário lê os próprios) + `public.consume_telegram_link_code` (atômico, uso único, só `service_role`).

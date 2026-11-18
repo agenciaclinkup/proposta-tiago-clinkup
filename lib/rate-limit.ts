@@ -14,6 +14,7 @@ export const RATE_LIMITS = {
   stripeWebhookIp: { limit: 300, windowSeconds: 60 },
   hermesChatUser: { limit: 20, windowSeconds: 60 },
   hermesDeleteUser: { limit: 30, windowSeconds: 60 },
+  integrationsUser: { limit: 20, windowSeconds: 60 },
 } satisfies Record<string, RateRule>;
 
 export const RATE_LIMIT_MESSAGE = "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";

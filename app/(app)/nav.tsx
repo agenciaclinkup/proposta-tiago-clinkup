@@ -23,7 +23,7 @@ const ITEMS: { href: string; label: string; icon: LucideIcon; ready: boolean }[]
   { href: "/calendar", label: "Calendário", icon: CalendarDays, ready: false },
   { href: "/studio", label: "Estúdio", icon: Palette, ready: false },
   { href: "/leads-ads", label: "Leads & Ads", icon: Megaphone, ready: false },
-  { href: "/integrations", label: "Integrações", icon: PlugZap, ready: false },
+  { href: "/integrations", label: "Integrações", icon: PlugZap, ready: true },
   { href: "/billing", label: "Planos", icon: CreditCard, ready: true },
 ];
 
