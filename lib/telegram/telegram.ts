@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { ServiceError } from "@/lib/services/errors";
 
@@ -38,6 +38,33 @@ export function parseCommand(text: string): TelegramCommand {
     return { type: "link", code: /^[A-Z0-9]{8}$/.test(code) ? code : null };
   }
   return { type: "message", text: trimmed };
+}
+
+// Bot próprio da empresa: o update só pode afetar esta org e só é aceito por este bot.
+export type TelegramScope = { organizationId: string; botId: string };
+
+// Segredo do webhook de cada bot próprio, derivado do segredo mestre (nada novo para armazenar).
+export function deriveBotWebhookSecret(slug: string): string {
+  const master = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (!master) throw new Error("TELEGRAM_WEBHOOK_SECRET não configurado");
+  return createHmac("sha256", master).update(`org-bot:${slug}`).digest("hex");
+}
+
+export async function callTelegram<T = unknown>(
+  botToken: string,
+  method: string,
+  params?: Record<string, unknown>,
+): Promise<{ ok: boolean; result?: T; description?: string }> {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params ?? {}),
+    });
+    return (await response.json()) as { ok: boolean; result?: T; description?: string };
+  } catch {
+    return { ok: false, description: "network error" };
+  }
 }
 
 // Header X-Telegram-Bot-Api-Secret-Token comparado em tempo constante.

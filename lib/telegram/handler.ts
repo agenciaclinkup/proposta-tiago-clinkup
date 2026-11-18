@@ -10,7 +10,7 @@ import { findTelegramLink, linkTelegramChat } from "@/lib/services/integrations"
 import { getUsageSummary } from "@/lib/services/usage";
 import { transcribeAudio } from "@/lib/transcription";
 import { loadTelegramSession } from "./session";
-import { downloadTelegramFile, parseCommand, sendTelegramMessage, type TelegramUpdate } from "./telegram";
+import { downloadTelegramFile, parseCommand, sendTelegramMessage, type TelegramScope, type TelegramUpdate } from "./telegram";
 
 type TelegramMessage = NonNullable<TelegramUpdate["message"]>;
 type Reply = (text: string) => Promise<void>;
@@ -44,29 +44,36 @@ const TEXT = {
 // shortcut: dedupe por janela fixa de 24 h em private.rate_limits (falha aberta); trocar por tabela de updates se surgir duplicidade.
 const UPDATE_ONCE = { limit: 1, windowSeconds: 86_400 };
 
-export async function handleTelegramMessage(botToken: string, updateId: number, message: TelegramMessage): Promise<void> {
+// `scope` presente = bot próprio de uma empresa: vínculo, busca e sessão ficam restritos a essa empresa.
+export async function handleTelegramMessage(
+  botToken: string,
+  updateId: number,
+  message: TelegramMessage,
+  scope?: TelegramScope,
+): Promise<void> {
   const chatId = message.chat.id;
   const reply: Reply = (text) => sendTelegramMessage(botToken, chatId, text);
 
   try {
-    if (!(await rateLimit(`telegram:update:${updateId}`, UPDATE_ONCE))) return;
+    // update_id é sequencial por bot: a chave inclui o bot próprio para não colidir com o da plataforma.
+    if (!(await rateLimit(`telegram:update:${scope ? `${scope.botId}:` : ""}${updateId}`, UPDATE_ONCE))) return;
     if (message.chat.type !== "private") return reply(TEXT.groups);
     if (!(await rateLimit(`telegram:chat:${chatId}`, RATE_LIMITS.telegramChat))) return reply(RATE_LIMIT_MESSAGE);
 
     const audio = message.voice ?? message.audio;
-    if (audio) return handleAudio(botToken, chatId, audio, reply);
+    if (audio) return handleAudio(botToken, chatId, audio, reply, scope);
     if (!message.text) return reply(TEXT.onlyText);
 
     const command = parseCommand(message.text);
-    if (command.type === "start") return reply((await findTelegramLink(chatId)) ? TEXT.linked : TEXT.welcome);
+    if (command.type === "start") return reply((await findTelegramLink(chatId, scope)) ? TEXT.linked : TEXT.welcome);
     if (command.type === "link") {
       if (!command.code) return reply(TEXT.linkUsage);
       const displayName = message.from?.username ? `@${message.from.username}` : (message.from?.first_name ?? null);
-      const link = await linkTelegramChat(command.code, { chatId, displayName });
+      const link = await linkTelegramChat(command.code, { chatId, displayName }, scope);
       return reply(link ? TEXT.linked : TEXT.linkInvalid);
     }
 
-    const target = await linkedSession(chatId);
+    const target = await linkedSession(chatId, scope);
     if (typeof target === "string") return reply(target);
     if (command.text.length > MAX_MESSAGE_LENGTH) return reply(TEXT.tooLong);
     await answer(target, command.text, reply);
@@ -81,10 +88,11 @@ async function handleAudio(
   chatId: number,
   audio: NonNullable<TelegramMessage["voice"]>,
   reply: Reply,
+  scope?: TelegramScope,
 ): Promise<void> {
   if ((audio.duration ?? 0) > MAX_AUDIO_SECONDS || (audio.file_size ?? 0) > MAX_AUDIO_BYTES) return reply(TEXT.audioTooLong);
 
-  const target = await linkedSession(chatId);
+  const target = await linkedSession(chatId, scope);
   if (typeof target === "string") return reply(target);
 
   // Sem crédito, nem baixa nem transcreve (evita custo de transcrição em conta sem saldo).
@@ -107,9 +115,11 @@ async function handleAudio(
   await answer(target, heard, reply, heard);
 }
 
-async function linkedSession(chatId: number) {
-  const link = await findTelegramLink(chatId);
+async function linkedSession(chatId: number, scope?: TelegramScope) {
+  const link = await findTelegramLink(chatId, scope);
   if (!link) return TEXT.notLinked;
+  // Defesa em profundidade: bot próprio nunca abre sessão (dados e créditos) de outra empresa.
+  if (scope && link.organizationId !== scope.organizationId) return TEXT.unavailable;
   const session = await loadTelegramSession(link);
   if (!session) return TEXT.unavailable;
   return { link, session };

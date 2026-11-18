@@ -68,7 +68,7 @@ describe("handleTelegramMessage", () => {
   it("vincula com /vincular CODIGO válido", async () => {
     linkTelegramChat.mockResolvedValueOnce({ organization_id: "org-1", user_id: "u-1" });
     await handleTelegramMessage("bot", 13, message("/vincular abcd2345"));
-    expect(linkTelegramChat).toHaveBeenCalledWith("ABCD2345", { chatId: 777, displayName: "Ana" });
+    expect(linkTelegramChat).toHaveBeenCalledWith("ABCD2345", { chatId: 777, displayName: "Ana" }, undefined);
     expect(replies()[0]).toContain("vinculado");
   });
 
@@ -165,5 +165,27 @@ describe("mensagens de áudio", () => {
     expect(replies()[0]).toContain("Não consegui entender");
     expect(replies()[1]).toContain("Não consegui entender");
     expect(startHermesTurn).not.toHaveBeenCalled();
+  });
+});
+
+describe("bot próprio da empresa (escopo)", () => {
+  const scope = { organizationId: "org-1", botId: "555" };
+
+  it("deduplica por bot (update_id é por bot) e repassa o escopo para vínculo e busca", async () => {
+    linkTelegramChat.mockResolvedValueOnce({ organization_id: "org-1", user_id: "u-1" });
+    await handleTelegramMessage("org-token", 10, message("/vincular ABCD2345"), scope);
+    expect(rateLimit).toHaveBeenCalledWith("telegram:update:555:10", expect.anything());
+    expect(linkTelegramChat).toHaveBeenCalledWith("ABCD2345", { chatId: 777, displayName: "Ana" }, scope);
+
+    await handleTelegramMessage("org-token", 11, message("Qual é o meu plano?"), scope);
+    expect(findTelegramLink).toHaveBeenCalledWith(777, scope);
+    expect(sendTelegramMessage.mock.calls.every((call) => call[0] === "org-token")).toBe(true);
+  });
+
+  it("recusa sessão de outra empresa mesmo que o vínculo aponte para ela", async () => {
+    findTelegramLink.mockResolvedValueOnce({ integrationId: "int-x", organizationId: "org-2", userId: "u-9" });
+    await handleTelegramMessage("org-token", 12, message("oi"), scope);
+    expect(startHermesTurn).not.toHaveBeenCalled();
+    expect(replies()[0]).toContain("Não consegui acessar");
   });
 });

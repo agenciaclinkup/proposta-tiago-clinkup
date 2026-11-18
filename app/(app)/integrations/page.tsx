@@ -20,8 +20,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { INTEGRATION_CATALOG, type IntegrationProvider } from "@/lib/integrations/catalog";
 import { serviceContext } from "@/lib/services/context";
 import { listIntegrations, summarizeIntegrations } from "@/lib/services/integrations";
+import { canUseOwnBot, getOwnTelegramBot } from "@/lib/services/telegram-bot";
 import { requireWorkspace } from "@/lib/workspace";
 import { disconnectIntegrationAction, unlinkTelegramAction } from "./actions";
+import { OwnBotPanel } from "./own-bot-panel";
 import { TelegramLinkPanel } from "./telegram-link";
 
 export const metadata: Metadata = { title: "Integrações" };
@@ -45,8 +47,11 @@ const CONNECT: Record<Exclude<IntegrationProvider, "telegram">, { label: string;
 };
 
 // Validado aqui porque vira parte de uma URL t.me no navegador.
-const rawBotUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.replace(/^@/, "");
-const TELEGRAM_BOT_USERNAME = rawBotUsername && /^[A-Za-z0-9_]{5,32}$/.test(rawBotUsername) ? rawBotUsername : null;
+const botUsernameOrNull = (raw: string | null | undefined) => {
+  const value = raw?.replace(/^@/, "");
+  return value && /^[A-Za-z0-9_]{5,32}$/.test(value) ? value : null;
+};
+const PLATFORM_BOT_USERNAME = botUsernameOrNull(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME);
 
 const STATUS = {
   connected: { label: "Conectado", className: "border-primary/40 bg-primary/10 text-primary" },
@@ -57,7 +62,9 @@ const STATUS = {
 export default async function IntegrationsPage() {
   const workspace = await requireWorkspace();
   const ctx = serviceContext(workspace, "manual");
-  const rows = await listIntegrations(ctx);
+  const [rows, ownBot] = await Promise.all([listIntegrations(ctx), getOwnTelegramBot(workspace.organization.id)]);
+  // Com bot próprio configurado, o vínculo rápido aponta para ele (o webhook dele só atende esta empresa).
+  const ownBotUsername = botUsernameOrNull(ownBot?.username);
   // A UI só esconde o botão; quem garante a regra é o RLS de admin no banco.
   const isAdmin = workspace.role !== "member";
   const summary = Object.fromEntries(summarizeIntegrations(rows).map((item) => [item.provider, item]));
@@ -149,7 +156,12 @@ export default async function IntegrationsPage() {
                 )}
 
                 {guide.provider === "telegram" ? (
-                  <TelegramLinkPanel botUsername={TELEGRAM_BOT_USERNAME} />
+                  <div className="space-y-4">
+                    <TelegramLinkPanel botUsername={ownBotUsername ?? PLATFORM_BOT_USERNAME} />
+                    {isAdmin && (
+                      <OwnBotPanel eligible={canUseOwnBot(workspace.organization)} botUsername={ownBotUsername} />
+                    )}
+                  </div>
                 ) : (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Button type="button" disabled aria-describedby={`${guide.provider}-connect-notice`}>

@@ -4,10 +4,13 @@ import { ServiceError } from "@/lib/services/errors";
 const requireWorkspace = vi.fn();
 vi.mock("@/lib/workspace", () => ({ requireWorkspace }));
 const rateLimit = vi.fn();
-vi.mock("@/lib/rate-limit", () => ({ rateLimit, RATE_LIMITS: { integrationsUser: {}, telegramCodeUser: {} }, RATE_LIMIT_MESSAGE: "Muitas tentativas." }));
+vi.mock("@/lib/rate-limit", () => ({ rateLimit, RATE_LIMITS: { integrationsUser: {}, telegramCodeUser: {}, telegramBotUser: {} }, RATE_LIMIT_MESSAGE: "Muitas tentativas." }));
 const disconnectIntegration = vi.fn();
 const createTelegramLinkCode = vi.fn();
 const unlinkOwnTelegram = vi.fn();
+const connectOwnTelegramBot = vi.fn();
+const disconnectOwnTelegramBot = vi.fn();
+vi.mock("@/lib/services/telegram-bot", () => ({ connectOwnTelegramBot, disconnectOwnTelegramBot }));
 vi.mock("@/lib/services/integrations", () => ({ disconnectIntegration, createTelegramLinkCode, unlinkOwnTelegram }));
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath }));
@@ -90,5 +93,39 @@ describe("unlinkTelegramAction", () => {
     const { unlinkTelegramAction } = await import("./actions");
     unlinkOwnTelegram.mockRejectedValue(new ServiceError("Este Telegram não está vinculado à sua conta."));
     expect(await unlinkTelegramAction(undefined, form(id))).toEqual({ error: "Este Telegram não está vinculado à sua conta." });
+  });
+});
+
+describe("connectOwnBotAction", () => {
+  const tokenForm = (token: string) => {
+    const data = new FormData();
+    data.set("botToken", token);
+    return data;
+  };
+  const workspace = { supabase: {}, user: { id: "u-1" }, role: "owner", organization: { id: "org-1", slug: "marca-x", plan_id: "scale", is_white_label: false } };
+
+  it("valida o formato do token com Zod antes de chamar o Telegram", async () => {
+    const { connectOwnBotAction } = await import("./actions");
+    requireWorkspace.mockResolvedValue(workspace);
+    expect(await connectOwnBotAction(undefined, tokenForm("abc"))).toEqual({ error: expect.stringContaining("token") });
+    expect(connectOwnTelegramBot).not.toHaveBeenCalled();
+  });
+
+  it("conecta com rate limit e atualiza a página", async () => {
+    const { connectOwnBotAction } = await import("./actions");
+    requireWorkspace.mockResolvedValue(workspace);
+    connectOwnTelegramBot.mockResolvedValue({ username: "marca_x_bot" });
+    const token = "123456789:AAH-abcdefghijklmnopqrstuvwxyz012345";
+    expect(await connectOwnBotAction(undefined, tokenForm(` ${token} `))).toEqual({ success: expect.stringContaining("@marca_x_bot") });
+    expect(rateLimit).toHaveBeenCalledWith("telegram-bot:user:u-1", expect.anything());
+    expect(connectOwnTelegramBot).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-1" }), token, workspace.organization);
+    expect(revalidatePath).toHaveBeenCalledWith("/integrations");
+  });
+
+  it("remove o bot próprio", async () => {
+    const { disconnectOwnBotAction } = await import("./actions");
+    requireWorkspace.mockResolvedValue(workspace);
+    expect(await disconnectOwnBotAction()).toEqual({ success: expect.any(String) });
+    expect(disconnectOwnTelegramBot).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-1" }));
   });
 });

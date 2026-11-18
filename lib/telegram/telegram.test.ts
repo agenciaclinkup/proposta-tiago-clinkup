@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ServiceError } from "@/lib/services/errors";
-import { downloadTelegramFile, parseCommand, splitMessage, telegramUpdateSchema, verifyWebhookSecret } from "./telegram";
+import {
+  deriveBotWebhookSecret,
+  downloadTelegramFile,
+  parseCommand,
+  splitMessage,
+  telegramUpdateSchema,
+  verifyWebhookSecret,
+} from "./telegram";
 
 describe("parseCommand", () => {
   it("reconhece /vincular com código em qualquer caixa e com @nome_do_bot", () => {
@@ -75,5 +82,23 @@ describe("downloadTelegramFile", () => {
     fetchMock.mockResolvedValueOnce(Response.json({ ok: true, result: { file_path: "voice/big.oga", file_size: 5000 } }));
     await expect(downloadTelegramFile("123:abc", "file-2", 1000)).rejects.toBeInstanceOf(ServiceError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("deriveBotWebhookSecret", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("é estável por slug, diferente entre empresas e aceito pelo Telegram (hex, até 256)", () => {
+    vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", "segredo-mestre");
+    const a = deriveBotWebhookSecret("empresa-a");
+    expect(a).toBe(deriveBotWebhookSecret("empresa-a"));
+    expect(a).not.toBe(deriveBotWebhookSecret("empresa-b"));
+    expect(a).toMatch(/^[a-f0-9]{64}$/);
+    expect(verifyWebhookSecret(deriveBotWebhookSecret("empresa-b"), a)).toBe(false);
+  });
+
+  it("exige o segredo mestre configurado", () => {
+    vi.stubEnv("TELEGRAM_WEBHOOK_SECRET", "");
+    expect(() => deriveBotWebhookSecret("empresa-a")).toThrow();
   });
 });

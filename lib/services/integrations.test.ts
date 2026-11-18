@@ -9,6 +9,7 @@ let secretRow: unknown = null;
 const inserts: unknown[] = [];
 let linkRows: unknown[] = [];
 let deleteResult: unknown[] = [];
+let lastSelectFilters: string[] = [];
 const deletes: { table: string; filters: string[] }[] = [];
 // Encadeia filtros (.eq/.neq) e resolve como uma query do supabase-js.
 const filterChain = (filters: string[], result: () => unknown) => {
@@ -39,7 +40,7 @@ const admin = {
         ? { select: () => ({ single: async () => ({ data: { id: "int-1" }, error: null }) }) }
         : Promise.resolve({ error: null });
     },
-    select: () => filterChain([], () => secretRow),
+    select: () => filterChain((lastSelectFilters = []), () => secretRow),
   }),
 };
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => admin }));
@@ -186,5 +187,28 @@ describe("unlinkOwnTelegram", () => {
   it("explica quando o vínculo não é do usuário", async () => {
     deleteResult = [];
     await expect(unlinkOwnTelegram({ organizationId: "org-1", userId: "u-1" }, "int-9")).rejects.toBeInstanceOf(ServiceError);
+  });
+});
+
+describe("vínculo pelo bot próprio (escopo da empresa)", () => {
+  const scope = { organizationId: "org-1", botId: "555" };
+
+  it("consome só código da mesma empresa, grava chat prefixado pelo bot e não mexe em outras empresas", async () => {
+    const rpc = vi.spyOn(admin, "rpc");
+    linkRows = [{ organization_id: "org-1", user_id: "u-1" }];
+    await linkTelegramChat("ABCD2345", { chatId: 777, displayName: "@ana" }, scope);
+    expect(rpc).toHaveBeenCalledWith("consume_telegram_link_code", { p_code: "ABCD2345", p_organization_id: "org-1" });
+    expect(deletes).toHaveLength(0);
+    expect(writes.integrations[0]).toMatchObject({ organization_id: "org-1", external_account_id: "555:777" });
+  });
+
+  it("procura o chat só dentro da empresa do bot", async () => {
+    secretRow = { id: "int-7", organization_id: "org-1", metadata: { user_id: "u-1" } };
+    const select = vi.spyOn(admin, "from");
+    await findTelegramLink(777, scope);
+    expect(select).toHaveBeenCalledWith("integrations");
+    expect(lastSelectFilters).toEqual(
+      expect.arrayContaining(["provider=telegram", "external_account_id=555:777", "status=connected", "organization_id=org-1"]),
+    );
   });
 });

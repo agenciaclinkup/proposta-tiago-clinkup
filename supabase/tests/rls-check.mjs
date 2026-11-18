@@ -169,3 +169,14 @@ check("valid code returns org and user", firstUse[0]?.organization_id === orgA &
 check("code is single-use", (await consumeCode("ABCD2345")).length === 0);
 check("expired code is rejected", (await consumeCode("OLDC0DE9")).length === 0);
 await expectFail("authenticated cannot consume codes", () => as(A, `select * from public.consume_telegram_link_code('ABCD2345')`));
+
+// Bot próprio (Fase 3.3c): provedor telegram_bot e código de vínculo restrito à org do bot
+await asService(`insert into public.integrations (organization_id, provider, external_account_id, display_name) values ('${orgA}', 'telegram_bot', '555', '@marca_bot')`);
+check("telegram_bot provider accepted", (await as(A, `select display_name from public.integrations where provider = 'telegram_bot'`)).rows[0]?.display_name === "@marca_bot");
+const orgB = "10000000-0000-0000-0000-00000000000b";
+await as(B, `insert into public.organizations (id, name, slug) values ('${orgB}', 'Outra Empresa', 'outra-empresa')`);
+await asService(`insert into public.telegram_link_codes (code, organization_id, user_id) values ('BBBB2345', '${orgB}', '${B}')`);
+const consumeFor = async (code, org) => (await asService(`select * from public.consume_telegram_link_code('${code}', '${org}')`)).rows;
+check("code of org B rejected by org A bot", (await consumeFor("BBBB2345", orgA)).length === 0);
+check("rejected code stays usable for its own org", (await consumeFor("BBBB2345", orgB))[0]?.organization_id === orgB);
+await expectFail("authenticated cannot consume with org", () => as(A, `select * from public.consume_telegram_link_code('XXXX2345', '${orgA}')`));

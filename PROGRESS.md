@@ -5,24 +5,25 @@
 ## Estado atual
 
 - **Fase:** 3 — Integrações (Fase 2 — Hermes Core ✅ concluída)
-- **Etapa em andamento:** 3.3c — Telegram: bot próprio para White-Label
+- **Etapa em andamento:** 3.4 — OAuth Meta (Instagram, Página do Facebook, Meta Ads)
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**3.3c Telegram — bot próprio White-Label/Enterprise** (TDD):
-1. **Modelo de dados:** adicionar `telegram_bot` ao enum `integration_provider` (migration nova via `supabase migration new`) para a configuração do bot da org — `external_account_id` = id numérico do bot, `display_name` = `@username`, token cifrado em `integration_secrets` (AAD = id da integração). Os vínculos de chats continuam como `provider telegram`, com `metadata.bot = "org"` quando vierem do bot próprio. Atualizar `INTEGRATION_PROVIDERS`/catálogo (ou excluir `telegram_bot` da lista de cards) e os checks do `rls-check.mjs`.
-2. **Segredo por bot sem armazenar:** `secret = HMAC-SHA256(TELEGRAM_WEBHOOK_SECRET, slug)` em hex; testar que muda por slug e que o webhook de uma org não aceita o segredo de outra.
-3. **Cadastro (só owner/admin e só plano Scale ou `is_white_label`):** Server Action com Zod no token (`^\d+:[A-Za-z0-9_-]{30,}$`), rate limit, `getMe` para validar e obter o username, `saveIntegration` cifrado, `setWebhook` para `https://<NEXT_PUBLIC_SITE_URL>/api/webhooks/telegram/<slug>` com o segredo derivado e `allowed_updates=["message"]`. Remover = `deleteWebhook` + desconectar. UI no card do Telegram com passo a passo (@BotFather) e estado do bot.
-4. **Rota `app/api/webhooks/telegram/[slug]/route.ts`:** resolve org pelo `slug` (admin), confere o segredo derivado em tempo constante, carrega o token do cofre (`getIntegrationToken`) e chama o mesmo `handleTelegramMessage` com `{ botToken, organizationId }`.
-5. **Handler restrito à org do bot:** com `organizationId` presente, `/vincular` só aceita código da mesma org e `findTelegramLink` filtra pela org (um chat do bot da empresa X nunca acessa a empresa Y). Painel: "Abrir o Telegram e vincular" usa o username do bot próprio quando existir.
-6. Checklist: `NEXT_PUBLIC_SITE_URL` correto em produção (usado no `setWebhook`), teste de ponta a ponta com um bot de teste.
+**3.4 OAuth Meta — Instagram, Página do Facebook e Meta Ads** (TDD; antes de codar, conferir na documentação oficial da Meta a versão atual da Graph API, os nomes exatos das permissões e o fluxo "Facebook Login for Business" — não usar valores de memória):
+1. **State anti-CSRF:** `lib/integrations/oauth-state.ts` — `state` assinado (HMAC com segredo de servidor) contendo `organizationId`, `userId`, `nonce`, `exp` (10 min); o `nonce` também vai em cookie `httpOnly`/`SameSite=Lax`; o callback exige assinatura válida, não expirado, nonce igual ao cookie e usuário logado igual ao do state. Testes de adulteração, expiração e troca de usuário.
+2. **Início:** `app/api/integrations/meta/start/route.ts` (só owner/admin, rate limit) → redireciona para o diálogo OAuth da Meta com as permissões necessárias (publicação no Instagram e em Páginas, leitura de insights, listagem de Páginas, gestão de negócio e de anúncios — nomes exatos conferidos na doc).
+3. **Callback:** `app/api/integrations/meta/callback/route.ts` → valida state → troca `code` por token → token de longa duração → `me/accounts` (Páginas + token de Página) → `instagram_business_account` de cada Página → contas de anúncios (+ Business e Pixels quando disponível). Grava com `saveIntegration` (tokens cifrados, `expires_at`): `facebook_page` (token da Página), `instagram` (token da Página + id IG em `metadata`), `meta_ads` (token do usuário + `ad_account_id`, `business_id`, `pixel_id`). Erros e cancelamento voltam para `/integrations?meta=<status>` com mensagem pt-BR.
+4. **Service `lib/integrations/meta.ts`:** cliente Graph mínimo via `fetch` (versão fixada em uma constante), mapeamento resposta → integrações (função pura testada com respostas de exemplo), detecção de permissões negadas → `status: needs_attention` com orientação.
+5. **UI:** ativar "Conectar com a Meta" nos 3 cards (admin), remover o aviso "em breve" deles, mensagens de retorno pt-BR; guias do catálogo revisados para o fluxo real.
+6. **Conformidade Meta:** rota de exclusão de dados (`signed_request` verificado com `META_APP_SECRET`) e de desautorização, que desconectam as integrações da conta.
+7. `.env.example` + checklist: `META_APP_ID`, `META_APP_SECRET`, `OAUTH_STATE_SECRET` (ou derivado de segredo existente), URLs de redirecionamento cadastradas no app Meta, App Review das permissões, domínio verificado, política de privacidade e URL de exclusão de dados.
 
 **Plano da Fase 3:**
 - 3.1 dados + cofre ✅.
 - 3.2 `/integrations` ✅.
-- 3.3 Telegram, dividido em **3.3a** ✅, **3.3b** áudio ✅ e **3.3c** bot próprio White-Label (acima). Decisões fechadas em 2026-11-18, ver `ARCHITECTURE.md` §1:
+- 3.3 Telegram ✅: **3.3a** bot da plataforma, **3.3b** áudio, **3.3c** bot próprio White-Label. Decisões fechadas em 2026-11-18, ver `ARCHITECTURE.md` §1:
   - SaaS: bot único da plataforma (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`), webhook `/api/webhooks/telegram`; "Gerar código" na UI (Server Action, código de 8 caracteres `[A-Z0-9]` sem ambíguos, gravado via admin) e `/vincular CODIGO` → `consume_telegram_link_code` → `saveIntegration(provider: "telegram", externalAccountId: chat_id, metadata: { user_id })`.
   - White-Label/Enterprise: admin cadastra o token do próprio bot (cifrado em `integration_secrets`), plataforma chama `setWebhook` para `/api/webhooks/telegram/[slug]` com segredo próprio por bot.
   - Mensagens: Zod no update, header `X-Telegram-Bot-Api-Secret-Token`, rate limit por `chat_id`, Hermes no canal `telegram` (mesmas Tools, 1 crédito por mensagem, estorno em falha; resposta via `generateText`).
@@ -62,6 +63,11 @@
 - [ ] **Áudio no Telegram (Fase 3.3b):** com `OPENAI_API_KEY` (e depois com `GROQ_API_KEY`), enviar áudio de voz e arquivo de áudio: a resposta começa com "🎙️ Entendi: “…”" e cobra 1 crédito; áudio acima de 5 min é recusado sem cobrança; sem crédito no mês, recusa sem transcrever; sem nenhuma chave configurada, mostra "A transcrição de áudio ainda não está disponível…".
 - [ ] **Desvincular o próprio Telegram (Fase 3.3b):** como `member`, ver o botão "Desvincular meu Telegram" só na linha do próprio chat e conseguir desvincular; não ver botão nas linhas de outras pessoas; como admin, "Desconectar" continua disponível para as demais linhas.
 - [ ] Custo da transcrição (Whisper/Groq) considerado no preço dos planos (hoje o áudio custa 1 crédito, igual ao texto).
+- [ ] `db push` aplica também a migration `telegram_own_bot` (Fase 3.3c: valor `telegram_bot` no enum + `consume_telegram_link_code(code, org)`).
+- [ ] **Bot próprio de ponta a ponta (Fase 3.3c):** com uma org no plano Scale (ou `is_white_label = true`), como owner, cadastrar o token de um bot de teste em `/integrations` → conferir `getWebhookInfo` do bot apontando para `https://<domínio>/api/webhooks/telegram/<slug>` sem erro; vincular pelo botão (deve abrir o `@username` do bot próprio); conversar por texto e áudio; créditos debitados **na própria org**.
+- [ ] **Isolamento do bot próprio (Fase 3.3c):** gerar código na org B e enviá-lo ao bot da org A → deve ser recusado e o código continuar válido para a org B; o segredo do bot da plataforma e o de outra empresa devem receber 401 na rota `[slug]`; remover o bot próprio deve apagar os vínculos feitos por ele.
+- [ ] `NEXT_PUBLIC_SITE_URL` em produção com `https://` e o domínio final (usado no `setWebhook` do bot próprio; sem https o cadastro é recusado).
+- [ ] Trocar `TELEGRAM_WEBHOOK_SECRET` invalida os webhooks de todos os bots próprios (segredo derivado): se precisar rotacionar, re-registrar cada bot (reconectar o token em `/integrations`).
 
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -95,6 +101,16 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 3.3c Telegram — bot próprio White-Label/Scale — ✅ (2026-11-18) · **módulo Telegram concluído**
+- **Migration** `supabase/migrations/20261118235159_telegram_own_bot.sql`: `telegram_bot` no enum `integration_provider`; `consume_telegram_link_code(p_code, p_organization_id default null)` — com org, código de outra empresa nem é consumido.
+- **`lib/telegram/telegram.ts`:** `TelegramScope`, `deriveBotWebhookSecret(slug)` (HMAC-SHA256 do segredo mestre), `callTelegram` (getMe/setWebhook/deleteWebhook via fetch).
+- **`lib/services/telegram-bot.ts`:** `canUseOwnBot` (Scale ou `is_white_label`), `findOrganizationBySlug`, `getOwnTelegramBot`, `connectOwnTelegramBot` (só owner/admin; exige `NEXT_PUBLIC_SITE_URL` https; `getMe` → remove bot anterior → `setWebhook` com segredo derivado → token cifrado como `telegram_bot`), `disconnectOwnTelegramBot` (deleteWebhook + remove config e vínculos do bot).
+- **Isolamento:** vínculos pelo bot próprio com `external_account_id = "<botId>:<chatId>"` + filtro de org em `findTelegramLink`; `linkTelegramChat` com escopo não apaga vínculos de outras empresas; handler recusa sessão de outra org; dedupe de `update_id` por bot.
+- **Rota `app/api/webhooks/telegram/[slug]/route.ts`:** slug validado, segredo derivado conferido antes do banco (segredo da plataforma ou de outra empresa → 401), 404 sem org/bot, token do cofre, mesmo handler com escopo.
+- **UI:** `own-bot-panel.tsx` no card do Telegram (só owner/admin): passo a passo do @BotFather + token (Zod, rate limit 5/10 min), estado do bot e "Remover bot próprio" com confirmação; fora do plano mostra convite para Scale/White-Label. Vínculo rápido usa o `@username` do bot próprio quando configurado.
+
+**Testes:** `npm test` 169/169 (RED verificado antes nos 19 novos; 1 teste antigo ajustado porque a assinatura de `linkTelegramChat` ganhou o 3º parâmetro) · `npm run test:db` 76/76 · `tsc --noEmit` OK · lint limpo · build OK · smoke `next start`: `[slug]` sem segredo 401, com segredo mestre da plataforma 401, slug inválido 404.
 
 ### 3.3b Telegram — áudio + desvincular o próprio chat — ✅ (2026-11-18)
 - **`lib/transcription.ts`:** `transcribeAudio` via `fetch` + `FormData` (sem dependência nova): Groq `whisper-large-v3-turbo` se `GROQ_API_KEY`, senão OpenAI `whisper-1`; `language: pt`; sem chave → `ServiceError` amigável.

@@ -2,6 +2,7 @@ import "server-only";
 import { randomInt } from "node:crypto";
 import { INTEGRATION_CATALOG, type IntegrationProvider } from "@/lib/integrations/catalog";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { TelegramScope } from "@/lib/telegram/telegram";
 import { decryptSecret, encryptSecret } from "@/lib/vault";
 import type { ServiceContext } from "./context";
 import { ServiceError } from "./errors";
@@ -41,7 +42,8 @@ export function summarizeIntegrations(rows: IntegrationRow[]) {
 
 export type SaveIntegrationInput = {
   organizationId: string;
-  provider: IntegrationProvider;
+  // telegram_bot: configuração do bot próprio (não aparece como card no catálogo).
+  provider: IntegrationProvider | "telegram_bot";
   externalAccountId: string;
   displayName?: string | null;
   scopes?: string[];
@@ -126,43 +128,57 @@ export async function createTelegramLinkCode(ctx: { organizationId: string; user
   throw new Error("não foi possível gerar um código único");
 }
 
-// Um chat do Telegram fica vinculado a uma conta por vez: o vínculo novo remove os anteriores do mesmo chat.
-export async function linkTelegramChat(code: string, chat: { chatId: number; displayName: string | null }) {
+// Bot da plataforma: "<chatId>". Bot próprio da empresa: "<botId>:<chatId>" — os dois nunca se confundem.
+const telegramAccountId = (chatId: number, scope?: TelegramScope) => (scope ? `${scope.botId}:${chatId}` : String(chatId));
+
+// Bot da plataforma: um chat fica vinculado a uma conta por vez (o vínculo novo remove os de outras empresas).
+// Bot próprio: só aceita código da empresa dona do bot e não mexe em vínculos de outras empresas.
+export async function linkTelegramChat(
+  code: string,
+  chat: { chatId: number; displayName: string | null },
+  scope?: TelegramScope,
+) {
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc("consume_telegram_link_code", { p_code: code });
+  const { data, error } = await admin.rpc(
+    "consume_telegram_link_code",
+    scope ? { p_code: code, p_organization_id: scope.organizationId } : { p_code: code },
+  );
   if (error) throw new Error(error.message);
   const link = (data as { organization_id: string; user_id: string }[] | null)?.[0];
   if (!link) return null;
 
-  const externalAccountId = String(chat.chatId);
-  const { error: cleanupError } = await admin
-    .from("integrations")
-    .delete()
-    .eq("provider", "telegram")
-    .eq("external_account_id", externalAccountId)
-    .neq("organization_id", link.organization_id);
-  if (cleanupError) throw new Error(cleanupError.message);
+  const externalAccountId = telegramAccountId(chat.chatId, scope);
+  if (!scope) {
+    const { error: cleanupError } = await admin
+      .from("integrations")
+      .delete()
+      .eq("provider", "telegram")
+      .eq("external_account_id", externalAccountId)
+      .neq("organization_id", link.organization_id);
+    if (cleanupError) throw new Error(cleanupError.message);
+  }
 
   await saveIntegration({
     organizationId: link.organization_id,
     provider: "telegram",
     externalAccountId,
     displayName: chat.displayName,
-    metadata: { user_id: link.user_id },
+    metadata: scope ? { user_id: link.user_id, bot: "org" } : { user_id: link.user_id },
     connectedBy: link.user_id,
   });
   return link;
 }
 
 // Chat vinculado → org e usuário. Leitura via admin (o webhook não tem sessão de usuário).
-export async function findTelegramLink(chatId: number) {
-  const { data, error } = await createAdminClient()
+export async function findTelegramLink(chatId: number, scope?: TelegramScope) {
+  let query = createAdminClient()
     .from("integrations")
     .select("id, organization_id, metadata")
     .eq("provider", "telegram")
-    .eq("external_account_id", String(chatId))
-    .eq("status", "connected")
-    .maybeSingle();
+    .eq("external_account_id", telegramAccountId(chatId, scope))
+    .eq("status", "connected");
+  if (scope) query = query.eq("organization_id", scope.organizationId);
+  const { data, error } = await query.maybeSingle();
   if (error) throw new Error(error.message);
   const userId = (data?.metadata as { user_id?: string } | undefined)?.user_id;
   return data && userId ? { integrationId: data.id as string, organizationId: data.organization_id as string, userId } : null;
