@@ -2,9 +2,13 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getPlan, stripePriceId } from "@/config/plans";
+import { z } from "zod";
+import { stripePriceId } from "@/config/plans";
+import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { getStripe } from "@/lib/stripe";
 import { requireWorkspace } from "@/lib/workspace";
+
+const checkoutInput = z.object({ planId: z.enum(["starter", "growth", "scale"]) });
 
 async function requireBillingAdmin() {
   const workspace = await requireWorkspace();
@@ -15,14 +19,18 @@ async function requireBillingAdmin() {
     .eq("user_id", workspace.user.id)
     .single();
   if (membership?.role !== "owner" && membership?.role !== "admin") redirect("/billing?status=forbidden");
+  if (!(await rateLimit(`billing:user:${workspace.user.id}`, RATE_LIMITS.billingUser))) {
+    redirect("/billing?status=rate_limited");
+  }
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
   return { ...workspace, origin };
 }
 
 export async function startCheckout(formData: FormData) {
-  const plan = getPlan(String(formData.get("planId")));
-  const price = plan && stripePriceId(plan.id);
-  if (!plan || !price) redirect("/billing?status=unavailable");
+  const parsed = checkoutInput.safeParse({ planId: formData.get("planId") });
+  const price = parsed.success ? stripePriceId(parsed.data.planId) : undefined;
+  if (!parsed.success || !price) redirect("/billing?status=unavailable");
+  const planId = parsed.data.planId;
 
   const { organization, subscription, user, origin } = await requireBillingAdmin();
 
@@ -35,7 +43,7 @@ export async function startCheckout(formData: FormData) {
     redirect(portal.url);
   }
 
-  const metadata = { organization_id: organization.id, plan_id: plan.id };
+  const metadata = { organization_id: organization.id, plan_id: planId };
 
   const session = await getStripe().checkout.sessions.create({
     mode: "subscription",

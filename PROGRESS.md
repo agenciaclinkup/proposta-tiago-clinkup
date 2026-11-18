@@ -5,20 +5,31 @@
 ## Estado atual
 
 - **Fase:** 1 — Fundação (Multi-Tenant, Banco, Auth, Planos, Onboarding)
-- **Etapa em andamento:** 1.2 — Blindagem de segurança das entradas existentes
+- **Etapa em andamento:** 1.3 — Validação em ambiente real (bloqueada: aguarda credenciais do usuário)
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**1.2 Blindagem** — implementar e aplicar nas entradas já existentes:
-1. Migration `rate_limits` (`private.rate_limits` + `public.rate_limit_hit`, execute só `service_role`) com teste de isolamento no PGlite.
-2. `lib/rate-limit.ts` (IP do request, janela fixa, falha aberta) e aplicar em: `signIn`, `signUp`, `/auth/callback`, `completeOnboarding`, `startCheckout`, `openBillingPortal`, `/api/webhooks/stripe`.
-3. Zod nos pontos que ainda não têm: `planId` do checkout, `code` do callback, metadados (`organization_id` uuid) do webhook Stripe.
-4. `lib/vault.ts` (AES-256-GCM, formato `v1:iv:tag:ct`, AAD) + testes; `VAULT_ENCRYPTION_KEY` no `.env.example`.
+**1.3 Validação real** (precisa de credenciais Supabase + Stripe modo teste em `.env.local`):
+1. `npx supabase link --project-ref <ref>` e `npx supabase db push` (2 migrations).
+2. Rodar advisors (`npx supabase db advisors` ou MCP `get_advisors`) e corrigir alertas.
+3. Fluxo manual: cadastro → confirmação de e-mail → onboarding → dashboard; segundo usuário não enxerga a org do primeiro.
+4. Stripe CLI: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`, checkout de teste, conferir `subscriptions`/`organizations.plan_id`.
+5. Registrar resultado aqui e commitar `test(e2e): ...` / `fix(...)` conforme achados.
 
-Depois: **1.3** — validar contra Supabase real (`supabase link` + `db push`, fluxo cadastro → onboarding → dashboard) e Stripe em modo teste. Requer credenciais do usuário.
+**Se as credenciais não estiverem disponíveis:** iniciar **Fase 2.1** — migration `hermes_logs` + `usage_counters` (RLS por `organization_id`, teste em `supabase/tests/rls-check.mjs`), depois `lib/services/` com `ServiceContext`.
 
 ## Concluído
+
+### 1.2 Blindagem de segurança — ✅ (2026-11-18)
+- **Governança:** regras permanentes em `AGENTS.md` §6, `CLAUDE.md` e `ARCHITECTURE.md` §5 (revezamento via `PROGRESS.md`, Git semântico, segurança multi-tenant). `.gitignore` rigoroso (env, chaves, certificados, builds, temporários Supabase, skills) e `.gitattributes` (LF).
+- **Rate limiting:** `supabase/migrations/20261118035149_rate_limits.sql` (`private.rate_limits` + `public.rate_limit_hit`, execute só `service_role`); `lib/rate-limit.ts` (limites em `RATE_LIMITS`, falha aberta). Aplicado em `signIn` (IP + e-mail), `signUp`, `/auth/callback`, `completeOnboarding`, `startCheckout`/`openBillingPortal`, `/api/webhooks/stripe` (429).
+- **Zod:** `planId` do checkout (`z.enum`), params do callback, `organization_id` (uuid) nos metadados do webhook Stripe.
+- **Cofre:** `lib/vault.ts` AES-256-GCM (`v1:iv:tag:ct`, AAD = dono do segredo), `VAULT_ENCRYPTION_KEY` no `.env.example`. Uso real na Fase 3 (`integration_secrets`).
+- **Testes de banco no repo:** `supabase/tests/rls-check.mjs` + `npm run test:db` (PGlite).
+- `signOut` sem rate limit (sem payload, idempotente).
+
+**Testes:** `npm test` 31/31 · `npm run test:db` 22/22 · `npm run lint` limpo · `npm run build` OK.
 
 ### 1.1 Fundação — ✅ (2026-11-18)
 - **Scaffold:** Next.js 15.5 (App Router, Turbopack), TypeScript, Tailwind 4, shadcn (radix-nova), Framer Motion, Lucide, Zod 4, Vitest 5, Supabase CLI (`supabase/config.toml`), Stripe SDK.
@@ -43,7 +54,7 @@ Depois: **1.3** — validar contra Supabase real (`supabase link` + `db push`, f
 ```bash
 npm install
 cp .env.example .env.local   # preencher
-npm test && npm run lint && npm run build
+npm test && npm run test:db && npm run lint && npm run build
 npx supabase link && npx supabase db push
 npm run dev
 ```

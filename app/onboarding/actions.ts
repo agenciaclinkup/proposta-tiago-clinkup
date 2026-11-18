@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { buildMasterContext, onboardingSchema, slugify } from "@/lib/onboarding";
+import { RATE_LIMIT_MESSAGE, RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export type OnboardingState = { error?: string; fieldErrors?: Record<string, string> } | undefined;
@@ -19,6 +20,9 @@ export async function completeOnboarding(_: OnboardingState, formData: FormData)
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/login");
+  if (!(await rateLimit(`onboarding:user:${auth.user.id}`, RATE_LIMITS.onboardingUser))) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

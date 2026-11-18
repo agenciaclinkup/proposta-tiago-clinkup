@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { RATE_LIMIT_MESSAGE, RATE_LIMITS, rateLimit, rateLimitByIp } from "@/lib/rate-limit";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,6 +17,12 @@ const credentials = z.object({
 export async function signIn(_: AuthState, formData: FormData): Promise<AuthState> {
   const parsed = credentials.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const [ipOk, emailOk] = await Promise.all([
+    rateLimitByIp("signin", RATE_LIMITS.signInIp),
+    rateLimit(`signin:email:${parsed.data.email.toLowerCase()}`, RATE_LIMITS.signInEmail),
+  ]);
+  if (!ipOk || !emailOk) return { error: RATE_LIMIT_MESSAGE };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
@@ -37,7 +44,10 @@ export async function signUp(_: AuthState, formData: FormData): Promise<AuthStat
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
+  const requestHeaders = await headers();
+  if (!(await rateLimitByIp("signup", RATE_LIMITS.signUpIp, requestHeaders))) return { error: RATE_LIMIT_MESSAGE };
+
+  const origin = requestHeaders.get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,

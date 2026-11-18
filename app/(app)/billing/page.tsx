@@ -21,6 +21,7 @@ const NOTICES: Record<string, { tone: "ok" | "error"; text: string }> = {
   canceled: { tone: "error", text: "O checkout foi cancelado. Nenhuma cobrança foi feita." },
   unavailable: { tone: "error", text: "Este plano ainda não está disponível para contratação online. Fale com nosso time." },
   forbidden: { tone: "error", text: "Apenas proprietários e administradores podem alterar a assinatura." },
+  rate_limited: { tone: "error", text: "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente." },
 };
 
 const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" });

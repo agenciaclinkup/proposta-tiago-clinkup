@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { z } from "zod";
 import { planIdFromStripePrice, type PlanId } from "@/config/plans";
 
 export type SubscriptionStatus = "trialing" | "active" | "past_due" | "canceled" | "incomplete";
@@ -39,15 +40,15 @@ export type SubscriptionUpdate = {
 
 // Converte a assinatura Stripe na linha de `subscriptions`. Null quando falta org ou o price não é de um plano conhecido.
 export function subscriptionUpdateFromStripe(subscription: Stripe.Subscription): SubscriptionUpdate | null {
-  const organizationId = subscription.metadata.organization_id;
+  const organizationId = z.uuid().safeParse(subscription.metadata.organization_id);
   const item = subscription.items.data[0];
   const planId = item ? planIdFromStripePrice(item.price.id) : undefined;
-  if (!organizationId || !planId) return null;
+  if (!organizationId.success || !planId) return null;
 
   const toIso = (seconds: number | null | undefined) => (seconds ? new Date(seconds * 1000).toISOString() : null);
 
   return {
-    organizationId,
+    organizationId: organizationId.data,
     planId,
     row: {
       plan_id: planId,
