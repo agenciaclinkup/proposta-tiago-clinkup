@@ -8,6 +8,7 @@ import { listConversations, loadConversationMessages } from "@/lib/services/conv
 import { cn } from "@/lib/utils";
 import { requireWorkspace } from "@/lib/workspace";
 import { HermesChat } from "./chat";
+import { DeleteConversationButton } from "./delete-conversation-button";
 
 export const metadata: Metadata = { title: "Agente Hermes" };
 
@@ -37,18 +38,22 @@ export default async function HermesPage({ searchParams }: { searchParams: Promi
             <p className="px-2 text-sm text-muted-foreground">Suas conversas com o Hermes aparecerão aqui.</p>
           )}
           {conversations.map((conv) => (
-            <Link
-              key={conv.id}
-              href={`/hermes?c=${conv.id}`}
-              aria-current={conv.id === selected?.id ? "page" : undefined}
-              className={cn(
-                "block rounded-lg px-3 py-2 text-sm transition-colors",
-                conv.id === selected?.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground",
-              )}
-            >
-              <span className="block truncate">{conv.title}</span>
-              <span className="text-xs opacity-70">{dateFormat.format(new Date(conv.updated_at))}</span>
-            </Link>
+            <div key={conv.id} className="group flex items-start gap-1">
+              <Link
+                href={`/hermes?c=${conv.id}`}
+                aria-current={conv.id === selected?.id ? "page" : undefined}
+                className={cn(
+                  "block min-w-0 flex-1 rounded-lg px-3 py-2 text-sm transition-colors",
+                  conv.id === selected?.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <span className="block truncate">{conv.title}</span>
+                <span className="text-xs opacity-70">{dateFormat.format(new Date(conv.updated_at))}</span>
+              </Link>
+              <div className="pt-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                <DeleteConversationButton conversationId={conv.id} title={conv.title} />
+              </div>
+            </div>
           ))}
         </nav>
       </aside>
@@ -58,6 +63,7 @@ export default async function HermesPage({ searchParams }: { searchParams: Promi
         conversationId={conversationId}
         initialMessages={initialMessages}
         userFirstName={workspace.profile.full_name?.split(" ")[0] ?? null}
+        savedTitle={selected?.title ?? null}
       />
     </div>
   );

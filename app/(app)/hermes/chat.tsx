@@ -9,14 +9,9 @@ import { AlertTriangle, ArrowUp, Bot, Check, Loader2, MessageSquarePlus, Square 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_MESSAGE_LENGTH } from "@/lib/hermes/chat";
+import { toolLabel } from "@/lib/hermes/tool-labels";
 import { cn } from "@/lib/utils";
-
-const TOOL_LABELS: Record<string, { running: string; done: string }> = {
-  get_brand_context: { running: "Consultando a memória da marca…", done: "Consultei a memória da marca" },
-  update_brand_context: { running: "Atualizando a memória da marca…", done: "Atualizei a memória da marca" },
-  get_plan_and_usage: { running: "Verificando seu plano e consumo…", done: "Verifiquei seu plano e consumo" },
-  list_recent_activity: { running: "Buscando as atividades recentes…", done: "Busquei as atividades recentes" },
-};
+import { DeleteConversationButton } from "./delete-conversation-button";
 
 const SUGGESTIONS = [
   "O que você sabe sobre a minha empresa?",
@@ -39,10 +34,13 @@ export function HermesChat({
   conversationId,
   initialMessages,
   userFirstName,
+  savedTitle,
 }: {
   conversationId: string;
   initialMessages: UIMessage[];
   userFirstName: string | null;
+  // Presente só quando a conversa já existe no banco (pode ser excluída).
+  savedTitle: string | null;
 }) {
   const router = useRouter();
   const [input, setInput] = useState("");
@@ -92,11 +90,14 @@ export function HermesChat({
             <p className="text-xs text-muted-foreground">Seu assistente de marketing, vendas e automação</p>
           </div>
         </div>
-        <Button asChild variant="ghost" size="sm" className="lg:hidden">
-          <Link href="/hermes">
-            <MessageSquarePlus className="size-4" /> Nova
-          </Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          {savedTitle && !busy && <DeleteConversationButton conversationId={conversationId} title={savedTitle} />}
+          <Button asChild variant="ghost" size="sm" className="lg:hidden">
+            <Link href="/hermes">
+              <MessageSquarePlus className="size-4" /> Nova
+            </Link>
+          </Button>
+        </div>
       </header>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-5 py-6" aria-live="polite">
@@ -171,8 +172,7 @@ export function HermesChat({
                   );
                 }
                 if (isToolUIPart(part)) {
-                  const name = getToolName(part);
-                  const label = TOOL_LABELS[name] ?? { running: "Executando uma ação…", done: "Ação executada" };
+                  const label = toolLabel(getToolName(part));
                   const output = part.state === "output-available" ? (part.output as { ok?: boolean } | undefined) : undefined;
                   const failed = part.state === "output-error" || output?.ok === false;
                   const running = part.state === "input-streaming" || part.state === "input-available";

@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Bot, CalendarDays, KanbanSquare, Megaphone, PlugZap, Users } from "lucide-react";
+import { AlertTriangle, Bot, CalendarDays, Check, KanbanSquare, Megaphone, PlugZap, Users } from "lucide-react";
+import { UsageCard } from "@/components/usage-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getPlan } from "@/config/plans";
+import { CHANNEL_LABELS, toolLabel } from "@/lib/hermes/tool-labels";
+import { listRecentActivity } from "@/lib/services/activity";
+import { serviceContext, type HermesChannel } from "@/lib/services/context";
+import { getUsageSummary } from "@/lib/services/usage";
 import { requireWorkspace } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -17,8 +22,19 @@ const KPIS = [
   { label: "Investimento em Meta Ads", icon: Megaphone },
 ];
 
+const activityTime = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 export default async function DashboardPage() {
-  const { organization, subscription, profile } = await requireWorkspace();
+  const workspace = await requireWorkspace();
+  const { organization, subscription, profile } = workspace;
+  const ctx = serviceContext(workspace, "manual");
+  const [usage, activity] = await Promise.all([getUsageSummary(ctx), listRecentActivity(ctx, 6)]);
   const plan = getPlan(subscription?.plan_id ?? organization.plan_id);
   const trialDaysLeft =
     subscription?.status === "trialing" && subscription.trial_ends_at
@@ -70,31 +86,68 @@ export default async function DashboardPage() {
               breve.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             <Button asChild>
               <Link href="/hermes">Conversar com o Hermes</Link>
             </Button>
+
+            <div>
+              <h3 className="text-sm font-medium">Atividades recentes</h3>
+              {activity.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Nenhuma atividade ainda. Quando você pedir algo ao Hermes, cada ação executada aparecerá aqui.
+                </p>
+              ) : (
+                <ul className="mt-3 divide-y divide-border">
+                  {activity.map((item) => (
+                    <li key={item.id} className="flex items-start gap-3 py-2.5 text-sm">
+                      {item.status === "success" ? (
+                        <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-label="Concluída" />
+                      ) : (
+                        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-400" aria-label="Não concluída" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p>
+                          {toolLabel(item.tool_name).done}
+                          {item.status !== "success" && <span className="text-muted-foreground"> (não concluída)</span>}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.via === "hermes" ? "Pelo Hermes" : "Manual"} · {CHANNEL_LABELS[item.channel as HermesChannel] ?? item.channel}
+                        </p>
+                      </div>
+                      <time dateTime={item.created_at} className="shrink-0 text-xs text-muted-foreground">
+                        {activityTime.format(new Date(item.created_at))}
+                      </time>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="glass">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PlugZap className="size-5 text-primary" aria-hidden /> Próximos passos
-            </CardTitle>
-            <CardDescription>Prepare sua conta para tirar o máximo da plataforma.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <ol className="list-decimal space-y-2 pl-4 text-muted-foreground">
-              <li className="text-foreground">Memória da marca configurada ✓</li>
-              <li>Conectar Instagram, Facebook e Google Meu Negócio</li>
-              <li>Vincular o Hermes ao seu Telegram</li>
-            </ol>
-            <Button asChild variant="outline" size="sm" className="w-full">
-              <Link href="/billing">Ver planos e assinatura</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <UsageCard usage={usage} planName={plan?.name ?? organization.plan_id} />
+
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <PlugZap className="size-5 text-primary" aria-hidden /> Próximos passos
+              </CardTitle>
+              <CardDescription>Prepare sua conta para tirar o máximo da plataforma.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <ol className="list-decimal space-y-2 pl-4 text-muted-foreground">
+                <li className="text-foreground">Memória da marca configurada ✓</li>
+                <li>Conectar Instagram, Facebook e Google Meu Negócio</li>
+                <li>Vincular o Hermes ao seu Telegram</li>
+              </ol>
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link href="/billing">Ver planos e assinatura</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </section>
     </div>
   );

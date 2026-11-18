@@ -4,7 +4,7 @@ import type { ServiceContext } from "./context";
 const rpc = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc }) }));
 
-const { consumeUsage, currentPeriodStart, limitFor, PlanLimitError } = await import("./usage");
+const { consumeUsage, currentPeriodStart, limitFor, PlanLimitError, refundUsage, usageLevel } = await import("./usage");
 
 const ctx = { organizationId: "org-1", planId: "starter" } as ServiceContext;
 
@@ -56,5 +56,33 @@ describe("PlanLimitError", () => {
   it("é um ServiceError (mensagem segura para o usuário)", async () => {
     const { ServiceError } = await import("./errors");
     expect(new PlanLimitError("ai_credits", 1, 1, "Starter")).toBeInstanceOf(ServiceError);
+  });
+});
+
+describe("refundUsage", () => {
+  it("devolve o consumo pelo RPC do banco", async () => {
+    rpc.mockResolvedValueOnce({ data: 4, error: null });
+    await refundUsage(ctx, "ai_credits", 1);
+    expect(rpc).toHaveBeenCalledWith("refund_usage", { p_organization_id: "org-1", p_metric: "ai_credits", p_amount: 1 });
+  });
+
+  it("não lança se o estorno falhar (só registra)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "down" } });
+    await expect(refundUsage(ctx, "ai_credits", 1)).resolves.toBeUndefined();
+    expect(console.error).toHaveBeenCalled();
+  });
+});
+
+describe("usageLevel", () => {
+  it("calcula percentual e alerta a partir de 80%", () => {
+    expect(usageLevel(399, 500)).toEqual({ percent: 80, warning: false, exhausted: false });
+    expect(usageLevel(400, 500)).toEqual({ percent: 80, warning: true, exhausted: false });
+    expect(usageLevel(500, 500)).toEqual({ percent: 100, warning: true, exhausted: true });
+  });
+
+  it("limita a 100% e trata limite zero como esgotado", () => {
+    expect(usageLevel(700, 500).percent).toBe(100);
+    expect(usageLevel(0, 0)).toEqual({ percent: 100, warning: true, exhausted: true });
   });
 });

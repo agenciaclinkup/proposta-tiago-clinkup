@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { PricingTable } from "@/components/pricing-table";
+import { UsageCard } from "@/components/usage-card";
+import { serviceContext } from "@/lib/services/context";
+import { getUsageSummary } from "@/lib/services/usage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getPlan, type PlanId } from "@/config/plans";
@@ -28,7 +31,9 @@ const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" });
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
-  const { organization, subscription } = await requireWorkspace();
+  const workspace = await requireWorkspace();
+  const { organization, subscription } = workspace;
+  const usage = await getUsageSummary(serviceContext(workspace, "manual"));
   const planId = (subscription?.plan_id ?? organization.plan_id) as PlanId;
   const plan = getPlan(planId);
   const notice = status ? NOTICES[status] : undefined;
@@ -80,6 +85,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           </form>
         )}
       </section>
+
+      <UsageCard usage={usage} planName={plan?.name ?? planId} />
 
       <PricingTable
         currentPlanId={subscription?.status === "active" ? planId : undefined}

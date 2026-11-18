@@ -31,7 +31,7 @@
 | Tenancy | `organization_members` (N:N user↔org) | Plano Scale/Agency gerencia vários clientes com um login. |
 | Fila de postagens | Supabase Cron (pg_cron + pg_net) chama `/api/cron/publish` a cada minuto; jobs lidos com `FOR UPDATE SKIP LOCKED` | Sem Redis no SaaS; no White-Label o mesmo endpoint roda por cron do container. BullMQ só se o volume exigir. |
 | IA | Vercel AI SDK; Anthropic por padrão, OpenAI opcional via env | Function calling nativo nos dois. |
-| Tokens OAuth | `integration_secrets` cifrado (AES-256-GCM, chave `INTEGRATIONS_ENCRYPTION_KEY`), sem grant para `authenticated` | Token nunca chega ao browser. |
+| Tokens OAuth | `integration_secrets` cifrado (AES-256-GCM, chave `VAULT_ENCRYPTION_KEY`, `lib/vault.ts`), sem grant para `authenticated` | Token nunca chega ao browser. |
 | Auth | Supabase Auth (e-mail/senha + callback PKCE `/auth/callback`) | Padrão `@supabase/ssr`. |
 | Sessão | `middleware.ts` + `getClaims()` | Next 15 não executa `proxy.ts`. |
 
@@ -67,7 +67,7 @@ Convenções: `id uuid default gen_random_uuid()`, `created_at/updated_at timest
 
 **hermes_conversations / hermes_messages** — histórico do chat (web e Telegram). Conversa privada do usuário na org (`user_id` = `auth.uid()` por default, sem grant de coluna). Mensagens (`message_id` do AI SDK, `role`, `parts jsonb`) só o servidor grava: o cliente envia apenas a nova mensagem de texto e o histórico enviado ao modelo vem do banco, impedindo forjar respostas do assistente ou resultados de Tools.
 
-**usage_counters** — `(organization_id, metric, period_start)` pk, `used`. Métricas mensais: `ai_credits`, `scraped_leads`, `scheduled_posts` (conexões = contagem de `integrations`, não contador). Consumo atômico por `public.consume_usage(org, metric, amount, limit)` (execute só service_role; mês em America/Sao_Paulo), chamado por `lib/services/usage.ts` com o limite de `config/plans.ts`.
+**usage_counters** — `(organization_id, metric, period_start)` pk, `used`. Métricas mensais: `ai_credits`, `scraped_leads`, `scheduled_posts` (conexões = contagem de `integrations`, não contador). Consumo atômico por `public.consume_usage(org, metric, amount, limit)` (execute só service_role; mês em America/Sao_Paulo), chamado por `lib/services/usage.ts` com o limite de `config/plans.ts`. Estorno por `public.refund_usage(org, metric, amount)` (nunca abaixo de zero; usado quando a resposta do Hermes falha depois da cobrança).
 
 ### Integrações (Fase 3)
 

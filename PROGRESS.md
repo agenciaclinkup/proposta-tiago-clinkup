@@ -4,20 +4,26 @@
 
 ## Estado atual
 
-- **Fase:** 2 — Hermes Core
-- **Etapa em andamento:** 2.4 — Uso do plano + atividades recentes no dashboard
+- **Fase:** 3 — Integrações (Fase 2 — Hermes Core ✅ concluída)
+- **Etapa em andamento:** 3.1 — Dados das integrações + cofre de credenciais
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**2.4 Uso do plano + atividades no dashboard** (TDD):
-1. Card "Uso do plano" no `/dashboard` e em `/billing` com `getUsageSummary` (barras por métrica, aviso didático ao passar de 80% e link para upgrade).
-2. Card "Atividades recentes do Hermes" no `/dashboard` com `listRecentActivity` (nomes de Tools traduzidos para pt-BR, canal e horário; estado vazio explicativo).
-3. Extrair os rótulos pt-BR das Tools para um módulo compartilhado (hoje em `app/(app)/hermes/chat.tsx`) e testar o mapeamento.
-4. Fechar a Fase 2 no `PROGRESS.md`; próxima: Fase 3 (Integrações — `integrations`, `integration_secrets` com `lib/vault.ts`, Telegram `/vincular`).
+**3.1 Dados das integrações + cofre** (TDD; base em `ARCHITECTURE.md` §2 "Integrações" e §5.2):
+1. Migration `integrations` (RLS: membros leem, admins alteram; unique `(organization_id, provider, external_account_id)`), `integration_secrets` (sem grants para `anon`/`authenticated`; colunas `*_encrypted` no formato `v1:iv:tag:ct`) e `telegram_link_codes` (código curto, expira em 10 min, uso único). Checks em `supabase/tests/rls-check.mjs` (isolamento entre orgs, member não altera, ninguém lê secrets).
+2. `lib/services/integrations.ts`: `listIntegrations`, `saveIntegration` (cifra tokens com `encryptSecret(token, integrationId)` e grava via admin), `getIntegrationToken` (decifra só no servidor), `disconnectIntegration`. Testes garantindo que o token nunca volta em `listIntegrations`.
+3. Tools `list_integrations` e `get_integration_setup_guide` (rótulos em `lib/hermes/tool-labels.ts`).
 
-**Plano da Fase 2:** 2.1 dados + services ✅ · 2.2 Tools ✅ · 2.3 chat `/hermes` ✅ · 2.4 uso do plano + atividades recentes no dashboard.
+**Plano da Fase 3:**
+- 3.1 dados + cofre (acima).
+- 3.2 `/integrations`: cards por provedor com status e tutoriais passo a passo didáticos em pt-BR (onde clicar no Instagram, Facebook, Meta Business Manager, Pixel, pagamento, Google Meu Negócio, Google Calendar, Telegram), sem OAuth ainda.
+- 3.3 Telegram: webhook `/api/telegram/webhook` (header `X-Telegram-Bot-Api-Secret-Token`, Zod, rate limit por `chat_id`), comando `/vincular CODIGO`, respostas do Hermes no canal `telegram` com as mesmas Tools e cobrança/estorno de crédito. **Decisão pendente:** bot único da plataforma (token em env) vs bot próprio por cliente (token cifrado em `integration_secrets`, necessário no White-Label). Áudio: definir provedor de transcrição.
+- 3.4 OAuth Meta (Instagram, Facebook Pages, Meta Ads/BM): rota de callback com `state` assinado (anti-CSRF), tokens cifrados, refresh de token longo. Requer app Meta (envs `META_APP_ID`, `META_APP_SECRET`).
+- 3.5 OAuth Google (Google Meu Negócio + Calendar): mesmo padrão; requer `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e verificação do app no Google Cloud.
+
+**Plano da Fase 2 (concluída):** 2.1 dados + services ✅ · 2.2 Tools ✅ · 2.3 chat `/hermes` ✅ · 2.4 uso do plano, atividades, estorno e exclusão de conversa ✅.
 
 ## CHECKLIST OBRIGATÓRIO DE GO-LIVE (NÃO PULAR)
 
@@ -34,6 +40,10 @@
 - [ ] **Validar o código `42501` (Fase 2.2):** com um segundo usuário de papel `member` na org (inserir em `organization_members` via SQL, pois ainda não há convites), tentar alterar a memória da marca pelo Hermes ("mude o tom de voz para descontraído"). Esperado: "Apenas proprietários e administradores podem alterar a memória da marca." Se o Supabase devolver outro código para violação de RLS no `upsert`, ajustar `saveBrandContext` em `lib/services/brand.ts` e o teste correspondente.
 - [ ] Chat do Hermes com `ANTHROPIC_API_KEY` real: mensagem em `/hermes` com streaming; pergunta que dispara Tool ("Qual é o meu plano?"); conferir linhas em `hermes_messages`, `hermes_logs` e `usage_counters` (`ai_credits` +1 por mensagem); recarregar a página e ver o histórico.
 - [ ] Confirmar que a API aceita `fallbacks: "default"` + beta `server-side-fallback-2026-07-01` com `claude-opus-5-5` via `@ai-sdk/anthropic` (se retornar 400, remover essas duas opções em `app/api/hermes/route.ts`).
+- [ ] `db push` aplica também a migration `usage_refund` (Fase 2.4).
+- [ ] **Estorno de crédito (Fase 2.4):** forçar falha do modelo (ex.: `ANTHROPIC_API_KEY` inválida temporariamente em staging) e confirmar que `usage_counters.ai_credits` volta ao valor anterior e que o chat mostra "Tive um problema para concluir a resposta…". Clicar em "Parar resposta" **não** deve estornar.
+- [ ] **Excluir conversa (Fase 2.4):** excluir pela lista e pelo cabeçalho do chat; conferir que `hermes_messages` da conversa sumiram (cascade) e que outro usuário da mesma org não consegue excluir a conversa alheia (RLS; resposta "Não encontramos esta conversa…").
+- [ ] Alerta de 80% no card "Uso do plano": ajustar manualmente `usage_counters.used` em staging e conferir o aviso amarelo (80%) e vermelho (100%) no `/dashboard` e no `/billing`.
 
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -61,8 +71,21 @@
 - [ ] Hospedagem suporta `maxDuration = 120` s em `/api/hermes` (streaming do chat); planos gratuitos podem cortar antes.
 - [ ] Anthropic Console: limite de gasto e rate limit da organização compatíveis com o volume (1 crédito de IA = 1 turno, mas o custo real por turno varia com Tools e tamanho da conversa).
 - [ ] Monitorar logs `[hermes]` (falha ao salvar mensagens ou no streaming).
+- [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 2.4 Uso do plano, atividades, estorno e exclusão de conversa — ✅ (2026-11-18) · **Fase 2 concluída**
+- **Migration** `supabase/migrations/20261118151441_usage_refund.sql`: `public.refund_usage` (mesmo período do consumo, nunca abaixo de zero, execute só `service_role`).
+- **`lib/services/usage.ts`:** `refundUsage` (não lança, registra `[usage]`), `usageLevel` (percentual, alerta ≥ 80%, esgotado ≥ 100%; limite 0 = esgotado).
+- **Estorno em `app/api/hermes/route.ts`:** 1 crédito devolvido uma única vez se o stream falhar (`onError` ou `onEnd` com `outcome.status === "failed"`) ou se a preparação falhar depois da cobrança; interrupção pelo usuário (`aborted`) não estorna.
+- **`lib/hermes/tool-labels.ts`:** `toolLabel` + `CHANNEL_LABELS` compartilhados (chat e dashboard); teste exige rótulo para toda Tool registrada.
+- **`components/usage-card.tsx`:** barras por métrica com alerta amarelo (80%) e vermelho (100%) e link para planos; usado em `/dashboard` e `/billing`.
+- **Dashboard:** feed "Atividades recentes" (últimas 6 ações: rótulo pt-BR, Hermes/manual, canal, horário; estado vazio explicativo) e coluna com uso do plano + próximos passos.
+- **Excluir conversa:** `deleteConversation` (RLS; 0 linhas → "Não encontramos esta conversa…"), Server Action `app/(app)/hermes/actions.ts` (Zod uuid, rate limit 30/min por usuário) e `delete-conversation-button.tsx` (confirmação antes de excluir) na lista e no cabeçalho do chat.
+- `ARCHITECTURE.md`: estorno documentado; nome da chave do cofre corrigido para `VAULT_ENCRYPTION_KEY`.
+
+**Testes:** `npm test` 84/84 · `npm run test:db` 54/54 · `tsc --noEmit` OK · lint limpo · build OK. TDD: RED verificado antes de cada implementação (banco, `refundUsage`/`usageLevel`, rótulos, estorno na rota, ação de excluir).
 
 ### 2.3 Chat `/hermes` com streaming — ✅ (2026-11-18)
 - **Migration** `supabase/migrations/20261118042206_hermes_chat.sql`: `hermes_conversations` (privada do usuário na org; `user_id` sempre `auth.uid()`) e `hermes_messages` (só servidor grava; unique `(conversation_id, message_id)`).

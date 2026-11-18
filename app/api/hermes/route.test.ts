@@ -10,10 +10,11 @@ const loadConversationMessages = vi.fn();
 vi.mock("@/lib/services/conversations", () => ({ ensureConversation, loadConversationMessages, saveConversationMessages: vi.fn() }));
 vi.mock("@/lib/services/brand", () => ({ getBrandContext: vi.fn().mockResolvedValue({ master_context: "Empresa: Clinkup" }) }));
 const consumeUsage = vi.fn();
+const refundUsage = vi.fn();
 vi.mock("@/lib/services/usage", async () => {
   const { ServiceError: Base } = await import("@/lib/services/errors");
   class PlanLimitError extends Base {}
-  return { consumeUsage, PlanLimitError };
+  return { consumeUsage, refundUsage, PlanLimitError };
 });
 vi.mock("@/lib/hermes/tools", () => ({ buildHermesTools: () => ({ get_brand_context: {} }) }));
 const streamText = vi.fn();
@@ -42,7 +43,49 @@ beforeEach(() => {
   ensureConversation.mockResolvedValue(undefined);
   consumeUsage.mockResolvedValue({ used: 1, limit: 500 });
   loadConversationMessages.mockResolvedValue([{ id: "m-old", role: "user", parts: [{ type: "text", text: "Oi" }] }]);
-  streamText.mockReturnValue({ toUIMessageStreamResponse: () => new Response("stream") });
+  refundUsage.mockResolvedValue(undefined);
+  streamText.mockReturnValue({
+    toUIMessageStreamResponse: (options: StreamOptions) => {
+      streamOptions = options;
+      return new Response("stream");
+    },
+  });
+});
+
+type StreamOptions = {
+  onError: (error: unknown) => string;
+  onEnd: (event: { messages: unknown[]; outcome: { status: string } }) => Promise<void>;
+};
+let streamOptions: StreamOptions;
+
+describe("estorno do crédito de IA", () => {
+  it("estorna uma única vez quando o streaming falha", async () => {
+    await post(body);
+    expect(streamOptions.onError(new Error("overloaded"))).toContain("Tente enviar a mensagem novamente");
+    await streamOptions.onEnd({ messages: [], outcome: { status: "failed" } });
+    expect(refundUsage).toHaveBeenCalledTimes(1);
+    expect(refundUsage).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-1" }), "ai_credits", 1);
+  });
+
+  it("não estorna quando a resposta conclui ou o usuário interrompe", async () => {
+    await post(body);
+    await streamOptions.onEnd({ messages: [], outcome: { status: "completed" } });
+    await post(body);
+    await streamOptions.onEnd({ messages: [], outcome: { status: "aborted" } });
+    expect(refundUsage).not.toHaveBeenCalled();
+  });
+
+  it("estorna quando falha ao preparar a conversa depois de cobrar", async () => {
+    loadConversationMessages.mockRejectedValue(new Error("db down"));
+    expect((await post(body)).status).toBe(500);
+    expect(refundUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it("não estorna quando o limite do plano impediu a cobrança", async () => {
+    consumeUsage.mockRejectedValue(new PlanLimitError("Limite atingido."));
+    await post(body);
+    expect(refundUsage).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/hermes", () => {

@@ -123,3 +123,14 @@ await expectFail("A forges assistant message", () => as(A, `insert into public.h
 await expectFail("duplicate message id in conversation", () => asService(`insert into public.hermes_messages (conversation_id, organization_id, message_id, role, parts) values ('${convA}', '${orgA}', 'm1', 'user', '[]')`));
 check("A deletes own conversation (cascade messages)", (await as(A, `delete from public.hermes_conversations where id='${convA}' returning id`)).rows.length === 1
   && (await db.query(`select count(*)::int as n from public.hermes_messages`)).rows[0].n === 0);
+
+// Estorno de uso (stream do Hermes falhou): nunca abaixo de zero, só service_role
+await asService(`delete from public.usage_counters`);
+await consume("ai_credits", 2, 10);
+const refund = async (amount) =>
+  (await asService(`select public.refund_usage('${orgA}', 'ai_credits', ${amount}) as used`)).rows[0].used;
+check("refund returns credit", (await refund(1)) === 1);
+check("refund never goes below zero", (await refund(5)) === 0);
+check("refund with no usage row is a no-op", (await asService(`select public.refund_usage('${orgA}', 'scraped_leads', 1) as used`)).rows[0].used === 0);
+await expectFail("refund rejects non-positive amount", () => refund(0));
+await expectFail("authenticated calls refund_usage", () => as(A, `select public.refund_usage('${orgA}', 'ai_credits', 1)`));

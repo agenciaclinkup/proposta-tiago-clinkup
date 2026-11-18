@@ -60,6 +60,27 @@ export async function consumeUsage(
   return { used: result.used, limit };
 }
 
+// Devolve consumo cobrado por uma ação que falhou. Não lança: o erro original é o que importa ao usuário.
+export async function refundUsage(ctx: ServiceContext, metric: UsageMetric, amount = 1): Promise<void> {
+  const { error } = await createAdminClient().rpc("refund_usage", {
+    p_organization_id: ctx.organizationId,
+    p_metric: metric,
+    p_amount: amount,
+  });
+  if (error) console.error("[usage] falha ao estornar consumo", metric, error.message);
+}
+
+export const USAGE_WARNING_RATIO = 0.8;
+
+export function usageLevel(used: number, limit: number) {
+  if (limit <= 0) return { percent: 100, warning: true, exhausted: true };
+  return {
+    percent: Math.min(100, Math.round((used / limit) * 100)),
+    warning: used / limit >= USAGE_WARNING_RATIO,
+    exhausted: used >= limit,
+  };
+}
+
 export async function getUsageSummary(ctx: ServiceContext) {
   const { data } = await ctx.supabase
     .from("usage_counters")

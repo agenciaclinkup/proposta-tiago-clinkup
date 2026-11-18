@@ -35,6 +35,13 @@ export async function ensureConversation(ctx: Ctx, conversationId: string, title
   if (insertError) throw new ServiceError("Não encontramos esta conversa. Comece uma nova conversa para continuar.");
 }
 
+// RLS só deixa o dono excluir; 0 linhas = conversa alheia ou inexistente. Mensagens caem em cascata.
+export async function deleteConversation(ctx: Ctx, conversationId: string): Promise<void> {
+  const { data, error } = await ctx.supabase.from("hermes_conversations").delete().eq("id", conversationId).select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new ServiceError("Não encontramos esta conversa. Ela pode já ter sido excluída.");
+}
+
 // Histórico confiável (gravado pelo servidor), limitado às mensagens mais recentes.
 export async function loadConversationMessages(ctx: Ctx, conversationId: string): Promise<UIMessage[]> {
   const { data, error } = await ctx.supabase
