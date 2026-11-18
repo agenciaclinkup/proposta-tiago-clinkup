@@ -122,6 +122,8 @@ Canais: chat interno (`/api/hermes`, streaming), Telegram (`/api/webhooks/telegr
 - Webhook: segredo em tempo constante (`X-Telegram-Bot-Api-Secret-Token`), Zod no update, responde 200 imediatamente e processa em `after()`; dedupe por `update_id` (reenvios do Telegram não cobram em dobro); rate limit por `chat_id`; só conversas privadas.
 - Contexto sem sessão: `loadTelegramSession` confere membership e onboarding e monta `ServiceContext` com cliente **admin** (`channel: "telegram"`). Por isso todo service filtra por `organization_id` e regras de papel usam `ctx.role` explicitamente (ex.: `saveBrandContext` recusa `member`).
 - Conversa contínua por chat (id = id da integração), visível também no histórico do painel.
+- **Áudio (Fase 3.3b):** `voice` e `audio`, até 5 min e 10 MB (checados pelo update antes de baixar e pelo tamanho real depois). Só transcreve chat vinculado e com crédito disponível. `lib/transcription.ts`: Groq (`whisper-large-v3-turbo`) se `GROQ_API_KEY`, senão OpenAI `whisper-1`, `language: pt`, via `fetch` (sem SDK). O texto entendido segue o mesmo turno do texto (1 crédito, sem extra) e a resposta começa com "🎙️ Entendi: “…”".
+- **Desvincular:** qualquer papel remove só o próprio chat (`unlinkOwnTelegram`, filtro `id + org + provider + metadata.user_id`, cliente admin); desconectar integrações de terceiros segue restrito a owner/admin (RLS).
 
 ## 4. Fases
 

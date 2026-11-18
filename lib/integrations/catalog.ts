@@ -214,10 +214,11 @@ export const INTEGRATION_CATALOG: IntegrationGuide[] = [
       {
         title: "Converse com o Hermes",
         detail:
-          "Pronto! Envie seus pedidos por mensagem de texto, como “quanto do meu plano eu já usei?”. Cada mensagem usa 1 crédito de IA do plano, igual ao chat do painel. As mensagens de áudio serão liberadas em breve.",
+          "Pronto! Envie seus pedidos por texto ou por áudio (até 5 minutos), como “quanto do meu plano eu já usei?”. Nos áudios, o Hermes mostra o que entendeu antes da resposta. Cada mensagem, de texto ou de áudio, usa 1 crédito de IA do plano.",
       },
     ],
     tips: [
+      "Quer parar de usar o Telegram? Na página Integrações, toque em Desvincular meu Telegram no card do Telegram.",
       "Planos Scale e White-Label podem usar um bot com o nome da própria marca: crie o bot no @BotFather com o comando /newbot, copie o token e cadastre-o nesta página. O token fica guardado com criptografia.",
     ],
   },

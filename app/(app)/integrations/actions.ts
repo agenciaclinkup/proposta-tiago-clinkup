@@ -5,7 +5,7 @@ import { z } from "zod";
 import { RATE_LIMIT_MESSAGE, RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { serviceContext } from "@/lib/services/context";
 import { ServiceError } from "@/lib/services/errors";
-import { createTelegramLinkCode, disconnectIntegration } from "@/lib/services/integrations";
+import { createTelegramLinkCode, disconnectIntegration, unlinkOwnTelegram } from "@/lib/services/integrations";
 import { requireWorkspace } from "@/lib/workspace";
 
 export type IntegrationActionState = { error?: string; success?: string } | undefined;
@@ -44,4 +44,25 @@ export async function disconnectIntegrationAction(_: IntegrationActionState, for
 
   revalidatePath("/integrations");
   return { success: "Integração desconectada. Você pode conectá-la de novo quando quiser." };
+}
+
+export async function unlinkTelegramAction(_: IntegrationActionState, formData: FormData): Promise<IntegrationActionState> {
+  const parsed = z.uuid().safeParse(formData.get("integrationId"));
+  if (!parsed.success) return { error: "Não consegui identificar o vínculo. Recarregue a página e tente novamente." };
+
+  const workspace = await requireWorkspace();
+  if (!(await rateLimit(`integrations:user:${workspace.user.id}`, RATE_LIMITS.integrationsUser))) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
+  try {
+    await unlinkOwnTelegram(serviceContext(workspace, "manual"), parsed.data);
+  } catch (error) {
+    if (error instanceof ServiceError) return { error: error.message };
+    console.error("[integrations] falha ao desvincular Telegram", error);
+    return { error: "Não consegui desvincular agora. Tente novamente em alguns instantes." };
+  }
+
+  revalidatePath("/integrations");
+  return { success: "Seu Telegram foi desvinculado. Para usar de novo, gere um novo código." };
 }

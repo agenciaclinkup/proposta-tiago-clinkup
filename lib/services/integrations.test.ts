@@ -8,6 +8,7 @@ const writes: Record<string, unknown[]> = {};
 let secretRow: unknown = null;
 const inserts: unknown[] = [];
 let linkRows: unknown[] = [];
+let deleteResult: unknown[] = [];
 const deletes: { table: string; filters: string[] }[] = [];
 // Encadeia filtros (.eq/.neq) e resolve como uma query do supabase-js.
 const filterChain = (filters: string[], result: () => unknown) => {
@@ -15,6 +16,7 @@ const filterChain = (filters: string[], result: () => unknown) => {
     eq: (column: string, value: unknown) => (filters.push(`${column}=${value}`), chain),
     neq: (column: string, value: unknown) => (filters.push(`${column}!=${value}`), chain),
     maybeSingle: async () => ({ data: result(), error: null }),
+    select: async () => ({ data: deleteResult, error: null }),
     then: (resolve: (value: unknown) => void) => resolve({ error: null }),
   };
   return chain;
@@ -50,6 +52,7 @@ const {
   linkTelegramChat,
   saveIntegration,
   summarizeIntegrations,
+  unlinkOwnTelegram,
 } = await import("./integrations");
 
 beforeEach(() => {
@@ -167,5 +170,21 @@ describe("createTelegramLinkCode", () => {
     const codes = new Set<string>();
     for (let i = 0; i < 20; i++) codes.add((await createTelegramLinkCode({ organizationId: "org-1", userId: "u-1" })).code);
     expect(codes.size).toBe(20);
+  });
+});
+
+describe("unlinkOwnTelegram", () => {
+  it("só remove o vínculo de Telegram do próprio usuário na org", async () => {
+    deleteResult = [{ id: "int-9" }];
+    await unlinkOwnTelegram({ organizationId: "org-1", userId: "u-1" }, "int-9");
+    expect(deletes[0]).toEqual({
+      table: "integrations",
+      filters: ["id=int-9", "organization_id=org-1", "provider=telegram", "metadata->>user_id=u-1"],
+    });
+  });
+
+  it("explica quando o vínculo não é do usuário", async () => {
+    deleteResult = [];
+    await expect(unlinkOwnTelegram({ organizationId: "org-1", userId: "u-1" }, "int-9")).rejects.toBeInstanceOf(ServiceError);
   });
 });

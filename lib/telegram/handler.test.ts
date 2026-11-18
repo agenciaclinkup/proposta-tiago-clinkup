@@ -15,7 +15,16 @@ vi.mock("@/lib/hermes/turn", () => ({ startHermesTurn }));
 const generateText = vi.fn();
 vi.mock("ai", () => ({ generateText }));
 const sendTelegramMessage = vi.fn();
-vi.mock("./telegram", async (importOriginal) => ({ ...(await importOriginal<typeof import("./telegram")>()), sendTelegramMessage }));
+const downloadTelegramFile = vi.fn();
+vi.mock("./telegram", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./telegram")>()),
+  sendTelegramMessage,
+  downloadTelegramFile,
+}));
+const transcribeAudio = vi.fn();
+vi.mock("@/lib/transcription", () => ({ transcribeAudio }));
+const getUsageSummary = vi.fn();
+vi.mock("@/lib/services/usage", () => ({ getUsageSummary }));
 
 const { handleTelegramMessage } = await import("./handler");
 
@@ -101,9 +110,60 @@ describe("handleTelegramMessage", () => {
     expect(replies()[0]).toContain("Tente enviar");
   });
 
-  it("avisa que áudio chega em breve (3.3b) sem cobrar", async () => {
-    await handleTelegramMessage("bot", 20, message(undefined, { voice: { file_id: "f" } }));
-    expect(replies()[0]).toContain("áudio");
+});
+
+describe("mensagens de áudio", () => {
+  const voice = (extra: object = {}) => message(undefined, { voice: { file_id: "f-1", duration: 12, file_size: 20_000, ...extra } });
+
+  beforeEach(() => {
+    getUsageSummary.mockResolvedValue([{ metric: "ai_credits", used: 3, limit: 500 }]);
+    downloadTelegramFile.mockResolvedValue(new Blob([new Uint8Array([1])]));
+    transcribeAudio.mockResolvedValue("Qual é o meu plano?");
+  });
+
+  it("transcreve e responde pelo Hermes mostrando o que foi entendido, com 1 crédito", async () => {
+    await handleTelegramMessage("bot", 30, voice());
+    expect(downloadTelegramFile).toHaveBeenCalledWith("bot", "f-1", expect.any(Number));
+    expect(startHermesTurn).toHaveBeenCalledTimes(1);
+    expect(startHermesTurn.mock.calls[0][1].userMessage.parts[0].text).toBe("Qual é o meu plano?");
+    expect(replies()).toHaveLength(1);
+    expect(replies()[0]).toContain("Qual é o meu plano?");
+    expect(replies()[0]).toContain("Seu plano é o Starter.");
+  });
+
+  it("aceita arquivo de áudio além de mensagem de voz", async () => {
+    await handleTelegramMessage("bot", 31, message(undefined, { audio: { file_id: "a-1", duration: 30 } }));
+    expect(downloadTelegramFile).toHaveBeenCalledWith("bot", "a-1", expect.any(Number));
+  });
+
+  it("recusa áudio longo demais sem baixar nem cobrar", async () => {
+    await handleTelegramMessage("bot", 32, voice({ duration: 600 }));
+    expect(replies()[0]).toContain("5 minutos");
+    expect(downloadTelegramFile).not.toHaveBeenCalled();
+    expect(startHermesTurn).not.toHaveBeenCalled();
+  });
+
+  it("não transcreve para chat não vinculado", async () => {
+    findTelegramLink.mockResolvedValueOnce(null);
+    await handleTelegramMessage("bot", 33, voice());
+    expect(replies()[0]).toContain("Integrações");
+    expect(transcribeAudio).not.toHaveBeenCalled();
+  });
+
+  it("não transcreve quando os créditos do mês acabaram", async () => {
+    getUsageSummary.mockResolvedValue([{ metric: "ai_credits", used: 500, limit: 500 }]);
+    await handleTelegramMessage("bot", 34, voice());
+    expect(replies()[0]).toContain("créditos");
+    expect(transcribeAudio).not.toHaveBeenCalled();
+  });
+
+  it("pede para repetir quando não entende o áudio, sem cobrar", async () => {
+    transcribeAudio.mockResolvedValueOnce("   ");
+    await handleTelegramMessage("bot", 35, voice());
+    transcribeAudio.mockRejectedValueOnce(new Error("api down"));
+    await handleTelegramMessage("bot", 36, voice());
+    expect(replies()[0]).toContain("Não consegui entender");
+    expect(replies()[1]).toContain("Não consegui entender");
     expect(startHermesTurn).not.toHaveBeenCalled();
   });
 });

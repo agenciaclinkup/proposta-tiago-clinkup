@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { parseCommand, splitMessage, telegramUpdateSchema, verifyWebhookSecret } from "./telegram";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ServiceError } from "@/lib/services/errors";
+import { downloadTelegramFile, parseCommand, splitMessage, telegramUpdateSchema, verifyWebhookSecret } from "./telegram";
 
 describe("parseCommand", () => {
   it("reconhece /vincular com código em qualquer caixa e com @nome_do_bot", () => {
@@ -50,5 +51,29 @@ describe("splitMessage", () => {
     const parts = splitMessage("a".repeat(9000));
     expect(parts.map((p) => p.length)).toEqual([4000, 4000, 1000]);
     expect(splitMessage("curta")).toEqual(["curta"]);
+  });
+});
+
+describe("downloadTelegramFile", () => {
+  const fetchMock = vi.fn();
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("busca o caminho do arquivo e baixa o áudio", async () => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ ok: true, result: { file_path: "voice/file_1.oga", file_size: 3 } }))
+      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])));
+    const file = await downloadTelegramFile("123:abc", "file-1", 1000);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.telegram.org/bot123:abc/getFile?file_id=file-1");
+    expect(fetchMock.mock.calls[1][0]).toBe("https://api.telegram.org/file/bot123:abc/voice/file_1.oga");
+    expect(file.size).toBe(3);
+  });
+
+  it("recusa arquivo acima do limite sem baixar", async () => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValueOnce(Response.json({ ok: true, result: { file_path: "voice/big.oga", file_size: 5000 } }));
+    await expect(downloadTelegramFile("123:abc", "file-2", 1000)).rejects.toBeInstanceOf(ServiceError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

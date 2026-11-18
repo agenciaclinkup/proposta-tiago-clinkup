@@ -168,6 +168,22 @@ export async function findTelegramLink(chatId: number) {
   return data && userId ? { integrationId: data.id as string, organizationId: data.organization_id as string, userId } : null;
 }
 
+// Qualquer papel desvincula o PRÓPRIO chat do Telegram. Admin client porque o RLS de delete é só de admin;
+// o filtro por org + provider + metadata.user_id garante que ninguém remove o vínculo de outra pessoa.
+export async function unlinkOwnTelegram(ctx: { organizationId: string; userId: string | null }, integrationId: string) {
+  if (!ctx.userId) throw new ServiceError("Entre na sua conta para desvincular o Telegram.");
+  const { data, error } = await createAdminClient()
+    .from("integrations")
+    .delete()
+    .eq("id", integrationId)
+    .eq("organization_id", ctx.organizationId)
+    .eq("provider", "telegram")
+    .eq("metadata->>user_id", ctx.userId)
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new ServiceError("Este Telegram não está vinculado à sua conta ou já foi desvinculado.");
+}
+
 // RLS: só owner/admin excluem; segredos caem em cascata.
 export async function disconnectIntegration(ctx: Ctx, integrationId: string): Promise<void> {
   const { data, error } = await ctx.supabase.from("integrations").delete().eq("id", integrationId).select("id");

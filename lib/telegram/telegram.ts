@@ -1,5 +1,12 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { ServiceError } from "@/lib/services/errors";
+
+const audioFileSchema = z.object({
+  file_id: z.string().max(300),
+  duration: z.number().nonnegative().optional(),
+  file_size: z.number().nonnegative().optional(),
+});
 
 // Só os campos que usamos; o resto do update é descartado pelo Zod.
 export const telegramUpdateSchema = z.object({
@@ -10,7 +17,8 @@ export const telegramUpdateSchema = z.object({
       chat: z.object({ id: z.number().int(), type: z.string() }),
       from: z.object({ id: z.number().int(), first_name: z.string().optional(), username: z.string().optional() }).optional(),
       text: z.string().max(4096).optional(),
-      voice: z.object({ file_id: z.string(), duration: z.number().optional() }).optional(),
+      voice: audioFileSchema.optional(),
+      audio: audioFileSchema.optional(),
     })
     .optional(),
 });
@@ -46,6 +54,22 @@ export function splitMessage(text: string): string[] {
   const parts: string[] = [];
   for (let i = 0; i < text.length; i += TELEGRAM_LIMIT) parts.push(text.slice(i, i + TELEGRAM_LIMIT));
   return parts.length > 0 ? parts : [""];
+}
+
+// getFile + download. O tamanho informado pelo Telegram é checado antes de baixar e o real depois.
+export async function downloadTelegramFile(botToken: string, fileId: string, maxBytes: number): Promise<File> {
+  const tooBig = new ServiceError("Esse áudio é grande demais para eu ouvir. Envie um áudio mais curto, por favor.");
+  const info = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`);
+  const body = (await info.json()) as { ok: boolean; result?: { file_path?: string; file_size?: number } };
+  if (!body.ok || !body.result?.file_path) throw new Error("telegram getFile failed");
+  if ((body.result.file_size ?? 0) > maxBytes) throw tooBig;
+
+  const file = await fetch(`https://api.telegram.org/file/bot${botToken}/${body.result.file_path}`);
+  if (!file.ok) throw new Error(`telegram file download failed with status ${file.status}`);
+  const blob = await file.blob();
+  if (blob.size > maxBytes) throw tooBig;
+  // Nome com extensão real (ex.: file_1.oga): o provedor de transcrição detecta o formato por ela.
+  return new File([blob], body.result.file_path.split("/").pop()!);
 }
 
 // Texto puro (sem parse_mode): evita erro de formatação com caracteres especiais vindos do modelo.

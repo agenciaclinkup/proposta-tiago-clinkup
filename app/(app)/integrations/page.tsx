@@ -21,7 +21,7 @@ import { INTEGRATION_CATALOG, type IntegrationProvider } from "@/lib/integration
 import { serviceContext } from "@/lib/services/context";
 import { listIntegrations, summarizeIntegrations } from "@/lib/services/integrations";
 import { requireWorkspace } from "@/lib/workspace";
-import { disconnectIntegrationAction } from "./actions";
+import { disconnectIntegrationAction, unlinkTelegramAction } from "./actions";
 import { TelegramLinkPanel } from "./telegram-link";
 
 export const metadata: Metadata = { title: "Integrações" };
@@ -81,8 +81,8 @@ export default async function IntegrationsPage() {
 
       {!isAdmin && (
         <p role="note" className="rounded-lg border border-border bg-secondary/50 p-3 text-sm text-muted-foreground">
-          Você pode acompanhar as integrações da empresa. Apenas proprietários e administradores podem conectar ou
-          desconectar contas.
+          Você pode acompanhar as integrações da empresa e vincular ou desvincular o seu próprio Telegram. Apenas
+          proprietários e administradores podem conectar ou desconectar as demais contas.
         </p>
       )}
 
@@ -120,7 +120,18 @@ export default async function IntegrationsPage() {
                             <span className="ml-2 text-xs text-amber-400">reconecte para continuar usando</span>
                           )}
                         </span>
-                        {isAdmin && (
+                        {(account.metadata as { user_id?: string } | null)?.user_id === workspace.user.id ? (
+                          <ConfirmActionButton
+                            action={unlinkTelegramAction}
+                            fields={{ integrationId: account.id }}
+                            confirmMessage="Desvincular o seu Telegram? O Hermes deixará de responder neste chat até você gerar um novo código e vincular de novo."
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <Unplug className="size-4" /> Desvincular meu Telegram
+                          </ConfirmActionButton>
+                        ) : isAdmin && (
                           <ConfirmActionButton
                             action={disconnectIntegrationAction}
                             fields={{ integrationId: account.id }}

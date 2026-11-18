@@ -5,25 +5,24 @@
 ## Estado atual
 
 - **Fase:** 3 — Integrações (Fase 2 — Hermes Core ✅ concluída)
-- **Etapa em andamento:** 3.3b — Telegram: mensagens de áudio (Whisper/Groq)
+- **Etapa em andamento:** 3.3c — Telegram: bot próprio para White-Label
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**3.3b Telegram — áudio** (TDD; decisão do produto: Whisper `whisper-1` padrão, Groq quando `GROQ_API_KEY` existir):
-1. `lib/transcription.ts`: `transcribeAudio(bytes, mime)` via `fetch` + `FormData` (sem dependência nova): Groq (`https://api.groq.com/openai/v1/audio/transcriptions`, modelo Whisper do Groq) se `GROQ_API_KEY`, senão OpenAI (`https://api.openai.com/v1/audio/transcriptions`, `whisper-1`), `language: "pt"`. Sem nenhuma chave → `ServiceError` amigável. Testar seleção de provedor e erro de API.
-2. `lib/telegram/telegram.ts`: `downloadTelegramFile(botToken, fileId)` (`getFile` + download), com limite de tamanho (ex.: 10 MB) e duração (ex.: 5 min, campo `voice.duration`) checados **antes** de baixar; aceitar também `audio` se fizer sentido.
-3. `lib/telegram/handler.ts`: trocar a resposta "áudio em breve" por: baixar → transcrever → mesmo fluxo de texto (`startHermesTurn`); transcrição vazia → pedir para repetir; responder mostrando o que foi entendido. Decidir se áudio custa 1 crédito (como texto) — padrão proposto: 1 crédito por turno, sem extra.
-4. Textos: remover "áudio em breve" do catálogo (`lib/integrations/catalog.ts`, passo 4 do Telegram) e do chat (`app/(app)/hermes/chat.tsx`).
-5. `.env.example` + checklist: `OPENAI_API_KEY`, `GROQ_API_KEY` (opcional); custo de transcrição no planejamento de preços.
-
-Depois: **3.3c** bot próprio White-Label (`/api/webhooks/telegram/[slug]`, token cifrado no cofre, `setWebhook` com segredo por bot; o handler já recebe `botToken` por parâmetro).
+**3.3c Telegram — bot próprio White-Label/Enterprise** (TDD):
+1. **Modelo de dados:** adicionar `telegram_bot` ao enum `integration_provider` (migration nova via `supabase migration new`) para a configuração do bot da org — `external_account_id` = id numérico do bot, `display_name` = `@username`, token cifrado em `integration_secrets` (AAD = id da integração). Os vínculos de chats continuam como `provider telegram`, com `metadata.bot = "org"` quando vierem do bot próprio. Atualizar `INTEGRATION_PROVIDERS`/catálogo (ou excluir `telegram_bot` da lista de cards) e os checks do `rls-check.mjs`.
+2. **Segredo por bot sem armazenar:** `secret = HMAC-SHA256(TELEGRAM_WEBHOOK_SECRET, slug)` em hex; testar que muda por slug e que o webhook de uma org não aceita o segredo de outra.
+3. **Cadastro (só owner/admin e só plano Scale ou `is_white_label`):** Server Action com Zod no token (`^\d+:[A-Za-z0-9_-]{30,}$`), rate limit, `getMe` para validar e obter o username, `saveIntegration` cifrado, `setWebhook` para `https://<NEXT_PUBLIC_SITE_URL>/api/webhooks/telegram/<slug>` com o segredo derivado e `allowed_updates=["message"]`. Remover = `deleteWebhook` + desconectar. UI no card do Telegram com passo a passo (@BotFather) e estado do bot.
+4. **Rota `app/api/webhooks/telegram/[slug]/route.ts`:** resolve org pelo `slug` (admin), confere o segredo derivado em tempo constante, carrega o token do cofre (`getIntegrationToken`) e chama o mesmo `handleTelegramMessage` com `{ botToken, organizationId }`.
+5. **Handler restrito à org do bot:** com `organizationId` presente, `/vincular` só aceita código da mesma org e `findTelegramLink` filtra pela org (um chat do bot da empresa X nunca acessa a empresa Y). Painel: "Abrir o Telegram e vincular" usa o username do bot próprio quando existir.
+6. Checklist: `NEXT_PUBLIC_SITE_URL` correto em produção (usado no `setWebhook`), teste de ponta a ponta com um bot de teste.
 
 **Plano da Fase 3:**
 - 3.1 dados + cofre ✅.
 - 3.2 `/integrations` ✅.
-- 3.3 Telegram, dividido em **3.3a** ✅, **3.3b** áudio (acima) e **3.3c** bot próprio White-Label. Decisões fechadas em 2026-11-18, ver `ARCHITECTURE.md` §1:
+- 3.3 Telegram, dividido em **3.3a** ✅, **3.3b** áudio ✅ e **3.3c** bot próprio White-Label (acima). Decisões fechadas em 2026-11-18, ver `ARCHITECTURE.md` §1:
   - SaaS: bot único da plataforma (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`), webhook `/api/webhooks/telegram`; "Gerar código" na UI (Server Action, código de 8 caracteres `[A-Z0-9]` sem ambíguos, gravado via admin) e `/vincular CODIGO` → `consume_telegram_link_code` → `saveIntegration(provider: "telegram", externalAccountId: chat_id, metadata: { user_id })`.
   - White-Label/Enterprise: admin cadastra o token do próprio bot (cifrado em `integration_secrets`), plataforma chama `setWebhook` para `/api/webhooks/telegram/[slug]` com segredo próprio por bot.
   - Mensagens: Zod no update, header `X-Telegram-Bot-Api-Secret-Token`, rate limit por `chat_id`, Hermes no canal `telegram` (mesmas Tools, 1 crédito por mensagem, estorno em falha; resposta via `generateText`).
@@ -60,6 +59,9 @@ Depois: **3.3c** bot próprio White-Label (`/api/webhooks/telegram/[slug]`, toke
 - [ ] **Fluxo Telegram de ponta a ponta (Fase 3.3a):** gerar código em `/integrations`, tocar em "Abrir o Telegram e vincular" (deep link) e também testar `/vincular CODIGO` manual; código vencido/usado deve ser recusado; mensagem de texto responde pelo Hermes; conferir `integrations` (provider `telegram`), conversa "Conversa no Telegram" em `/hermes`, `hermes_logs` com canal `telegram` e `ai_credits` +1. Como `member`, pedir para mudar o tom de voz → deve ser recusado (checagem de papel sem RLS).
 - [ ] Hospedagem executa `after()` do Next.js até o fim (na Vercel usa `waitUntil`; respeita `maxDuration = 120` em `/api/webhooks/telegram`). Se não executar, as respostas do Telegram nunca chegam.
 - [ ] Monitorar logs `[telegram]` (falha ao enviar mensagem ou processar update).
+- [ ] **Áudio no Telegram (Fase 3.3b):** com `OPENAI_API_KEY` (e depois com `GROQ_API_KEY`), enviar áudio de voz e arquivo de áudio: a resposta começa com "🎙️ Entendi: “…”" e cobra 1 crédito; áudio acima de 5 min é recusado sem cobrança; sem crédito no mês, recusa sem transcrever; sem nenhuma chave configurada, mostra "A transcrição de áudio ainda não está disponível…".
+- [ ] **Desvincular o próprio Telegram (Fase 3.3b):** como `member`, ver o botão "Desvincular meu Telegram" só na linha do próprio chat e conseguir desvincular; não ver botão nas linhas de outras pessoas; como admin, "Desconectar" continua disponível para as demais linhas.
+- [ ] Custo da transcrição (Whisper/Groq) considerado no preço dos planos (hoje o áudio custa 1 crédito, igual ao texto).
 
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -70,6 +72,7 @@ Depois: **3.3c** bot próprio White-Label (`/api/webhooks/telegram/[slug]`, toke
 - [ ] `ANTHROPIC_API_KEY` (Fase 2.2+, Agente Hermes)
 - [ ] Planejadas para a Fase 3.3 (entram no `.env.example` quando o código usar): `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `OPENAI_API_KEY` (Whisper), `GROQ_API_KEY` (opcional).
 - [ ] `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` (somente servidor) e `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` — já no `.env.example` (Fase 3.3a).
+- [ ] `OPENAI_API_KEY` (Whisper `whisper-1`) e, opcional, `GROQ_API_KEY` (se presente, tem prioridade) — somente servidor, já no `.env.example` (Fase 3.3b).
 - [ ] White-Label (opcional): `NEXT_PUBLIC_BRAND_*`
 
 ### Supabase (painel)
@@ -92,6 +95,16 @@ Depois: **3.3c** bot próprio White-Label (`/api/webhooks/telegram/[slug]`, toke
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 3.3b Telegram — áudio + desvincular o próprio chat — ✅ (2026-11-18)
+- **`lib/transcription.ts`:** `transcribeAudio` via `fetch` + `FormData` (sem dependência nova): Groq `whisper-large-v3-turbo` se `GROQ_API_KEY`, senão OpenAI `whisper-1`; `language: pt`; sem chave → `ServiceError` amigável.
+- **`lib/telegram/telegram.ts`:** schema aceita `voice` e `audio` (`file_id`, `duration`, `file_size`); `downloadTelegramFile` (getFile → download, limite checado antes e depois, devolve `File` com extensão real).
+- **`lib/telegram/handler.ts`:** áudio até 5 min / 10 MB; só transcreve chat vinculado e com crédito no mês; transcrição vazia ou com erro → "Não consegui entender…" sem cobrar; texto entendido segue o mesmo turno (**1 crédito**, sem extra) e a resposta vem com "🎙️ Entendi: “…”". Refatorado em `linkedSession` + `answer` (texto e áudio sem duplicação).
+- **Desvincular:** `unlinkOwnTelegram` (admin client filtrando `id + org + provider + metadata.user_id`) + `unlinkTelegramAction` (Zod, rate limit, `revalidatePath`). Card do Telegram mostra "Desvincular meu Telegram" só na linha do próprio usuário (qualquer papel); "Desconectar" de terceiros segue só para owner/admin.
+- Textos: "áudio em breve" removido (catálogo, chat, bot); dica de desvincular no guia.
+- `.env.example`: `OPENAI_API_KEY`, `GROQ_API_KEY`; linha do Telegram com caractere corrompido (gravada em ANSI na 3.3a) corrigida.
+
+**Testes:** `npm test` 150/150 (16 novos, RED verificado antes; um deles pegou bug real: transcrição só com espaços não era tratada como vazia) · `npm run test:db` 72/72 · `tsc --noEmit` OK · lint limpo · build OK.
 
 ### 3.3a Telegram — bot da plataforma, vínculo e texto — ✅ (2026-11-18)
 - **Núcleo compartilhado `lib/hermes/turn.ts` (`startHermesTurn`):** crédito, histórico, Contexto Mestre, modelo, prompt, Tools, estorno idempotente e persistência num só lugar. `app/api/hermes/route.ts` refatorado para usá-lo (os 11 testes da rota web seguiram verdes sem mudança).

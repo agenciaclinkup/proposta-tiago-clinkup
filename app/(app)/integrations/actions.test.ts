@@ -7,7 +7,8 @@ const rateLimit = vi.fn();
 vi.mock("@/lib/rate-limit", () => ({ rateLimit, RATE_LIMITS: { integrationsUser: {}, telegramCodeUser: {} }, RATE_LIMIT_MESSAGE: "Muitas tentativas." }));
 const disconnectIntegration = vi.fn();
 const createTelegramLinkCode = vi.fn();
-vi.mock("@/lib/services/integrations", () => ({ disconnectIntegration, createTelegramLinkCode }));
+const unlinkOwnTelegram = vi.fn();
+vi.mock("@/lib/services/integrations", () => ({ disconnectIntegration, createTelegramLinkCode, unlinkOwnTelegram }));
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath }));
 
@@ -66,5 +67,28 @@ describe("generateTelegramCodeAction", () => {
     rateLimit.mockResolvedValue(false);
     expect(await generateTelegramCodeAction()).toEqual({ error: "Muitas tentativas." });
     expect(createTelegramLinkCode).not.toHaveBeenCalled();
+  });
+});
+
+describe("unlinkTelegramAction", () => {
+  it("valida o id com Zod", async () => {
+    const { unlinkTelegramAction } = await import("./actions");
+    expect(await unlinkTelegramAction(undefined, form("x"))).toEqual({ error: expect.any(String) });
+    expect(unlinkOwnTelegram).not.toHaveBeenCalled();
+  });
+
+  it("qualquer papel desvincula o próprio Telegram, com rate limit, e a página atualiza", async () => {
+    const { unlinkTelegramAction } = await import("./actions");
+    requireWorkspace.mockResolvedValue({ supabase: {}, user: { id: "u-2" }, role: "member", organization: { id: "org-1", plan_id: "starter" } });
+    expect(await unlinkTelegramAction(undefined, form(id))).toEqual({ success: expect.any(String) });
+    expect(rateLimit).toHaveBeenCalledWith("integrations:user:u-2", expect.anything());
+    expect(unlinkOwnTelegram).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-1", userId: "u-2" }), id);
+    expect(revalidatePath).toHaveBeenCalledWith("/integrations");
+  });
+
+  it("mostra a mensagem quando o vínculo não é do usuário", async () => {
+    const { unlinkTelegramAction } = await import("./actions");
+    unlinkOwnTelegram.mockRejectedValue(new ServiceError("Este Telegram não está vinculado à sua conta."));
+    expect(await unlinkTelegramAction(undefined, form(id))).toEqual({ error: "Este Telegram não está vinculado à sua conta." });
   });
 });
