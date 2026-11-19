@@ -6,6 +6,7 @@ import { onboardingSchema } from "@/lib/onboarding";
 import { getPlanAndUsage } from "@/lib/services/account";
 import { listRecentActivity } from "@/lib/services/activity";
 import { getBrandContext, mergeBrandPatch, saveBrandContext } from "@/lib/services/brand";
+import { searchLeads, searchLeadsSchema, resolveStage, createLead, leadInputSchema, updateLead, leadPatchSchema, moveLead, moveLeadSchema, addLeadNote, noteSchema, getFunnelMetrics } from "@/lib/services/crm";
 import type { ServiceContext } from "@/lib/services/context";
 import { ServiceError } from "@/lib/services/errors";
 import { listIntegrations, summarizeIntegrations } from "@/lib/services/integrations";
@@ -74,6 +75,38 @@ const getIntegrationSetupGuideTool = defineTool({
   execute: async (_ctx, { provider }) => getIntegrationGuide(provider)!,
 });
 
+
+const listLeadsTool = defineTool({
+  name: "list_leads", description: "Busca leads por nome, empresa ou e-mail; use antes de alterar um lead e peça ao usuário identificar o correto se houver mais de um resultado.",
+  input: searchLeadsSchema, execute: async (ctx, input) => {
+    const leads = await searchLeads(ctx, input);
+    return { leads, requiresSelection: Boolean(input.query && leads.length > 1) };
+  },
+});
+const createLeadTool = defineTool({
+  name: "create_lead", description: "Cadastra um lead no CRM, opcionalmente em uma etapa indicada pelo nome.",
+  input: z.object({ lead: leadInputSchema.omit({ stageId: true }), stage: z.string().trim().min(1).max(200).optional() }),
+  execute: async (ctx, { lead, stage }) => createLead(ctx, { ...lead, stageId: stage ? await resolveStage(ctx, stage) : undefined }),
+});
+const updateLeadTool = defineTool({
+  name: "update_lead", description: "Atualiza campos de um lead identificado pelo ID, após desambiguar a busca.",
+  input: z.object({ leadId: z.uuid(), patch: leadPatchSchema }),
+  execute: (ctx, { leadId, patch }) => updateLead(ctx, leadId, patch),
+});
+const moveLeadTool = defineTool({
+  name: "move_lead_to_stage", description: "Move um lead identificado pelo ID para uma etapa do funil indicada pelo nome ou ID.",
+  input: z.object({ leadId: moveLeadSchema.shape.leadId, stage: z.string().trim().min(1).max(200) }),
+  execute: async (ctx, { leadId, stage }) => moveLead(ctx, { leadId, stageId: await resolveStage(ctx, stage), index: 100000 }),
+});
+const addLeadNoteTool = defineTool({
+  name: "add_lead_note", description: "Adiciona uma anotação ao histórico de um lead identificado pelo ID.",
+  input: noteSchema, execute: async (ctx, { leadId, content }) => { await addLeadNote(ctx, leadId, content); return { added: true }; },
+});
+const getFunnelMetricsTool = defineTool({
+  name: "get_funnel_metrics", description: "Consulta as métricas atuais do funil de vendas, incluindo totais e taxas de passagem.",
+  input: z.object({}), execute: (ctx) => getFunnelMetrics(ctx),
+});
+
 export const HERMES_TOOLS: HermesTool[] = [
   getBrandContextTool,
   updateBrandContextTool,
@@ -81,6 +114,7 @@ export const HERMES_TOOLS: HermesTool[] = [
   listRecentActivityTool,
   listIntegrationsTool,
   getIntegrationSetupGuideTool,
+  listLeadsTool, createLeadTool, updateLeadTool, moveLeadTool, addLeadNoteTool, getFunnelMetricsTool,
 ] as HermesTool[];
 
 // Tools prontas para o AI SDK, já presas ao contexto (organização, usuário, canal) da requisição.

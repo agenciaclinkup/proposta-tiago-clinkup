@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { funnelMetrics } from "@/lib/crm/funnel";
 import { getPlan } from "@/config/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServiceContext } from "./context";
@@ -491,4 +492,50 @@ async function insertActivity(
     created_via: ctx.via,
   });
   if (error) throw new Error(error.message);
+}
+
+// Consultas do Hermes sempre usam o mesmo contexto e filtro de organização do CRM.
+export const searchLeadsSchema = z.object({
+  query: z.string().trim().min(1).max(200).optional(),
+  stageId: z.uuid().optional(),
+  limit: z.number().int().min(1).max(20).default(20),
+});
+
+export async function searchLeads(ctx: ServiceContext, input: z.infer<typeof searchLeadsSchema>) {
+  let query = ctx.supabase.from("crm_leads").select(LEAD_COLUMNS).eq("organization_id", ctx.organizationId);
+  if (input.stageId) query = query.eq("stage_id", input.stageId);
+  if (input.query) {
+    // PostgREST usa vírgulas e parênteses como sintaxe: aspas e barras também precisam ser escapadas.
+    const term = input.query.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_").replace(/"/g, '\\"');
+    query = query.or(["name", "company", "email"].map((field) => field + '.ilike."%' + term + '%"').join(","));
+  }
+  const { data, error } = await query.order("name").limit(input.limit);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function resolveStage(ctx: ServiceContext, nameOrId: string): Promise<string> {
+  const stages = await listStages(ctx);
+  const normalize = (value: string) => value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+  const matches = stages.filter((stage) => stage.id === nameOrId || normalize(stage.name) === normalize(nameOrId));
+  if (matches.length !== 1) throw new ServiceError(`Etapa não encontrada ou ambígua. Etapas disponíveis: ${stages.map((stage) => stage.name).join(", ") || "nenhuma"}.`);
+  return matches[0].id;
+}
+
+export async function getFunnelMetrics(ctx: ServiceContext) {
+  const stages = await listStages(ctx);
+  const entries = await Promise.all(stages.map(async (stage) => {
+    const base = () => ctx.supabase.from("crm_leads").select("value").eq("organization_id", ctx.organizationId).eq("stage_id", stage.id).order("id");
+    const { count, error } = await ctx.supabase.from("crm_leads").select("id", { count: "exact", head: true }).eq("organization_id", ctx.organizationId).eq("stage_id", stage.id);
+    if (error) throw new Error(error.message);
+    let value = 0;
+    const pageSize = 500;
+    for (let offset = 0; offset < (count ?? 0); offset += pageSize) {
+      const page = await base().range(offset, offset + pageSize - 1);
+      if (page.error) throw new Error(page.error.message);
+      value += (page.data ?? []).reduce ( (sum, lead) => sum + Number(lead.value ?? 0), 0);
+    }
+    return { id: stage.id, name: stage.name, kind: stage.kind, count: count ?? 0, value };
+  }));
+  return funnelMetrics(entries);
 }

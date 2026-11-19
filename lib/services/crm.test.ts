@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ServiceContext } from "./context";
 import { ServiceError } from "./errors";
 import {
+  resolveStage,
   computePosition,
   countOpenOpportunities,
   createLead,
@@ -287,5 +288,19 @@ describe("memberNames", () => {
     expect(Object.fromEntries(names)).toEqual({ "u-2": "Bruno Lima" });
     expect(ops.find((op) => op.table === "organization_members")?.filters).toEqual(expect.arrayContaining(["organization_id=org-1", "user_id in u-2,u-de-fora"]));
     expect(ops.find((op) => op.table === "profiles")?.filters).toEqual(["id in u-2"]);
+  });
+});
+
+
+describe("resolveStage", () => {
+  it("resolve nomes sem acento e caixa e filtra pela organização", async () => {
+    const fake = fakeSupabase((op) => op.table === "crm_pipelines" ? { data: { id: "pipe-1" } } : { data: [{ id: "etapa-1", name: "Reunião Agendada" }] });
+    expect(await resolveStage(ctxWith(fake.supabase), "reuniao AGENDADA")).toBe("etapa-1");
+    expect(fake.ops.every((op) => op.filters.includes("organization_id=org-1"))).toBe(true);
+    await expect(resolveStage(ctxWith(fake.supabase), "Outra")).rejects.toThrow("Reunião Agendada");
+  });
+  it("recusa nomes ambíguos", async () => {
+    const fake = fakeSupabase((op) => op.table === "crm_pipelines" ? { data: { id: "pipe-1" } } : { data: [{ id: "1", name: "Reunião" }, { id: "2", name: "Reuniao" }] });
+    await expect(resolveStage(ctxWith(fake.supabase), "reuniao")).rejects.toThrow("ambígua");
   });
 });

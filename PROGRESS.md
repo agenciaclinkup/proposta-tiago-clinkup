@@ -5,25 +5,20 @@
 ## Estado atual
 
 - **Fase:** 4 — CRM Inteligente: Kanban e Funil de Vendas (Fases 2 e 3 ✅ concluídas)
-- **Etapa em andamento:** 4.4 — Tools do Agente Hermes para o CRM
+- **Etapa em andamento:** 4.5 — Reunião na Agenda do Google e indicadores no dashboard
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-18 — Claude
+- **Última atualização:** 2026-11-18 — Codex
 
 ## Próxima microtarefa (exata)
 
-**4.4 Tools do Agente Hermes para o CRM** (TDD; mesmas funções e schemas da UI — `lib/services/crm.ts`):
-1. **Busca para o agente:** `searchLeads(ctx, { query?, stageId?, limit ≤ 20 })` (busca por nome/empresa/e-mail com `ilike`, escapando `%` e `_`; sempre filtrada por org) e `resolveStage(ctx, nomeOuId)` (o modelo fala o **nome** da etapa, sem acento/maiúscula; ambíguo ou inexistente → `ServiceError` listando as etapas válidas).
-2. **Tools** em `lib/hermes/tools.ts`: `list_leads`, `create_lead` (`leadInputSchema` + `stage` por nome; limite do plano já tratado), `update_lead` (`leadPatchSchema`), `move_lead_to_stage` (lead + nome da etapa, histórico com `created_via: hermes`), `add_lead_note`, `get_funnel_metrics` (contagem por etapa com `count` head por etapa — sem carregar todos os leads — + `funnelMetrics`).
-3. **Sem Tool de exclusão** (ação destrutiva fica só na UI, com confirmação). Avaliar `needsApproval` para mover vários leads de uma vez (não há Tool em lote nesta etapa).
-4. Rótulos pt-BR em `lib/hermes/tool-labels.ts` (o teste exige rótulo para toda Tool), system prompt atualizado com as novas capacidades e orientação de **perguntar qual lead** quando a busca trouxer mais de um.
-5. Testes: cada Tool chama o service certo com o `ServiceContext` do canal; resolução de etapa por nome; isolamento (`member` move/cria mas a etapa de outra org não resolve); Telegram usa as mesmas Tools.
+**4.5 Reunião na Agenda do Google e indicadores no dashboard:** implementar `schedule_meeting` a partir do lead, usando `getGoogleAccessToken` da 3.5, com convite; integrar os indicadores de oportunidades no funil e taxa de conversão ao dashboard. Compartilhar a lógica entre interface e Hermes, validar permissões e cobrir com testes.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
 - 4.2 `/crm` Kanban ✅.
 - 4.3 Ficha do lead + Visão de Funil ✅.
-- 4.4 Tools do Hermes para o CRM (acima).
+- 4.4 Tools do Hermes para o CRM ✅.
 - 4.5 Reunião na Agenda do Google a partir do lead (`schedule_meeting`, usa `getGoogleAccessToken` da 3.5; cria evento com convite) + KPI "Oportunidades no funil" e "Taxa de conversão" no dashboard.
 
 **Plano da Fase 3 (concluída):**
@@ -147,6 +142,11 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 4.4 Tools do Hermes para o CRM — ✅ (2026-11-18)
+- Seis Tools para busca, cadastro, alteração, movimentação, anotações e métricas, usando os serviços e schemas do CRM; sem exclusão pelo agente.
+- `lib/services/crm.ts`: busca limitada por organização, resolução de etapa por nome ou ID e métricas por etapa; nomes ambíguos são recusados. `lib/hermes/tools.ts`, `system-prompt.ts` e `tool-labels.ts`: registro, desambiguação e textos pt-BR. Testes em `lib/hermes/crm-tools.test.ts`, `lib/hermes/tools.test.ts` e `lib/services/crm.test.ts`.
+- **Testes:** `npm test` 255/255; `npm run lint` limpo; `npm run build` OK. RED inicial verificado para registro e serviços das Tools. Sem chamada real ao modelo ou Supabase.
 
 ### 4.3 Ficha completa do lead e Visão de Funil — ✅ (2026-11-18)
 - **Service:** `getLead` (com etapa; outro tenant → `ServiceError` → 404), `listStages` (sem carregar leads), `memberNames` (confirma membros via contexto, lê `profiles` com admin só desses ids).

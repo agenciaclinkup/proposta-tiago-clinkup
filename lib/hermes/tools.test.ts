@@ -56,7 +56,7 @@ describe("registro de Tools", () => {
 
   it("expõe as Tools da Fase 2.2 no formato do AI SDK", () => {
     expect(Object.keys(buildHermesTools(ctx)).sort()).toEqual(
-      ["get_brand_context", "get_integration_setup_guide", "get_plan_and_usage", "list_integrations", "list_recent_activity", "update_brand_context"].sort(),
+      ["get_brand_context", "get_integration_setup_guide", "get_plan_and_usage", "list_integrations", "list_recent_activity", "update_brand_context", "list_leads", "create_lead", "update_lead", "move_lead_to_stage", "add_lead_note", "get_funnel_metrics"].sort(),
     );
   });
 });
