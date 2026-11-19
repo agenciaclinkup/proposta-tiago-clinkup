@@ -4,37 +4,21 @@
 
 ## Estado atual
 
-- **Fase:** 6 — Estúdio (Fases 2, 3, 4 e 5 ✅ concluídas)
-- **Etapa em andamento:** 6.4 — Páginas públicas das landing pages e captura de leads no CRM
+- **Fase:** 7 — Leads & Ads (Fases 2, 3, 4, 5 e 6 ✅ concluídas)
+- **Etapa em andamento:** 7.1 — Dados e serviços compartilhados de prospecção
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-19 — Claude (6.3)
+- **Última atualização:** 2026-11-19 — Codex (6.4)
 
 ## Próxima microtarefa (exata)
 
-**6.4 Páginas públicas das landing pages e captura direta de leads no CRM:**
-- Rota pública `/p/[orgSlug]/[slug]` (ou domínio White-Label), renderizada no servidor.
-  - Mostra somente páginas com `published = true`.
-  - Leitura por função/cliente admin restrita a colunas públicas: nunca expor IDs de funil, `organization_id` ou dados de outras páginas.
-  - Página inexistente ou não publicada responde 404.
-  - Metadados (title/description/OG) a partir do conteúdo; layout responsivo com a identidade da empresa.
-- Formulário da seção `form`: Route Handler ou Server Action pública.
-  - Validação Zod: nome, e-mail e/ou WhatsApp, mensagem e consentimento LGPD obrigatório.
-  - Rate limit por IP + página (`rateLimitByIp`) e honeypot antibot.
-  - Lead criado via função transacional `service_role` na etapa configurada da própria organização (FK composta). Aplica o limite `crmLeads` do plano; registra `source = landing_page` e atividade "Recebido pela landing page …".
-  - Resposta genérica em pt-BR (sem revelar limite/plano ao visitante); página sem etapa do CRM não aceita envio.
-- No `/studio`: link "Ver página publicada" e aviso honesto quando o funil não estiver configurado.
-- Remover os avisos "chegando" do editor e do `system-prompt.ts`.
-- Testes:
-  - unitários: schema, rate limit, honeypot, isolamento entre empresas, página não publicada e limite de leads;
-  - `test:db`: grants da função pública e etapa de outra empresa recusada.
-- Atualizar checklist (domínio/rota pública, política de privacidade/LGPD no formulário) e preparar a Fase 7 (Leads & Ads).
+**7.1 Leads & Ads — dados e serviços de prospecção:** implementar, com TDD, as tabelas `lead_searches` e `scraped_leads` descritas em `ARCHITECTURE.md`, com RLS, grants explícitos, FKs compostas por empresa e unicidade por `place_id` e organização. Criar serviços compartilhados com schemas Zod para consultas, resultados e envio ao CRM, respeitando limites mensais de `scrapedLeadsPerMonth` e limite total de leads do CRM, com consumo transacional, isolamento e mensagens pt-BR. Preparar integração Google Places e UI para a próxima microtarefa, sem chamar provedores ou expor credenciais nesta etapa. Cobrir banco em memória, testes unitários, build, lint e `tsc`; registrar migrations no checklist.
 
-**Plano da Fase 6:**
+**Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
 - 6.2 `/studio` + geração assistida + exportação para o calendário ✅.
 - 6.3 Tools do Hermes para o Estúdio ✅.
-- 6.4 Landing page pública e captura de leads no CRM.
+- 6.4 Landing page pública e captura de leads no CRM ✅.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
@@ -212,7 +196,15 @@
   - **Landing page por nome de etapa:** "conecte a página à etapa Novo Lead" resolve a etapa da própria empresa; nome ambíguo ou inexistente lista as etapas disponíveis.
   - **Limite conhecido:** chamar `export_carousel_to_calendar` duas vezes cria dois rascunhos (a Tool não é idempotente). O prompt instrui chamada única; avaliar chave idempotente se ocorrer em produção.
 
+- [ ] **Landing pages públicas (6.4):** aplicar `20261119165745_landing_public_capture.sql` e executar advisors; configurar domínio público `/p/[orgSlug]/[slug]`, HTTPS e proxy confiável que substitua `X-Forwarded-For`; validar com duas empresas páginas publicadas/rascunhos, imagens privadas, formulário, consentimento, honeypot, rate limit e limite do CRM. Disponibilizar a política de privacidade adequada de cada empresa antes do go-live. Testar concorrência real: a captura pública serializa por empresa, mas a criação manual existente no CRM usa contagem sem trava e pode concorrer com ela; unificar a proteção do limite antes de depender de limite rígido entre canais. Conferir upload e acessibilidade em navegadores e leitores de tela reais.
+
 ## Concluído
+
+### 6.4 Landing pages públicas e captura no CRM — ✅ (2026-11-19)
+- Rota `/p/[orgSlug]/[slug]` renderiza apenas páginas publicadas; metadados e conteúdo expõem somente dados públicos, e a imagem privada é servida por rota vinculada à página publicada, sem URLs assinadas ou identificadores internos no HTML.
+- Formulário com Zod, consentimento, honeypot e rate limit por IP/página; `capture_landing_lead` é restrita a `service_role` e grava lead e atividade atomicamente na etapa da organização, com limite do plano e mensagens genéricas ao visitante.
+- Editor permite upload de imagens privadas, mostra link público e alerta para falta de etapa; planos e prompt explicam créditos da conversa e geração.
+- **Testes:** `npm test` 381/381, `npm run test:db`, `npx tsc --noEmit`, `npm run lint` e `npm run build`; verificações reais de domínio, Storage, acessibilidade e concorrência permanecem no checklist.
 
 ### 6.3 Tools do Agente Hermes para o Estúdio — ✅ (2026-11-19)
 - **Correção de tipagem:** `lib/hermes/social-confirmation-tools.test.ts` agora chama as Tools com um helper tipado; `npx tsc --noEmit` passa limpo.

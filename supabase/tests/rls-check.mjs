@@ -455,3 +455,21 @@ await asService(`select public.save_studio_landing('${orgA}','${A}',null,'manual
 await expectFail("landing slugs are unique per organization", () => asService(`select public.save_studio_landing('${orgA}','${A}',null,'manual','${landingPayload}'::jsonb)`));
 await asService(`select public.save_studio_landing('${orgB}','${B}',null,'manual','${landingPayload}'::jsonb)`);
 check("landing pages remain isolated", (await as(A, `select * from public.landing_pages`)).rows.length === 1 && (await as(B, `select * from public.landing_pages`)).rows.length === 1);
+
+// Captura pública nunca confia em IDs ou limites recebidos do visitante.
+const landingStageA = (await asService(`select id,pipeline_id from public.crm_stages where organization_id='${orgA}' order by position limit 1`)).rows[0];
+await asService(`update public.landing_pages set published=true,pipeline_id='${landingStageA.pipeline_id}',stage_id='${landingStageA.id}',sections='[{"type":"form","heading":"Contato","body":"","imagePath":null}]'::jsonb where organization_id='${orgA}' and slug='pagina'`);
+const lpLimits = JSON.stringify({ starter: 1000, growth: 10000, scale: 100000 });
+const capture = (org, slug, limits = lpLimits) => asService(`select public.capture_landing_lead('${org}','${slug}','Ana','ana@example.com',null,'Olá','${limits}'::jsonb) as ok`);
+await expectFail("anonymous cannot execute capture transaction", () => as(A, `select public.capture_landing_lead('clinkup-abc','pagina','Ana','ana@example.com',null,'Olá','${lpLimits}'::jsonb)`));
+check("published landing captures lead", (await capture('clinkup-abc','pagina')).rows[0].ok === true);
+const captured = (await as(A, `select id,stage_id,source from public.crm_leads where email='ana@example.com'`)).rows[0];
+check("lead has configured stage and source", captured?.stage_id === landingStageA.id && captured?.source === 'landing_page');
+check("lead has initial activity", (await as(A, `select * from public.crm_activities where lead_id='${captured.id}'`)).rows.length === 1);
+check("unpublished landing cannot capture", (await capture('clinkup-abc','missing')).rows[0].ok === false);
+check("limit blocks capture", (await capture('clinkup-abc','pagina', '{"starter":0,"growth":0,"scale":0}')).rows[0].ok === false);
+await asService(`update public.landing_pages set published=false where organization_id='${orgA}' and slug='pagina'`);
+check("draft landing rejects direct submissions", (await capture('clinkup-abc','pagina')).rows[0].ok === false);
+await asService(`update public.landing_pages set published=true,stage_id=null,pipeline_id=null where organization_id='${orgA}' and slug='pagina'`);
+check("landing without configured stage rejects submissions", (await capture('clinkup-abc','pagina')).rows[0].ok === false);
+check("other tenant's same slug cannot capture a draft", (await capture('outra-empresa','pagina')).rows[0].ok === false);

@@ -26,6 +26,8 @@ export const RATE_LIMITS = {
   studioUser: { limit: 60, windowSeconds: 60 },
   // Cada geração pode consumir crédito e chamar o provedor de IA.
   studioGenerateUser: { limit: 10, windowSeconds: 60 },
+  landingCapture: { limit: 8, windowSeconds: 600 },
+  landingMedia: { limit: 120, windowSeconds: 60 },
 } satisfies Record<string, RateRule>;
 
 export const RATE_LIMIT_MESSAGE = "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";

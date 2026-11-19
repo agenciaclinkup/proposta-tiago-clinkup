@@ -20,7 +20,7 @@ export type StudioCredits = { used: number; limit: number };
 const nf = new Intl.NumberFormat("pt-BR");
 const updated = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
 
-export function StudioView({ carousels, landingPages, accounts, stages, credits, aiProvider }: { carousels: StudioCarousel[]; landingPages: StudioLanding[]; accounts: StudioAccount[]; stages: StudioStage[]; credits: StudioCredits; aiProvider: boolean }) {
+export function StudioView({ carousels, landingPages, accounts, stages, credits, aiProvider, orgSlug }: { carousels: StudioCarousel[]; landingPages: StudioLanding[]; accounts: StudioAccount[]; stages: StudioStage[]; credits: StudioCredits; aiProvider: boolean; orgSlug: string }) {
   const router = useRouter();
   const [tab, setTab] = useState<"carousels" | "landing">("carousels");
   const [carouselId, setCarouselId] = useState<string | null>(carousels[0]?.id ?? null);
@@ -54,10 +54,10 @@ export function StudioView({ carousels, landingPages, accounts, stages, credits,
         : <CarouselEditor key={carousel ? `${carousel.id}:${carousel.updated_at}` : "new"} carousel={carousel} accounts={accounts} aiProvider={aiProvider} creditsLeft={remaining} onSaved={saved(setCarouselId)} />}
     </div> : <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
       <ProjectList label="Suas landing pages" empty="Nenhuma landing page ainda. Crie a primeira para captar leads." newLabel="Nova landing page" selected={pageId} onSelect={setPageId}
-        items={landingPages.map((item) => ({ id: item.id, title: item.title, meta: `/${item.slug} · ${item.published ? "Pronta para publicar" : "Rascunho"}` }))} />
+        items={landingPages.map((item) => ({ id: item.id, title: item.title, meta: `/${item.slug} · ${item.published ? "Publicada" : "Rascunho"}` }))} />
       {pageId === null ? <EmptyState text="Selecione uma landing page ou crie uma nova." />
         : page === undefined ? <EmptyState text="Carregando o projeto…" />
-        : <LandingEditor key={page ? `${page.id}:${page.updated_at}` : "new"} page={page} stages={stages} onSaved={saved(setPageId)} />}
+        : <LandingEditor key={page ? `${page.id}:${page.updated_at}` : "new"} page={page} stages={stages} orgSlug={orgSlug} onSaved={saved(setPageId)} />}
     </div>}
   </div>;
 }

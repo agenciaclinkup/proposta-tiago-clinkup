@@ -35,6 +35,7 @@ export default async function StudioPage() {
       stages={stages as StudioStage[]}
       credits={{ used: credits.used, limit: credits.limit }}
       aiProvider={Boolean(process.env.ANTHROPIC_API_KEY)}
+      orgSlug={workspace.organization.slug}
     />
   );
 }

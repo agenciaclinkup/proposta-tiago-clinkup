@@ -13,7 +13,7 @@ export function PricingTable({
   renderAction: (planId: PlanId) => React.ReactNode;
 }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div><div className="grid gap-6 lg:grid-cols-3">
       {PLANS.map((plan) => (
         <div
           key={plan.id}
@@ -66,6 +66,6 @@ export function PricingTable({
           </div>
         </div>
       ))}
-    </div>
+    </div><p className="mt-4 text-sm text-muted-foreground">Ao gerar conteúdo com IA pelo Hermes, a conversa usa 1 crédito e a geração usa mais 1 crédito. Quando o Estúdio usa a estrutura-base local sem provedor de IA, a geração não consome crédito adicional.</p></div>
   );
 }
