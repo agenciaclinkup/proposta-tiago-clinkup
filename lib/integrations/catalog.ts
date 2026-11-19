@@ -148,7 +148,7 @@ export const INTEGRATION_CATALOG: IntegrationGuide[] = [
       {
         title: "Conecte aqui na plataforma",
         detail:
-          "Clique em Conectar no card Google Meu Negócio, escolha a conta Google administradora do perfil e permita que a plataforma gerencie o Perfil da Empresa.",
+          "Clique em Conectar com o Google no card Google Meu Negócio, escolha a conta Google administradora do perfil e permita que a plataforma gerencie o Perfil da Empresa.",
       },
       {
         title: "Escolha o local",
@@ -172,7 +172,7 @@ export const INTEGRATION_CATALOG: IntegrationGuide[] = [
       {
         title: "Conecte aqui na plataforma",
         detail:
-          "Clique em Conectar no card Google Calendar e entre com a conta Google dessa agenda.",
+          "Clique em Conectar com o Google no card Google Calendar e entre com a conta Google dessa agenda.",
       },
       {
         title: "Autorize os eventos",

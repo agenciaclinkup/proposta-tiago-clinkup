@@ -2,7 +2,8 @@ import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export type OAuthProvider = "meta" | "google";
-type StatePayload = { organizationId: string; userId: string; provider: OAuthProvider; nonce: string; exp: number };
+// `context`: dado extra assinado junto (ex.: qual produto Google conectar), impossível de trocar no caminho.
+type StatePayload = { organizationId: string; userId: string; provider: OAuthProvider; context?: string; nonce: string; exp: number };
 
 const TTL_MS = 10 * 60_000;
 export const OAUTH_NONCE_COOKIE = "oauth_nonce";
@@ -17,7 +18,7 @@ function stateKey(): Buffer {
 const sign = (encoded: string) => createHmac("sha256", stateKey()).update(encoded).digest("base64url");
 
 // state = payload.assinatura (base64url). O nonce também vai num cookie httpOnly: o callback exige os dois iguais.
-export function createOAuthState(owner: { organizationId: string; userId: string; provider: OAuthProvider }) {
+export function createOAuthState(owner: { organizationId: string; userId: string; provider: OAuthProvider; context?: string }) {
   const nonce = randomBytes(16).toString("base64url");
   const payload: StatePayload = { ...owner, nonce, exp: Date.now() + TTL_MS };
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");

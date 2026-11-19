@@ -12,6 +12,9 @@ const connectOwnTelegramBot = vi.fn();
 const disconnectOwnTelegramBot = vi.fn();
 vi.mock("@/lib/services/telegram-bot", () => ({ connectOwnTelegramBot, disconnectOwnTelegramBot }));
 vi.mock("@/lib/services/integrations", () => ({ disconnectIntegration, createTelegramLinkCode, unlinkOwnTelegram }));
+const googleTokenToRevoke = vi.fn();
+const revokeGoogleToken = vi.fn();
+vi.mock("@/lib/integrations/google", () => ({ googleTokenToRevoke, revokeGoogleToken }));
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath }));
 
@@ -127,5 +130,34 @@ describe("connectOwnBotAction", () => {
     requireWorkspace.mockResolvedValue(workspace);
     expect(await disconnectOwnBotAction()).toEqual({ success: expect.any(String) });
     expect(disconnectOwnTelegramBot).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-1" }));
+  });
+});
+
+describe("desconectar integração do Google", () => {
+  beforeEach(() => {
+    requireWorkspace.mockResolvedValue({ supabase: {}, user: { id: "u-1" }, role: "admin", organization: { id: "org-1", plan_id: "starter" } });
+    disconnectIntegration.mockResolvedValue(undefined);
+  });
+
+  it("revoga o token no Google depois de remover a integração", async () => {
+    googleTokenToRevoke.mockResolvedValue("1//rt");
+    expect(await disconnectIntegrationAction(undefined, form(id))).toEqual({ success: expect.any(String) });
+    expect(googleTokenToRevoke).toHaveBeenCalledWith("org-1", id);
+    expect(revokeGoogleToken).toHaveBeenCalledWith("1//rt");
+    expect(disconnectIntegration.mock.invocationCallOrder[0]).toBeLessThan(revokeGoogleToken.mock.invocationCallOrder[0]);
+  });
+
+  it("member não chega a revogar nada", async () => {
+    requireWorkspace.mockResolvedValue({ supabase: {}, user: { id: "u-2" }, role: "member", organization: { id: "org-1", plan_id: "starter" } });
+    expect(await disconnectIntegrationAction(undefined, form(id))).toEqual({ error: expect.stringContaining("administradores") });
+    expect(googleTokenToRevoke).not.toHaveBeenCalled();
+    expect(disconnectIntegration).not.toHaveBeenCalled();
+  });
+
+  it("não revoga se a remoção falhar", async () => {
+    googleTokenToRevoke.mockResolvedValue("1//rt");
+    disconnectIntegration.mockRejectedValue(new ServiceError("Não foi possível desconectar."));
+    await disconnectIntegrationAction(undefined, form(id));
+    expect(revokeGoogleToken).not.toHaveBeenCalled();
   });
 });

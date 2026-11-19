@@ -4,24 +4,27 @@
 
 ## Estado atual
 
-- **Fase:** 3 — Integrações (Fase 2 — Hermes Core ✅ concluída)
-- **Etapa em andamento:** 3.5 — OAuth Google (Google Meu Negócio e Google Calendar)
+- **Fase:** 4 — CRM Inteligente: Kanban e Funil de Vendas (Fases 2 e 3 ✅ concluídas)
+- **Etapa em andamento:** 4.1 — Dados do CRM + services (dual-control)
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**3.5 OAuth Google — Google Meu Negócio e Google Calendar** (TDD; antes de codar, conferir na documentação oficial do Google os endpoints OAuth 2.0 para web server, os escopos exatos de Business Profile e Calendar, as APIs de contas/locais do Business Profile e a revogação — não usar valores de memória):
-1. **Reuso do anti-CSRF:** `createOAuthState`/`verifyOAuthState` com `provider: "google"` (já suportado e testado) + cookie `oauth_nonce`. Avaliar PKCE (`code_challenge` S256) se a doc recomendar para o fluxo web.
-2. **`lib/integrations/google.ts`:** URL de autorização (`access_type=offline`, `prompt=consent` para garantir `refresh_token`, `include_granted_scopes`), troca de `code`, **renovação de access token com o `refresh_token`** (função usada pelos services futuros), revogação; leitura de contas e locais do Business Profile e da agenda principal; `mapGoogleConnections` pura (refresh token cifrado em `refresh_token_encrypted`, access token + `expires_at`).
-3. **Rotas** `app/api/integrations/google/start` e `/callback` no mesmo padrão da Meta (só owner/admin, rate limit, state + nonce + mesmo usuário/org, resultado em `/integrations?google=<status>`), escopo pedido conforme o card (Business Profile e/ou Calendar) ou os dois juntos — decidir pela doc e pela UX.
-4. **Desconectar Google:** ao desconectar uma integração Google, chamar a revogação do token antes de apagar (melhor esforço).
-5. **UI:** ativar "Conectar com o Google" nos 2 cards (admin), remover o aviso "em breve", mensagens de retorno pt-BR, guias do catálogo revisados.
-6. `.env.example` + checklist: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, URIs de redirecionamento no Google Cloud, tela de consentimento OAuth, verificação do app para escopos sensíveis, **pedido de acesso à Business Profile API** (aprovação manual do Google), política de privacidade e termos.
+**4.1 Dados do CRM + services** (TDD; schema-base em `ARCHITECTURE.md` §2 "CRM"):
+1. Migration `crm` (`npx supabase migration new crm`): `crm_pipelines`, `crm_stages` (`position`, `color`, `kind open|won|lost`), `crm_leads` (`stage_id`, `position`, contato, `source`, `value`, `ai_score`, `owner_id`, `next_meeting_at`, `google_event_id`), `crm_activities` (histórico). RLS por `organization_id` (membros leem e operam leads; só owner/admin alteram pipeline/etapas), grants explícitos, índices `(organization_id, stage_id, position)`. FK de `stage_id` garantindo que a etapa é da **mesma org** (check via trigger ou FK composta `(stage_id, organization_id)`).
+2. Funil padrão por empresa: Novo Lead, Qualificado por IA, Reunião Agendada, Proposta Enviada, Fechado (ganho) — criado no trigger de nova organização **e** backfill para as orgs existentes.
+3. Checks em `supabase/tests/rls-check.mjs`: isolamento entre orgs, lead não pode apontar para etapa de outra org, member não altera etapas.
+4. `lib/services/crm.ts` com schemas Zod compartilhados (UI e Hermes): `listBoard`, `createLead`, `updateLead`, `moveLead` (reordena `position` na coluna de destino), `addLeadNote`; toda mudança de etapa grava `crm_activities` (`stage_change`, `via manual|hermes`). Testes unitários das regras (reordenação, validação, atividade).
 
-Depois da 3.5: fechar a Fase 3 e iniciar a **Fase 4 — CRM (Kanban + funil)**.
+**Plano da Fase 4:**
+- 4.1 dados + services (acima).
+- 4.2 `/crm` Kanban com `@dnd-kit` (instalar versão fixa), colunas personalizáveis (owner/admin), card do lead, criação rápida; menu "CRM" ativo.
+- 4.3 Ficha do lead (dados, histórico de atividades, notas) + visão de **funil** com taxas de passagem entre etapas (`funnelMetrics` pura, testada) e Recharts.
+- 4.4 Tools do Hermes: `create_lead`, `update_lead`, `move_lead_to_stage`, `list_leads`, `add_lead_note`, `get_funnel_metrics` (rótulos pt-BR) — mesmas funções da UI.
+- 4.5 Reunião na Agenda do Google a partir do lead (`schedule_meeting`, usa `getGoogleAccessToken` da 3.5; cria evento com convite) + KPI "Oportunidades no funil" e "Taxa de conversão" no dashboard.
 
-**Plano da Fase 3:**
+**Plano da Fase 3 (concluída):**
 - 3.1 dados + cofre ✅.
 - 3.2 `/integrations` ✅.
 - 3.3 Telegram ✅: **3.3a** bot da plataforma, **3.3b** áudio, **3.3c** bot próprio White-Label. Decisões fechadas em 2026-11-18, ver `ARCHITECTURE.md` §1:
@@ -30,7 +33,7 @@ Depois da 3.5: fechar a Fase 3 e iniciar a **Fase 4 — CRM (Kanban + funil)**.
   - Mensagens: Zod no update, header `X-Telegram-Bot-Api-Secret-Token`, rate limit por `chat_id`, Hermes no canal `telegram` (mesmas Tools, 1 crédito por mensagem, estorno em falha; resposta via `generateText`).
   - Áudio: OpenAI Whisper `whisper-1` (`OPENAI_API_KEY`) por padrão; Groq (`GROQ_API_KEY`) quando configurado; limitar duração/tamanho do áudio.
 - 3.4 OAuth Meta (Instagram, Página do Facebook, Meta Ads) ✅.
-- 3.5 OAuth Google (Google Meu Negócio + Calendar) (acima).
+- 3.5 OAuth Google (Google Meu Negócio + Calendar) ✅.
 
 **Plano da Fase 2 (concluída):** 2.1 dados + services ✅ · 2.2 Tools ✅ · 2.3 chat `/hermes` ✅ · 2.4 uso do plano, atividades, estorno e exclusão de conversa ✅.
 
@@ -84,6 +87,20 @@ Depois da 3.5: fechar a Fase 3 e iniciar a **Fase 4 — CRM (Kanban + funil)**.
 - [ ] Remover o app nas configurações do Facebook (Configurações > Apps e sites) com a conta de teste → conferir que as integrações Meta daquele usuário somem (callback de desautorização) e que o pedido de exclusão retorna `confirmation_code` e a página de status abre.
 - [ ] Token do `meta_ads` expira em ~60 dias: até existir o alerta automático (fase de agendamentos), orientar admins a reconectar; monitorar logs `[meta]`.
 
+### Google Cloud (Fase 3.5 — obrigatório para "Conectar com o Google")
+- [ ] Criar o projeto no Google Cloud Console da Clinkup e ativar as APIs: **Google Calendar API**, **My Business Account Management API** e **My Business Business Information API**.
+- [ ] **Pedido de acesso à Business Profile API** (formulário de solicitação de acesso do Google Business Profile): sem aprovação, as APIs do Business Profile não aparecem no console e o "Conectar com o Google" do card Google Meu Negócio cai em `?google=error`. A aprovação é manual e pode levar dias.
+- [ ] **OAuth Consent Screen** (Google Auth Platform): tipo **Externo**, nome e logo da marca, e-mail de suporte, domínio autorizado, links da **Política de Privacidade** e dos **Termos de Uso**; escopos cadastrados: `https://www.googleapis.com/auth/business.manage`, `https://www.googleapis.com/auth/calendar.events`, `https://www.googleapis.com/auth/calendar.calendarlist.readonly`.
+- [ ] **Verificação do app pelo Google** para os escopos sensíveis (vídeo de demonstração + justificativa de uso). Enquanto em modo "Teste", só usuários de teste cadastrados conseguem conectar e o refresh token pode expirar em 7 dias.
+- [ ] Credencial **OAuth client ID** tipo **Web application** → `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` (somente servidor; já no `.env.example`).
+- [ ] **Authorized redirect URIs:** `https://<domínio>/api/integrations/google/callback` (exatamente igual ao usado pela plataforma).
+- [ ] `db push` não precisa de migration nova para a 3.5 (usa `integrations`/`integration_secrets` existentes).
+- [ ] Teste de ponta a ponta: conectar Google Meu Negócio (locais aparecem no card) e Google Calendar (agenda principal aparece); `integration_secrets.refresh_token_encrypted` preenchido com `v1:`; cancelar no Google mostra "A conexão com o Google foi cancelada".
+- [ ] **Validar na prática o que não foi confirmado na doc durante a 3.5:** parâmetros da renovação (`grant_type=refresh_token`), campo `title` no `readMask` dos locais e a leitura `GET /calendar/v3/users/me/calendarList/primary`.
+- [ ] Renovação: forçar `expires_at` no passado em staging e conferir que a próxima chamada renova o token sem pedir login; revogar o acesso em myaccount.google.com e conferir que a integração vira "Precisa de atenção".
+- [ ] Revogação ao desconectar: desconectar a **última** integração de um consentimento revoga no Google (o app some de myaccount.google.com → Segurança → Apps de terceiros); com dois locais do mesmo consentimento, desconectar um **não** derruba o outro.
+- [ ] Monitorar logs `[google]` (falha no callback, renovação ou revogação).
+
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - [ ] `SUPABASE_SECRET_KEY` (somente servidor)
@@ -116,6 +133,17 @@ Depois da 3.5: fechar a Fase 3 e iniciar a **Fase 4 — CRM (Kanban + funil)**.
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 3.5 OAuth Google — Google Meu Negócio e Google Calendar — ✅ (2026-11-18) · **Fase 3 concluída**
+- **Conferido na doc oficial antes de codar:** endpoints de autorização/token/revogação, `access_type=offline` + `prompt=consent` (o `refresh_token` só vem na 1ª autorização sem o prompt), `error=access_denied`, escopo `business.manage` (com aprovação de acesso à API), escopos do Calendar, contas (`mybusinessaccountmanagement v1`) e locais (`mybusinessbusinessinformation v1`, `readMask`). Não confirmados na leitura (marcados no checklist): parâmetros exatos da renovação, campo `title` no `readMask` e `calendarList/primary`.
+- **`lib/integrations/oauth-state.ts`:** campo `context` assinado (produto Google) — reaproveitado sem nova lógica de segurança.
+- **`lib/integrations/google.ts`:** `GOOGLE_SCOPES` por produto, `googleAuthorizeUrl`, `exchangeGoogleCode`, `fetchGoogleBusinessLocations`, `fetchGooglePrimaryCalendar`, `mapGoogleConnections` (pura; `google_grant_id` comum às linhas de um consentimento), `getGoogleAccessToken` (renova e regrava cifrado; `invalid_grant` → `needs_attention`), `googleTokenToRevoke` (só a última linha do grant), `revokeGoogleToken` (melhor esforço).
+- **Rotas:** `api/integrations/google/start?product=business|calendar` e `/callback` (só owner/admin, rate limit, Zod, state + nonce + mesmo usuário/org, exige refresh token, resultado em `/integrations?google=`).
+- **Desconectar:** `disconnectIntegrationAction` recusa `member` antes de tudo, lê o token a revogar, remove a integração e só então revoga.
+- **UI:** "Conectar com o Google" ativo nos cards Google Meu Negócio e Google Calendar (admin; member vê orientação); avisos de retorno pt-BR; guias do catálogo com o nome real do botão. Nenhum card de `/integrations` tem mais o aviso "em breve".
+- `.env.example`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. `ARCHITECTURE.md`: fluxo OAuth Google, renovação e revogação.
+
+**Testes:** `npm test` 209/209 (19 novos; RED verificado antes — exceto o teste do `context` no state, que já passou porque o campo era assinado pelo spread; só o tipo foi ajustado) · `npm run test:db` 76/76 · `tsc --noEmit` OK · lint limpo · build OK. Chamadas reais às APIs do Google só cobertas por mocks — validação real no checklist.
 
 ### 3.4 OAuth Meta — Instagram, Página do Facebook e Meta Ads — ✅ (2026-11-18)
 - **Conferido na doc oficial antes de codar:** Graph API **v27.0**, diálogo/troca de código/token de longa duração, token de Página via `/{user}/accounts`, `instagram_business_account`, escopos e o formato do `signed_request` de exclusão de dados. Não confirmados na leitura (marcados no checklist): `/me/adaccounts`, `/{act}/adspixels` e o callback de desautorização.

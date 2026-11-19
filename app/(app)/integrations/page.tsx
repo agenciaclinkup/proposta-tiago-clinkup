@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Camera,
   ChevronDown,
-  Clock,
   Megaphone,
   Newspaper,
   Send,
@@ -57,6 +56,31 @@ const META_RESULT: Record<string, { tone: "ok" | "error"; text: string }> = {
   error: { tone: "error", text: "Não conseguimos concluir a conexão com a Meta agora. Tente novamente em alguns minutos." },
 };
 
+const GOOGLE_RESULT: Record<string, { tone: "ok" | "error"; text: string }> = {
+  connected: { tone: "ok", text: "Pronto! Sua conta Google foi conectada. Confira abaixo o que foi encontrado." },
+  none: {
+    tone: "error",
+    text: "O login com o Google funcionou, mas não encontramos um Perfil da Empresa ou agenda nessa conta. Confira se você entrou com a conta certa e tente de novo.",
+  },
+  no_refresh: {
+    tone: "error",
+    text: "O Google não liberou o acesso contínuo à conta. Clique em Conectar com o Google novamente e aceite todas as permissões pedidas.",
+  },
+  cancelled: { tone: "error", text: "A conexão com o Google foi cancelada. Nenhuma alteração foi feita." },
+  invalid_state: {
+    tone: "error",
+    text: "Por segurança, não concluímos a conexão: o pedido expirou ou veio de outra sessão. Clique em Conectar com o Google novamente.",
+  },
+  invalid: { tone: "error", text: "Não identificamos qual serviço do Google conectar. Use o botão do card desejado." },
+  forbidden: { tone: "error", text: "Apenas proprietários e administradores podem conectar contas do Google." },
+  unavailable: { tone: "error", text: "A conexão com o Google ainda não está disponível nesta plataforma. Fale com o suporte." },
+  rate_limited: { tone: "error", text: "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente." },
+  error: {
+    tone: "error",
+    text: "Não conseguimos concluir a conexão com o Google agora. Se for o Google Meu Negócio, confira se o perfil está verificado e tente novamente em alguns minutos.",
+  },
+};
+
 // Validado aqui porque vira parte de uma URL t.me no navegador.
 const botUsernameOrNull = (raw: string | null | undefined) => {
   const value = raw?.replace(/^@/, "");
@@ -70,9 +94,9 @@ const STATUS = {
   not_connected: { label: "Não conectado", className: "border-border text-muted-foreground" },
 } as const;
 
-export default async function IntegrationsPage({ searchParams }: { searchParams: Promise<{ meta?: string }> }) {
-  const { meta } = await searchParams;
-  const metaResult = meta ? META_RESULT[meta] : undefined;
+export default async function IntegrationsPage({ searchParams }: { searchParams: Promise<{ meta?: string; google?: string }> }) {
+  const { meta, google } = await searchParams;
+  const oauthResult = (meta ? META_RESULT[meta] : undefined) ?? (google ? GOOGLE_RESULT[google] : undefined);
   const workspace = await requireWorkspace();
   const ctx = serviceContext(workspace, "manual");
   const [rows, ownBot] = await Promise.all([listIntegrations(ctx), getOwnTelegramBot(workspace.organization.id)]);
@@ -99,16 +123,16 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
         </Button>
       </header>
 
-      {metaResult && (
+      {oauthResult && (
         <p
           role="status"
           className={
-            metaResult.tone === "ok"
+            oauthResult.tone === "ok"
               ? "rounded-lg border border-primary/40 bg-primary/10 p-3 text-sm text-primary"
               : "rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
           }
         >
-          {metaResult.text}
+          {oauthResult.text}
         </p>
       )}
 
@@ -207,16 +231,26 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
                     </p>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Button type="button" disabled aria-describedby={`${guide.provider}-connect-notice`}>
-                      Conectar com o Google
-                    </Button>
-                    <p id={`${guide.provider}-connect-notice`} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                      <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                      <span>
-                        A conexão com o Google será liberada em breve. Enquanto isso, siga o passo a passo abaixo para
-                        deixar tudo pronto: quando o botão for ativado, a conexão leva menos de um minuto.
-                      </span>
+                  <div className="space-y-2">
+                    {isAdmin ? (
+                      <Button asChild>
+                        <a
+                          href={`/api/integrations/google/start?product=${guide.provider === "google_business" ? "business" : "calendar"}`}
+                        >
+                          Conectar com o Google
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button type="button" disabled>
+                        Conectar com o Google
+                      </Button>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {isAdmin
+                        ? guide.provider === "google_business"
+                          ? "Entre com a conta Google que administra o Perfil da Empresa. Todos os locais autorizados aparecem aqui."
+                          : "Entre com a conta Google da agenda que vai receber as reuniões marcadas pelo CRM."
+                        : "Peça a um proprietário ou administrador da empresa para fazer a conexão."}
                     </p>
                   </div>
                 )}

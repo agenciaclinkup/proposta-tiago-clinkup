@@ -48,3 +48,13 @@ describe("state OAuth anti-CSRF", () => {
     expect(verifyOAuthState(state, { ...owner, nonce })).toBeNull();
   });
 });
+
+describe("contexto assinado no state", () => {
+  it("devolve o contexto (ex.: produto Google) e ele não pode ser trocado", () => {
+    const { state, nonce } = createOAuthState({ ...owner, provider: "google", context: "calendar" });
+    expect(verifyOAuthState(state, { ...owner, provider: "google", nonce })?.context).toBe("calendar");
+    const [payload, signature] = state.split(".");
+    const changed = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(payload, "base64url").toString()), context: "business" })).toString("base64url");
+    expect(verifyOAuthState(`${changed}.${signature}`, { ...owner, provider: "google", nonce })).toBeNull();
+  });
+});

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { RATE_LIMIT_MESSAGE, RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { serviceContext } from "@/lib/services/context";
 import { ServiceError } from "@/lib/services/errors";
+import { googleTokenToRevoke, revokeGoogleToken } from "@/lib/integrations/google";
 import { createTelegramLinkCode, disconnectIntegration, unlinkOwnTelegram } from "@/lib/services/integrations";
 import { connectOwnTelegramBot, disconnectOwnTelegramBot } from "@/lib/services/telegram-bot";
 import { requireWorkspace } from "@/lib/workspace";
@@ -31,17 +32,25 @@ export async function disconnectIntegrationAction(_: IntegrationActionState, for
   if (!parsed.success) return { error: "Não consegui identificar a integração. Recarregue a página e tente novamente." };
 
   const workspace = await requireWorkspace();
+  // Checado antes de ler o token do Google: member nunca dispara revogação (o RLS também bloquearia a remoção).
+  if (workspace.role === "member") {
+    return { error: "Apenas proprietários e administradores podem desconectar integrações da empresa." };
+  }
   if (!(await rateLimit(`integrations:user:${workspace.user.id}`, RATE_LIMITS.integrationsUser))) {
     return { error: RATE_LIMIT_MESSAGE };
   }
 
+  let googleToken: string | null;
   try {
+    // Lido antes de remover: os segredos são apagados em cascata junto com a integração.
+    googleToken = await googleTokenToRevoke(workspace.organization.id, parsed.data);
     await disconnectIntegration(serviceContext(workspace, "manual"), parsed.data);
   } catch (error) {
     if (error instanceof ServiceError) return { error: error.message };
     console.error("[integrations] falha ao desconectar", error);
     return { error: "Não consegui desconectar agora. Tente novamente em alguns instantes." };
   }
+  if (googleToken) await revokeGoogleToken(googleToken);
 
   revalidatePath("/integrations");
   return { success: "Integração desconectada. Você pode conectá-la de novo quando quiser." };
