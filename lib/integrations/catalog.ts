@@ -44,7 +44,7 @@ export const INTEGRATION_CATALOG: IntegrationGuide[] = [
       {
         title: "Conecte aqui na plataforma",
         detail:
-          "Nesta página de Integrações, clique em Conectar no card do Instagram, entre com o Facebook que administra a Página e marque a Página e a conta do Instagram quando a Meta perguntar.",
+          "Nesta página de Integrações, clique em Conectar com a Meta no card do Instagram, entre com o Facebook que administra a Página e marque a Página e a conta do Instagram quando a Meta perguntar.",
       },
       {
         title: "Confirme as permissões",
@@ -71,7 +71,7 @@ export const INTEGRATION_CATALOG: IntegrationGuide[] = [
       {
         title: "Conecte aqui na plataforma",
         detail:
-          "Clique em Conectar no card da Página do Facebook nesta página de Integrações e entre com o perfil que administra a Página.",
+          "Clique em Conectar com a Meta no card da Página do Facebook nesta página de Integrações e entre com o perfil que administra a Página.",
       },
       {
         title: "Escolha as Páginas e autorize",
@@ -119,7 +119,7 @@ export const INTEGRATION_CATALOG: IntegrationGuide[] = [
       {
         title: "Conecte aqui na plataforma",
         detail:
-          "Clique em Conectar no card Meta Ads, entre com o perfil administrador do Gerenciador de Negócios e autorize a conta de anúncios e o Pixel que a plataforma vai usar.",
+          "Clique em Conectar com a Meta no card Meta Ads, entre com o perfil administrador do Gerenciador de Negócios e autorize a conta de anúncios e o Pixel que a plataforma vai usar.",
       },
     ],
     tips: [

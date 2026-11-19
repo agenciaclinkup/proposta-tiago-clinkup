@@ -16,6 +16,7 @@ const filterChain = (filters: string[], result: () => unknown) => {
   const chain = {
     eq: (column: string, value: unknown) => (filters.push(`${column}=${value}`), chain),
     neq: (column: string, value: unknown) => (filters.push(`${column}!=${value}`), chain),
+    in: (column: string, values: unknown[]) => (filters.push(`${column} in ${values.join(",")}`), chain),
     maybeSingle: async () => ({ data: result(), error: null }),
     select: async () => ({ data: deleteResult, error: null }),
     then: (resolve: (value: unknown) => void) => resolve({ error: null }),
@@ -54,6 +55,7 @@ const {
   saveIntegration,
   summarizeIntegrations,
   unlinkOwnTelegram,
+  deleteMetaUserData,
 } = await import("./integrations");
 
 beforeEach(() => {
@@ -210,5 +212,16 @@ describe("vínculo pelo bot próprio (escopo da empresa)", () => {
     expect(lastSelectFilters).toEqual(
       expect.arrayContaining(["provider=telegram", "external_account_id=555:777", "status=connected", "organization_id=org-1"]),
     );
+  });
+});
+
+describe("deleteMetaUserData", () => {
+  it("remove só integrações Meta daquele usuário Meta, em qualquer empresa", async () => {
+    deleteResult = [{ id: "a" }, { id: "b" }];
+    expect(await deleteMetaUserData("meta-42")).toBe(2);
+    expect(deletes[0]).toEqual({
+      table: "integrations",
+      filters: ["provider in instagram,facebook_page,meta_ads", "metadata->>meta_user_id=meta-42"],
+    });
   });
 });

@@ -37,13 +37,24 @@ const ICONS: Record<IntegrationProvider, LucideIcon> = {
   telegram: Send,
 };
 
-// Conexão automática chega nas próximas entregas (Meta: 3.4, Google: 3.5). Telegram já usa código de vínculo.
-const CONNECT: Record<Exclude<IntegrationProvider, "telegram">, { label: string; notice: string }> = {
-  instagram: { label: "Conectar com a Meta", notice: "A conexão com a Meta será liberada em breve." },
-  facebook_page: { label: "Conectar com a Meta", notice: "A conexão com a Meta será liberada em breve." },
-  meta_ads: { label: "Conectar com a Meta", notice: "A conexão com a Meta será liberada em breve." },
-  google_business: { label: "Conectar com o Google", notice: "A conexão com o Google será liberada em breve." },
-  google_calendar: { label: "Conectar com o Google", notice: "A conexão com o Google será liberada em breve." },
+// Um único login com a Meta conecta os três tipos de conta. Google chega na 3.5.
+const META_PROVIDERS: IntegrationProvider[] = ["instagram", "facebook_page", "meta_ads"];
+
+const META_RESULT: Record<string, { tone: "ok" | "error"; text: string }> = {
+  connected: { tone: "ok", text: "Pronto! Suas contas da Meta foram conectadas. Confira abaixo o que foi encontrado." },
+  none: {
+    tone: "error",
+    text: "O login com a Meta funcionou, mas nenhuma Página, conta do Instagram ou conta de anúncios foi autorizada. Conecte de novo e marque as contas que deseja usar.",
+  },
+  cancelled: { tone: "error", text: "A conexão com a Meta foi cancelada. Nenhuma alteração foi feita." },
+  invalid_state: {
+    tone: "error",
+    text: "Por segurança, não concluímos a conexão: o pedido expirou ou veio de outra sessão. Clique em Conectar com a Meta novamente.",
+  },
+  forbidden: { tone: "error", text: "Apenas proprietários e administradores podem conectar contas da Meta." },
+  unavailable: { tone: "error", text: "A conexão com a Meta ainda não está disponível nesta plataforma. Fale com o suporte." },
+  rate_limited: { tone: "error", text: "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente." },
+  error: { tone: "error", text: "Não conseguimos concluir a conexão com a Meta agora. Tente novamente em alguns minutos." },
 };
 
 // Validado aqui porque vira parte de uma URL t.me no navegador.
@@ -59,7 +70,9 @@ const STATUS = {
   not_connected: { label: "Não conectado", className: "border-border text-muted-foreground" },
 } as const;
 
-export default async function IntegrationsPage() {
+export default async function IntegrationsPage({ searchParams }: { searchParams: Promise<{ meta?: string }> }) {
+  const { meta } = await searchParams;
+  const metaResult = meta ? META_RESULT[meta] : undefined;
   const workspace = await requireWorkspace();
   const ctx = serviceContext(workspace, "manual");
   const [rows, ownBot] = await Promise.all([listIntegrations(ctx), getOwnTelegramBot(workspace.organization.id)]);
@@ -85,6 +98,19 @@ export default async function IntegrationsPage() {
           </Link>
         </Button>
       </header>
+
+      {metaResult && (
+        <p
+          role="status"
+          className={
+            metaResult.tone === "ok"
+              ? "rounded-lg border border-primary/40 bg-primary/10 p-3 text-sm text-primary"
+              : "rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+          }
+        >
+          {metaResult.text}
+        </p>
+      )}
 
       {!isAdmin && (
         <p role="note" className="rounded-lg border border-border bg-secondary/50 p-3 text-sm text-muted-foreground">
@@ -162,16 +188,34 @@ export default async function IntegrationsPage() {
                       <OwnBotPanel eligible={canUseOwnBot(workspace.organization)} botUsername={ownBotUsername} />
                     )}
                   </div>
+                ) : META_PROVIDERS.includes(guide.provider) ? (
+                  <div className="space-y-2">
+                    {isAdmin ? (
+                      <Button asChild>
+                        {/* Navegação completa (não Link): a rota redireciona para o login da Meta. */}
+                        <a href="/api/integrations/meta/start">Conectar com a Meta</a>
+                      </Button>
+                    ) : (
+                      <Button type="button" disabled>
+                        Conectar com a Meta
+                      </Button>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {isAdmin
+                        ? "Um único login conecta o Instagram, as Páginas e as contas de anúncios que você autorizar na Meta. Para incluir contas novas depois, é só conectar de novo."
+                        : "Peça a um proprietário ou administrador da empresa para fazer a conexão."}
+                    </p>
+                  </div>
                 ) : (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Button type="button" disabled aria-describedby={`${guide.provider}-connect-notice`}>
-                      {CONNECT[guide.provider].label}
+                      Conectar com o Google
                     </Button>
                     <p id={`${guide.provider}-connect-notice`} className="flex items-start gap-1.5 text-xs text-muted-foreground">
                       <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                       <span>
-                        {CONNECT[guide.provider].notice} Enquanto isso, siga o passo a passo abaixo para deixar tudo
-                        pronto: quando o botão for ativado, a conexão leva menos de um minuto.
+                        A conexão com o Google será liberada em breve. Enquanto isso, siga o passo a passo abaixo para
+                        deixar tudo pronto: quando o botão for ativado, a conexão leva menos de um minuto.
                       </span>
                     </p>
                   </div>

@@ -18,6 +18,7 @@ export const RATE_LIMITS = {
   telegramChat: { limit: 20, windowSeconds: 60 },
   telegramCodeUser: { limit: 5, windowSeconds: 600 },
   telegramBotUser: { limit: 5, windowSeconds: 600 },
+  metaWebhookIp: { limit: 60, windowSeconds: 60 },
 } satisfies Record<string, RateRule>;
 
 export const RATE_LIMIT_MESSAGE = "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";

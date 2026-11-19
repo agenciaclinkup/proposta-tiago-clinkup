@@ -49,6 +49,7 @@ export type SaveIntegrationInput = {
   scopes?: string[];
   metadata?: Record<string, unknown>;
   connectedBy?: string | null;
+  status?: "connected" | "needs_attention";
   // Opcional: o vínculo com o bot da plataforma não tem token próprio do cliente.
   accessToken?: string;
   refreshToken?: string | null;
@@ -70,7 +71,7 @@ export async function saveIntegration(input: SaveIntegrationInput): Promise<stri
         scopes: input.scopes ?? [],
         metadata: input.metadata ?? {},
         connected_by: input.connectedBy ?? null,
-        status: "connected",
+        status: input.status ?? "connected",
       },
       { onConflict: "organization_id,provider,external_account_id" },
     )
@@ -182,6 +183,18 @@ export async function findTelegramLink(chatId: number, scope?: TelegramScope) {
   if (error) throw new Error(error.message);
   const userId = (data?.metadata as { user_id?: string } | undefined)?.user_id;
   return data && userId ? { integrationId: data.id as string, organizationId: data.organization_id as string, userId } : null;
+}
+
+// Desautorização/exclusão de dados pedida pela Meta: remove as conexões daquele usuário Meta (segredos em cascata).
+export async function deleteMetaUserData(metaUserId: string): Promise<number> {
+  const { data, error } = await createAdminClient()
+    .from("integrations")
+    .delete()
+    .in("provider", ["instagram", "facebook_page", "meta_ads"])
+    .eq("metadata->>meta_user_id", metaUserId)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
 }
 
 // Qualquer papel desvincula o PRÓPRIO chat do Telegram. Admin client porque o RLS de delete é só de admin;

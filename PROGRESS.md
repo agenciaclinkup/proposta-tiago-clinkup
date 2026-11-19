@@ -5,20 +5,21 @@
 ## Estado atual
 
 - **Fase:** 3 — Integrações (Fase 2 — Hermes Core ✅ concluída)
-- **Etapa em andamento:** 3.4 — OAuth Meta (Instagram, Página do Facebook, Meta Ads)
+- **Etapa em andamento:** 3.5 — OAuth Google (Google Meu Negócio e Google Calendar)
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**3.4 OAuth Meta — Instagram, Página do Facebook e Meta Ads** (TDD; antes de codar, conferir na documentação oficial da Meta a versão atual da Graph API, os nomes exatos das permissões e o fluxo "Facebook Login for Business" — não usar valores de memória):
-1. **State anti-CSRF:** `lib/integrations/oauth-state.ts` — `state` assinado (HMAC com segredo de servidor) contendo `organizationId`, `userId`, `nonce`, `exp` (10 min); o `nonce` também vai em cookie `httpOnly`/`SameSite=Lax`; o callback exige assinatura válida, não expirado, nonce igual ao cookie e usuário logado igual ao do state. Testes de adulteração, expiração e troca de usuário.
-2. **Início:** `app/api/integrations/meta/start/route.ts` (só owner/admin, rate limit) → redireciona para o diálogo OAuth da Meta com as permissões necessárias (publicação no Instagram e em Páginas, leitura de insights, listagem de Páginas, gestão de negócio e de anúncios — nomes exatos conferidos na doc).
-3. **Callback:** `app/api/integrations/meta/callback/route.ts` → valida state → troca `code` por token → token de longa duração → `me/accounts` (Páginas + token de Página) → `instagram_business_account` de cada Página → contas de anúncios (+ Business e Pixels quando disponível). Grava com `saveIntegration` (tokens cifrados, `expires_at`): `facebook_page` (token da Página), `instagram` (token da Página + id IG em `metadata`), `meta_ads` (token do usuário + `ad_account_id`, `business_id`, `pixel_id`). Erros e cancelamento voltam para `/integrations?meta=<status>` com mensagem pt-BR.
-4. **Service `lib/integrations/meta.ts`:** cliente Graph mínimo via `fetch` (versão fixada em uma constante), mapeamento resposta → integrações (função pura testada com respostas de exemplo), detecção de permissões negadas → `status: needs_attention` com orientação.
-5. **UI:** ativar "Conectar com a Meta" nos 3 cards (admin), remover o aviso "em breve" deles, mensagens de retorno pt-BR; guias do catálogo revisados para o fluxo real.
-6. **Conformidade Meta:** rota de exclusão de dados (`signed_request` verificado com `META_APP_SECRET`) e de desautorização, que desconectam as integrações da conta.
-7. `.env.example` + checklist: `META_APP_ID`, `META_APP_SECRET`, `OAUTH_STATE_SECRET` (ou derivado de segredo existente), URLs de redirecionamento cadastradas no app Meta, App Review das permissões, domínio verificado, política de privacidade e URL de exclusão de dados.
+**3.5 OAuth Google — Google Meu Negócio e Google Calendar** (TDD; antes de codar, conferir na documentação oficial do Google os endpoints OAuth 2.0 para web server, os escopos exatos de Business Profile e Calendar, as APIs de contas/locais do Business Profile e a revogação — não usar valores de memória):
+1. **Reuso do anti-CSRF:** `createOAuthState`/`verifyOAuthState` com `provider: "google"` (já suportado e testado) + cookie `oauth_nonce`. Avaliar PKCE (`code_challenge` S256) se a doc recomendar para o fluxo web.
+2. **`lib/integrations/google.ts`:** URL de autorização (`access_type=offline`, `prompt=consent` para garantir `refresh_token`, `include_granted_scopes`), troca de `code`, **renovação de access token com o `refresh_token`** (função usada pelos services futuros), revogação; leitura de contas e locais do Business Profile e da agenda principal; `mapGoogleConnections` pura (refresh token cifrado em `refresh_token_encrypted`, access token + `expires_at`).
+3. **Rotas** `app/api/integrations/google/start` e `/callback` no mesmo padrão da Meta (só owner/admin, rate limit, state + nonce + mesmo usuário/org, resultado em `/integrations?google=<status>`), escopo pedido conforme o card (Business Profile e/ou Calendar) ou os dois juntos — decidir pela doc e pela UX.
+4. **Desconectar Google:** ao desconectar uma integração Google, chamar a revogação do token antes de apagar (melhor esforço).
+5. **UI:** ativar "Conectar com o Google" nos 2 cards (admin), remover o aviso "em breve", mensagens de retorno pt-BR, guias do catálogo revisados.
+6. `.env.example` + checklist: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, URIs de redirecionamento no Google Cloud, tela de consentimento OAuth, verificação do app para escopos sensíveis, **pedido de acesso à Business Profile API** (aprovação manual do Google), política de privacidade e termos.
+
+Depois da 3.5: fechar a Fase 3 e iniciar a **Fase 4 — CRM (Kanban + funil)**.
 
 **Plano da Fase 3:**
 - 3.1 dados + cofre ✅.
@@ -28,8 +29,8 @@
   - White-Label/Enterprise: admin cadastra o token do próprio bot (cifrado em `integration_secrets`), plataforma chama `setWebhook` para `/api/webhooks/telegram/[slug]` com segredo próprio por bot.
   - Mensagens: Zod no update, header `X-Telegram-Bot-Api-Secret-Token`, rate limit por `chat_id`, Hermes no canal `telegram` (mesmas Tools, 1 crédito por mensagem, estorno em falha; resposta via `generateText`).
   - Áudio: OpenAI Whisper `whisper-1` (`OPENAI_API_KEY`) por padrão; Groq (`GROQ_API_KEY`) quando configurado; limitar duração/tamanho do áudio.
-- 3.4 OAuth Meta (Instagram, Facebook Pages, Meta Ads/BM): rota de callback com `state` assinado (anti-CSRF), tokens cifrados, refresh de token longo. Requer app Meta (envs `META_APP_ID`, `META_APP_SECRET`).
-- 3.5 OAuth Google (Google Meu Negócio + Calendar): mesmo padrão; requer `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e verificação do app no Google Cloud.
+- 3.4 OAuth Meta (Instagram, Página do Facebook, Meta Ads) ✅.
+- 3.5 OAuth Google (Google Meu Negócio + Calendar) (acima).
 
 **Plano da Fase 2 (concluída):** 2.1 dados + services ✅ · 2.2 Tools ✅ · 2.3 chat `/hermes` ✅ · 2.4 uso do plano, atividades, estorno e exclusão de conversa ✅.
 
@@ -69,6 +70,20 @@
 - [ ] `NEXT_PUBLIC_SITE_URL` em produção com `https://` e o domínio final (usado no `setWebhook` do bot próprio; sem https o cadastro é recusado).
 - [ ] Trocar `TELEGRAM_WEBHOOK_SECRET` invalida os webhooks de todos os bots próprios (segredo derivado): se precisar rotacionar, re-registrar cada bot (reconectar o token em `/integrations`).
 
+### App na Meta Developers (Fase 3.4 — obrigatório para "Conectar com a Meta")
+- [ ] Criar o app em developers.facebook.com (tipo **Business**), adicionar o produto **Facebook Login for Business** e vincular ao Business Manager verificado da Clinkup.
+- [ ] Copiar App ID e App Secret para `META_APP_ID` e `META_APP_SECRET` (somente servidor; já no `.env.example`).
+- [ ] **Valid OAuth Redirect URIs:** `https://<domínio>/api/integrations/meta/callback` (exatamente igual ao usado pela plataforma; inclui `https`).
+- [ ] **Deauthorize Callback URL:** `https://<domínio>/api/webhooks/meta/deauthorize`.
+- [ ] **Data Deletion Request URL:** `https://<domínio>/api/webhooks/meta/data-deletion` (status público em `/meta/exclusao-de-dados`).
+- [ ] Domínio do app, URL da **Política de Privacidade** e dos **Termos de Uso** publicadas e preenchidas nas configurações básicas do app.
+- [ ] **App Review** (acesso avançado) com screencast para cada escopo: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights`, `business_management`, `ads_management`, `ads_read`. Enquanto não aprovado, só usuários com papel no app (administradores/testadores) conseguem conectar.
+- [ ] **Verificação de empresa** (Business Verification) concluída na Meta — exigida para acesso avançado a `ads_management`/`business_management`.
+- [ ] Teste de ponta a ponta com conta de teste: Conectar com a Meta → Páginas, Instagram e contas de anúncios aparecem em `/integrations`; `integration_secrets` com `v1:`; cancelar no diálogo mostra "A conexão com a Meta foi cancelada"; abrir o callback com `state` alterado mostra o aviso de segurança.
+- [ ] **Validar na prática os endpoints não confirmados na doc durante a 3.4:** `/me/adaccounts?fields=id,name,account_status,business{id,name}` e `/{act}/adspixels` (contas de anúncios e Pixel) e o formato do `signed_request` da **desautorização** (assumido igual ao da exclusão de dados).
+- [ ] Remover o app nas configurações do Facebook (Configurações > Apps e sites) com a conta de teste → conferir que as integrações Meta daquele usuário somem (callback de desautorização) e que o pedido de exclusão retorna `confirmation_code` e a página de status abre.
+- [ ] Token do `meta_ads` expira em ~60 dias: até existir o alerta automático (fase de agendamentos), orientar admins a reconectar; monitorar logs `[meta]`.
+
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - [ ] `SUPABASE_SECRET_KEY` (somente servidor)
@@ -101,6 +116,16 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 3.4 OAuth Meta — Instagram, Página do Facebook e Meta Ads — ✅ (2026-11-18)
+- **Conferido na doc oficial antes de codar:** Graph API **v27.0**, diálogo/troca de código/token de longa duração, token de Página via `/{user}/accounts`, `instagram_business_account`, escopos e o formato do `signed_request` de exclusão de dados. Não confirmados na leitura (marcados no checklist): `/me/adaccounts`, `/{act}/adspixels` e o callback de desautorização.
+- **`lib/integrations/oauth-state.ts`:** state assinado (chave derivada de `VAULT_ENCRYPTION_KEY`, sem env nova), nonce em cookie `httpOnly`, validade de 10 min, exige mesmo usuário/org/provedor. Pronto para o Google.
+- **`lib/integrations/meta.ts`:** `META_GRAPH_VERSION`, `META_SCOPES`, `metaAuthorizeUrl`, `verifySignedRequest`, `exchangeMetaCode` (curto → longa duração), `fetchMetaAccounts`, `mapMetaConnections` (pura). `saveIntegration` aceita `status`.
+- **Rotas:** `api/integrations/meta/start` e `/callback` (só owner/admin, rate limit, Zod nos parâmetros, cookie limpo sempre, resultado em `/integrations?meta=`); `api/webhooks/meta/deauthorize` e `/data-deletion` (`lib/integrations/meta-compliance.ts`: rate limit por IP, `signed_request` verificado) + `deleteMetaUserData`; página pública `app/meta/exclusao-de-dados` (rota `/meta` liberada no middleware).
+- **UI:** "Conectar com a Meta" ativo nos cards Instagram, Página do Facebook e Meta Ads (admin; member vê orientação); avisos de retorno pt-BR (conectado, nada autorizado, cancelado, segurança, sem permissão, indisponível, erro); guias do catálogo com o nome real do botão.
+- `.env.example`: `META_APP_ID`, `META_APP_SECRET`. `ARCHITECTURE.md`: fluxo OAuth Meta, tokens por tipo de conta, conformidade.
+
+**Testes:** `npm test` 190/190 (21 novos, RED verificado antes) · `npm run test:db` 76/76 · `tsc --noEmit` OK · lint limpo · build OK · smoke `next start`: página de status 200, `signed_request` forjado → 400 nos dois callbacks, início OAuth sem sessão → 401. `exchangeMetaCode`/`fetchMetaAccounts` (chamadas reais à Graph API) só cobertos via mocks nas rotas — validação real no checklist.
 
 ### 3.3c Telegram — bot próprio White-Label/Scale — ✅ (2026-11-18) · **módulo Telegram concluído**
 - **Migration** `supabase/migrations/20261118235159_telegram_own_bot.sql`: `telegram_bot` no enum `integration_provider`; `consume_telegram_link_code(p_code, p_organization_id default null)` — com org, código de outra empresa nem é consumido.
