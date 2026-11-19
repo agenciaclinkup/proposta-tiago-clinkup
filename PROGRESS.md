@@ -5,25 +5,24 @@
 ## Estado atual
 
 - **Fase:** 4 — CRM Inteligente: Kanban e Funil de Vendas (Fases 2 e 3 ✅ concluídas)
-- **Etapa em andamento:** 4.2 — Quadro Kanban com arrastar e soltar (`/crm`)
-- **Decisão a confirmar com o produto:** limite de leads no CRM por plano (`config/plans.ts` → `crmLeads`): Starter 1.000 · Growth 10.000 · Scale 100.000.
+- **Etapa em andamento:** 4.3 — Ficha completa do lead e Visão de Funil
+- **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**4.2 Quadro Kanban com arrastar e soltar** (TDD nas actions e regras novas; base: `lib/services/crm.ts`):
-1. Instalar `@dnd-kit/core`, `@dnd-kit/sortable` e `@dnd-kit/utilities` com versões fixadas no lockfile (conferir compatibilidade com React 19.1).
-2. `app/(app)/crm/page.tsx` (server): `getDefaultBoard(ctx)`; `board.tsx` (client): `DndContext` + `SortableContext` por coluna, cards com nome, empresa, valor e origem; atualização otimista e `moveLeadAction` (Zod `moveLeadSchema`, rate limit, `revalidatePath`) com **rollback e aviso pt-BR** se o servidor recusar.
-3. Acessibilidade do arrastar: `KeyboardSensor` + anúncios em pt-BR (`announcements` do dnd-kit) — mover por teclado com espaço e setas.
-4. Criação rápida por coluna (`createLeadAction` com `leadInputSchema`; mensagem do limite do plano quando estourar) e estado vazio didático ("Arraste os cards entre as etapas…").
-5. Colunas personalizáveis (só owner/admin): renomear, mudar cor, adicionar, reordenar e excluir etapa **somente se vazia** — funções novas em `lib/services/crm.ts` (`createStage`, `updateStage`, `reorderStages`, `deleteStage`, testadas) + actions; member vê o quadro sem esses controles.
-6. Menu "CRM" com `ready: true` em `app/(app)/nav.tsx`; card "Oportunidades no funil" do dashboard com o total de leads em etapas abertas.
+**4.3 Ficha completa do lead e Visão de Funil** (TDD; carregar a skill `dataviz` antes de escrever o gráfico):
+1. **Service:** `getLead(ctx, leadId)` (dados + nome da etapa), reaproveitando `listLeadActivities`, `updateLead`, `addLeadNote`; testes de isolamento por org e "lead não encontrado".
+2. **Ficha** `app/(app)/crm/leads/[leadId]/page.tsx` (link pelo nome do card no Kanban): dados de contato com links de ação (WhatsApp `wa.me`, e-mail, site, Instagram), valor, origem, responsável, próxima reunião; formulário de edição (`updateLeadAction` com `leadPatchSchema`); seletor de etapa (reusa `moveLeadAction`); exclusão só owner/admin; **linha do tempo** (notas, mudanças de etapa, reuniões; ícone por tipo; "por você", "por fulano" ou "pelo Hermes"); campo de nova anotação (`addLeadNoteAction` com `noteSchema`).
+3. **Funil:** `funnelMetrics(stages)` pura em `lib/crm/funnel.ts` — por etapa: quantidade, valor, % do total e **taxa de passagem** para a próxima (leads que estão na etapa ou além ÷ os que estão na anterior ou além, etapas abertas na ordem + ganho; perdidos à parte) e conversão geral; testes com casos de zero.
+4. **Visão de Funil** em `/crm?view=funil` (abas "Quadro | Funil"): gráfico de funil/barras com Recharts (instalar versão fixa, cores dos tokens, tooltip pt-BR) + **tabela acessível** com os mesmos números; estado vazio didático.
+5. Nota de produto: a taxa de passagem é calculada pela foto atual do funil; histórico real por período (a partir de `crm_activities.stage_change`) fica como evolução.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
-- 4.2 `/crm` Kanban (acima).
-- 4.3 Ficha do lead (dados, histórico de atividades, notas) + visão de **funil** com taxas de passagem entre etapas (`funnelMetrics` pura, testada) e Recharts.
+- 4.2 `/crm` Kanban ✅.
+- 4.3 Ficha do lead + Visão de Funil (acima).
 - 4.4 Tools do Hermes: `create_lead`, `update_lead`, `move_lead_to_stage`, `list_leads`, `add_lead_note`, `get_funnel_metrics` (rótulos pt-BR) — mesmas funções da UI.
 - 4.5 Reunião na Agenda do Google a partir do lead (`schedule_meeting`, usa `getGoogleAccessToken` da 3.5; cria evento com convite) + KPI "Oportunidades no funil" e "Taxa de conversão" no dashboard.
 
@@ -107,7 +106,10 @@
 ### CRM (Fase 4)
 - [ ] `db push` aplica a migration `crm` (Fase 4.1) — ela também **altera o trigger `handle_new_organization`** (cria o funil padrão) e faz **backfill** do funil para todas as empresas já existentes. Conferir depois: `select count(*) from organizations o where not exists (select 1 from crm_pipelines p where p.organization_id = o.id and p.is_default)` deve dar 0.
 - [ ] Rodar advisors do Supabase depois do `db push` (novas FKs compostas, índices e policies do CRM).
-- [ ] **Confirmar com o produto o limite de leads no CRM por plano** (`config/plans.ts` → `crmLeads`: 1.000 / 10.000 / 100.000) antes de publicar a página de preços, que já mostra "Leads no CRM".
+- [x] **Confirmar com o produto o limite de leads no CRM por plano** (`config/plans.ts` → `crmLeads`: 1.000 / 10.000 / 100.000) antes de publicar a página de preços, que já mostra "Leads no CRM". — Evidência: confirmado pelo usuário em 2026-11-18 (mensagem de abertura da 4.2).
+- [ ] **Kanban em produção (Fase 4.2):** arrastar com mouse, toque (celular) e teclado (Tab até a alça ⋮⋮, espaço, setas, espaço) com leitor de tela anunciando em português; mover para outra etapa gera "Movido de … para …" no histórico; abrir o mesmo quadro em duas abas, excluir um lead numa e tentar movê-lo na outra → o card volta ao lugar com aviso.
+- [ ] Etapas: como owner/admin, criar, renomear/mudar cor, reordenar com as setas e excluir etapa vazia; tentar excluir etapa com leads → mensagem "ainda tem N leads"; como member, nenhum desses controles aparece e excluir lead não aparece.
+- [ ] Dashboard: "Oportunidades no funil" igual à soma dos leads nas etapas abertas (não conta "Fechado").
 - [ ] Teste real de isolamento: com duas empresas, criar lead na empresa A e tentar, pela API REST com o token de um usuário da B, ler/alterar o lead e mover para uma etapa da B (deve falhar por RLS e pela FK composta).
 
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
@@ -142,6 +144,16 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 4.2 Quadro Kanban com arrastar e soltar — ✅ (2026-11-18)
+- **Deps:** `@dnd-kit/core` 6.3.1, `@dnd-kit/sortable` 10.0.0, `@dnd-kit/utilities` 3.2.2 (peer `react >=16.8`, ok com React 19.1).
+- **Service (`lib/services/crm.ts`):** `createStage` (máx. 20), `updateStage`, `reorderStages` (só aceita exatamente as etapas do funil), `deleteStage` (só vazia e nunca a última), `deleteLead`, `countOpenOpportunities`; `assertAdmin` explícito (member recusado mesmo em canais sem RLS); `getDefaultPipeline` reaproveitado.
+- **`lib/crm/board.ts`:** `moveCardInBoard` (pura, imutável) para a atualização otimista.
+- **Actions `app/(app)/crm/actions.ts`:** move, criar/excluir lead, criar/editar/reordenar/excluir etapa — Zod, rate limit `crmUser` 120/min, erro amigável (interno nunca vaza), `revalidatePath("/crm")`.
+- **UI:** `/crm` com aviso para member e contagem de leads vs. limite do plano; `board.tsx` com alça de arrastar acessível, teclado e anúncios pt-BR, `DragOverlay`, rollback com toast, criação rápida por coluna, edição/cor/reordenação/exclusão de etapas e exclusão de lead (só owner/admin, com confirmação), estado vazio didático.
+- Menu "CRM" ativo; KPI "Oportunidades no funil" real no dashboard com atalho para o CRM.
+
+**Testes:** `npm test` 238/238 (19 novos, RED verificado antes) · `npm run test:db` 96/96 · `tsc --noEmit` OK · lint limpo · build OK. Interação de arrastar (mouse/teclado/toque) e leitor de tela **não** testados no navegador — itens no checklist.
 
 ### 4.1 Dados do CRM + services — ✅ (2026-11-18)
 - **Migration** `supabase/migrations/20261119003114_crm.sql`: enums `crm_stage_kind`, `crm_lead_source`, `crm_activity_type`; tabelas `crm_pipelines`, `crm_stages`, `crm_leads`, `crm_activities` com **FKs compostas** (lead → etapa do mesmo funil e da mesma empresa; atividade → lead da mesma empresa), índices de quadro e histórico, `updated_at`. RLS: membros leem e operam leads/histórico (`created_by = auth.uid()`), só owner/admin gerenciam funis/etapas e excluem leads, histórico só de inclusão.

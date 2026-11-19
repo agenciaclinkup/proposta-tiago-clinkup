@@ -9,18 +9,19 @@ import { getPlan } from "@/config/plans";
 import { CHANNEL_LABELS, toolLabel } from "@/lib/hermes/tool-labels";
 import { listRecentActivity } from "@/lib/services/activity";
 import { serviceContext, type HermesChannel } from "@/lib/services/context";
+import { countOpenOpportunities } from "@/lib/services/crm";
 import { getUsageSummary } from "@/lib/services/usage";
 import { requireWorkspace } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-// KPIs zerados até os módulos das próximas fases gravarem dados.
+// "Oportunidades no funil" é real (Fase 4.2); os demais ficam zerados até seus módulos gravarem dados.
 const KPIS = [
-  { label: "Leads extraídos", icon: Users },
-  { label: "Oportunidades no funil", icon: KanbanSquare },
-  { label: "Posts agendados", icon: CalendarDays },
-  { label: "Investimento em Meta Ads", icon: Megaphone },
-];
+  { key: "scraped", label: "Leads extraídos", icon: Users, href: null },
+  { key: "opportunities", label: "Oportunidades no funil", icon: KanbanSquare, href: "/crm" },
+  { key: "posts", label: "Posts agendados", icon: CalendarDays, href: null },
+  { key: "ads", label: "Investimento em Meta Ads", icon: Megaphone, href: null },
+] as const;
 
 const activityTime = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
@@ -34,7 +35,12 @@ export default async function DashboardPage() {
   const workspace = await requireWorkspace();
   const { organization, subscription, profile } = workspace;
   const ctx = serviceContext(workspace, "manual");
-  const [usage, activity] = await Promise.all([getUsageSummary(ctx), listRecentActivity(ctx, 6)]);
+  const [usage, activity, opportunities] = await Promise.all([
+    getUsageSummary(ctx),
+    listRecentActivity(ctx, 6),
+    countOpenOpportunities(ctx),
+  ]);
+  const kpiValue: Record<(typeof KPIS)[number]["key"], number> = { scraped: 0, opportunities, posts: 0, ads: 0 };
   const plan = getPlan(subscription?.plan_id ?? organization.plan_id);
   const trialDaysLeft =
     subscription?.status === "trialing" && subscription.trial_ends_at
@@ -61,14 +67,19 @@ export default async function DashboardPage() {
       </header>
 
       <section aria-label="Indicadores" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {KPIS.map(({ label, icon: Icon }) => (
-          <Card key={label} className="glass">
+        {KPIS.map(({ key, label, icon: Icon, href }) => (
+          <Card key={key} className="glass">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardDescription>{label}</CardDescription>
               <Icon className="size-4 text-primary" aria-hidden />
             </CardHeader>
             <CardContent>
-              <p className="font-heading text-3xl font-semibold">0</p>
+              <p className="font-heading text-3xl font-semibold">{kpiValue[key].toLocaleString("pt-BR")}</p>
+              {href && (
+                <Link href={href} className="text-xs text-primary hover:underline">
+                  Abrir o CRM
+                </Link>
+              )}
             </CardContent>
           </Card>
         ))}

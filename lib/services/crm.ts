@@ -91,6 +91,18 @@ export async function getDefaultBoard(ctx: ServiceContext) {
   };
 }
 
+async function getDefaultPipeline(ctx: ServiceContext): Promise<{ id: string }> {
+  const { data, error } = await ctx.supabase
+    .from("crm_pipelines")
+    .select("id")
+    .eq("organization_id", ctx.organizationId)
+    .eq("is_default", true)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new ServiceError("O funil de vendas da empresa ainda não foi criado. Fale com o suporte.");
+  return data;
+}
+
 async function findStage(ctx: ServiceContext, stageId: string, pipelineId?: string) {
   let query = ctx.supabase
     .from("crm_stages")
@@ -119,14 +131,7 @@ export async function createLead(ctx: ServiceContext, input: LeadInput, source: 
     );
   }
 
-  const { data: pipeline, error: pipelineError } = await ctx.supabase
-    .from("crm_pipelines")
-    .select("id")
-    .eq("organization_id", ctx.organizationId)
-    .eq("is_default", true)
-    .maybeSingle();
-  if (pipelineError) throw new Error(pipelineError.message);
-  if (!pipeline) throw new ServiceError("O funil de vendas da empresa ainda não foi criado. Fale com o suporte.");
+  const pipeline = await getDefaultPipeline(ctx);
 
   const { stageId, ...fields } = input;
   let stage: { id: string } | null;
@@ -245,6 +250,153 @@ export async function moveLead(ctx: ServiceContext, input: { leadId: string; sta
     });
   }
   return { stageId: target.id, position };
+}
+
+// ---------------------------------------------------------------------------
+// Gestão do funil (só owner/admin). Checagem explícita além do RLS: canais sem sessão usam cliente admin.
+// ---------------------------------------------------------------------------
+
+const ADMIN_ONLY = "Apenas proprietários e administradores podem alterar as etapas do funil ou excluir leads.";
+
+function assertAdmin(ctx: ServiceContext) {
+  if (ctx.role === "member") throw new ServiceError(ADMIN_ONLY);
+}
+
+export const stageInputSchema = z.object({
+  name: z.string().trim().min(1, "Dê um nome para a etapa.").max(60, "Use no máximo 60 caracteres."),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Escolha uma cor válida.").optional(),
+  kind: z.enum(["open", "won", "lost"]).optional(),
+});
+export const stagePatchSchema = stageInputSchema.partial().refine((patch) => Object.values(patch).some((v) => v !== undefined), {
+  message: "Informe o que deseja alterar na etapa.",
+});
+
+export async function createStage(ctx: ServiceContext, input: z.infer<typeof stageInputSchema>) {
+  assertAdmin(ctx);
+  const pipeline = await getDefaultPipeline(ctx);
+  const { data: stages, error } = await ctx.supabase
+    .from("crm_stages")
+    .select("id, position")
+    .eq("organization_id", ctx.organizationId)
+    .eq("pipeline_id", pipeline.id)
+    .order("position");
+  if (error) throw new Error(error.message);
+  if ((stages ?? []).length >= 20) throw new ServiceError("O funil pode ter no máximo 20 etapas.");
+
+  const { data, error: insertError } = await ctx.supabase
+    .from("crm_stages")
+    .insert({
+      organization_id: ctx.organizationId,
+      pipeline_id: pipeline.id,
+      name: input.name,
+      color: input.color ?? "#00D4FF",
+      kind: input.kind ?? "open",
+      position: (stages ?? []).length,
+    })
+    .select("id, name, position, color, kind")
+    .single();
+  if (insertError) throw new Error(insertError.message);
+  return data;
+}
+
+export async function updateStage(ctx: ServiceContext, stageId: string, patch: z.infer<typeof stagePatchSchema>) {
+  assertAdmin(ctx);
+  const { data, error } = await ctx.supabase
+    .from("crm_stages")
+    .update(patch)
+    .eq("id", stageId)
+    .eq("organization_id", ctx.organizationId)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new ServiceError(STAGE_NOT_FOUND);
+}
+
+// Recebe a nova ordem completa; recusa listas que não sejam exatamente as etapas do funil da empresa.
+export async function reorderStages(ctx: ServiceContext, orderedIds: string[]) {
+  assertAdmin(ctx);
+  const pipeline = await getDefaultPipeline(ctx);
+  const { data: stages, error } = await ctx.supabase
+    .from("crm_stages")
+    .select("id")
+    .eq("organization_id", ctx.organizationId)
+    .eq("pipeline_id", pipeline.id);
+  if (error) throw new Error(error.message);
+  const current = new Set((stages ?? []).map((stage) => stage.id as string));
+  const sameSet = orderedIds.length === current.size && new Set(orderedIds).size === current.size && orderedIds.every((id) => current.has(id));
+  if (!sameSet) throw new ServiceError("A ordem das etapas mudou enquanto você editava. Recarregue a página e tente de novo.");
+
+  for (const [position, id] of orderedIds.entries()) {
+    const { error: updateError } = await ctx.supabase
+      .from("crm_stages")
+      .update({ position })
+      .eq("id", id)
+      .eq("organization_id", ctx.organizationId);
+    if (updateError) throw new Error(updateError.message);
+  }
+}
+
+// Só etapa vazia, e nunca a última do funil (o banco também impede apagar etapa com leads, pela FK).
+export async function deleteStage(ctx: ServiceContext, stageId: string) {
+  assertAdmin(ctx);
+  const stage = await findStage(ctx, stageId);
+  if (!stage) throw new ServiceError(STAGE_NOT_FOUND);
+
+  const { count, error } = await ctx.supabase
+    .from("crm_leads")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", ctx.organizationId)
+    .eq("stage_id", stageId);
+  if (error) throw new Error(error.message);
+  if ((count ?? 0) > 0) {
+    throw new ServiceError(
+      `A etapa “${stage.name}” ainda tem ${count} leads. Mova esses leads para outra etapa antes de excluí-la.`,
+    );
+  }
+
+  const { data: siblings, error: siblingsError } = await ctx.supabase
+    .from("crm_stages")
+    .select("id")
+    .eq("organization_id", ctx.organizationId)
+    .eq("pipeline_id", stage.pipeline_id);
+  if (siblingsError) throw new Error(siblingsError.message);
+  if ((siblings ?? []).length <= 1) throw new ServiceError("O funil precisa ter pelo menos uma etapa.");
+
+  const { error: deleteError } = await ctx.supabase.from("crm_stages").delete().eq("id", stageId).eq("organization_id", ctx.organizationId);
+  if (deleteError) throw new Error(deleteError.message);
+}
+
+export async function deleteLead(ctx: ServiceContext, leadId: string) {
+  assertAdmin(ctx);
+  const { data, error } = await ctx.supabase
+    .from("crm_leads")
+    .delete()
+    .eq("id", leadId)
+    .eq("organization_id", ctx.organizationId)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new ServiceError(LEAD_NOT_FOUND);
+}
+
+// KPI do dashboard: leads em etapas abertas (nem ganhos nem perdidos).
+export async function countOpenOpportunities(ctx: ServiceContext): Promise<number> {
+  const { data: stages, error } = await ctx.supabase
+    .from("crm_stages")
+    .select("id")
+    .eq("organization_id", ctx.organizationId)
+    .eq("kind", "open");
+  if (error) throw new Error(error.message);
+  const ids = (stages ?? []).map((stage) => stage.id as string);
+  if (ids.length === 0) return 0;
+
+  const { count, error: countError } = await ctx.supabase
+    .from("crm_leads")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", ctx.organizationId)
+    .in("stage_id", ids);
+  if (countError) throw new Error(countError.message);
+  return count ?? 0;
 }
 
 export const noteSchema = z.object({ leadId: z.uuid(), content: z.string().trim().min(1, "Escreva a anotação.").max(5000) });

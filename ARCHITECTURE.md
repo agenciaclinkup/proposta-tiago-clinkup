@@ -92,7 +92,13 @@ Convenções: `id uuid default gen_random_uuid()`, `created_at/updated_at timest
 - **Funil padrão** (`private.create_default_pipeline`): Novo Lead, Qualificado por IA, Reunião Agendada, Proposta Enviada (abertas) e Fechado (`won`), criado no trigger de nova organização e por backfill na própria migration. Um único funil padrão por org (índice parcial).
 - **Posição fracionária** (`position double precision`): `computePosition` insere entre vizinhos com a média e só renumera a coluna (passo 1024) quando acaba a precisão.
 - **Service dual-control:** `getDefaultBoard`, `createLead` (limite `crmLeads` do plano, primeira etapa por padrão, origem `hermes` quando via agente), `updateLead`, `moveLead` (histórico `stage_change` com `created_via`), `addLeadNote`, `listLeadActivities`; schemas Zod `leadInputSchema`, `leadPatchSchema`, `moveLeadSchema`, `noteSchema` compartilhados com UI e Tools. Toda consulta filtra `organization_id` (contextos sem RLS, como o Telegram).
-- **Limite do plano:** `config/plans.ts` ganhou `crmLeads` (total de leads ativos, não mensal): Starter 1.000 · Growth 10.000 · Scale 100.000 (decisão a confirmar com o produto).
+- **Limite do plano:** `config/plans.ts` ganhou `crmLeads` (total de leads ativos, não mensal): Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
+
+**Kanban (Fase 4.2)** — `app/(app)/crm/`:
+- `page.tsx` (server) carrega `getDefaultBoard`; `board.tsx` (client) usa `@dnd-kit/core` 6.3 + `@dnd-kit/sortable` 10: `DndContext` com `id` estável (sem divergência de hydration), `PointerSensor` (distância 6 px) + `KeyboardSensor` (`sortableKeyboardCoordinates`), anúncios e instruções de leitor de tela em pt-BR, **alça de arrastar dedicada** por card (botões dentro do card não iniciam arraste), `DragOverlay`.
+- Atualização otimista com `moveCardInBoard` (`lib/crm/board.ts`, pura); o servidor confirma via `moveLeadAction` e, se recusar, o quadro volta ao estado anterior com aviso pt-BR (toast). A revalidação substitui o estado local pelo do servidor.
+- Actions (`actions.ts`): `moveLeadAction`, `createLeadAction`, `deleteLeadAction`, `createStageAction`, `updateStageAction`, `reorderStagesAction`, `deleteStageAction` — Zod + rate limit `crmUser` (120/min, arrastar gera muitas chamadas) + erro amigável; papel e plano decididos no service (`assertAdmin`: member não altera etapas nem exclui leads; etapa só é excluída vazia e nunca a última; máximo de 20 etapas).
+- Dashboard: KPI "Oportunidades no funil" real (`countOpenOpportunities`: leads em etapas `open`).
 
 ### Calendário & Estúdio (Fases 5–6)
 
