@@ -100,6 +100,13 @@ Convenções: `id uuid default gen_random_uuid()`, `created_at/updated_at timest
 - Actions (`actions.ts`): `moveLeadAction`, `createLeadAction`, `deleteLeadAction`, `createStageAction`, `updateStageAction`, `reorderStagesAction`, `deleteStageAction` — Zod + rate limit `crmUser` (120/min, arrastar gera muitas chamadas) + erro amigável; papel e plano decididos no service (`assertAdmin`: member não altera etapas nem exclui leads; etapa só é excluída vazia e nunca a última; máximo de 20 etapas).
 - Dashboard: KPI "Oportunidades no funil" real (`countOpenOpportunities`: leads em etapas `open`).
 
+**Ficha do lead e Funil (Fase 4.3):**
+- `app/(app)/crm/leads/[leadId]` (link pelo nome do card): `getLead` (com etapa, filtrado por org; outro tenant → 404), `listStages` (sem carregar leads), atalhos de contato de `lib/crm/lead-view.ts` (`contactLinks`: WhatsApp `wa.me` com DDI 55 para número BR, `mailto:`, `tel:`, site só `http(s)` — bloqueia `javascript:` —, Instagram por @), edição (`updateLeadAction` + `leadPatchSchema`), troca de etapa (reusa `moveLeadAction` + histórico), exclusão só owner/admin que volta ao quadro, linha do tempo com autoria (`activityAuthor`: "por você", "por <nome>", "pelo Hermes") e nova anotação (`addLeadNoteAction`).
+- Nomes de membros: `memberNames` confirma via contexto (RLS/filtro de org) quem é membro e só então lê `profiles` com cliente admin (o RLS de `profiles` só deixa ler o próprio perfil).
+- Actions revalidam `revalidatePath("/crm", "layout")` (quadro + fichas).
+- Funil `/crm?view=funil`: `funnelMetrics` (`lib/crm/funnel.ts`, pura) — foto atual: lead numa etapa conta como tendo passado pelas anteriores; taxa de passagem = chegaram na próxima ÷ chegaram nesta; perdidos fora da progressão, dentro do total; conversão = ganhos ÷ total. Gráfico Recharts 3 (barras horizontais, uma série na cor primária, rótulo direto, tooltip pt-BR, carregado sob demanda) + tabela acessível com os mesmos números.
+- Limite conhecido: o quadro carrega todos os leads do funil de uma vez (ok até alguns milhares); paginação/virtualização por coluna entra quando houver clientes perto dos limites maiores.
+
 ### Calendário & Estúdio (Fases 5–6)
 
 **social_posts** — `organization_id`, `channels text[]` (`instagram|facebook|google_business`), `format` enum (`feed|reels|stories|carousel|gmb_update`), `caption`, `hashtags text[]`, `media jsonb` (paths no Storage), `scheduled_at timestamptz`, `status` (`draft|scheduled|publishing|published|failed`), `published_at`, `external_ids jsonb` (id por canal), `error`, `carousel_id`, `created_by`, `created_via` (`manual|hermes`). Índice parcial `(scheduled_at) where status = 'scheduled'`.

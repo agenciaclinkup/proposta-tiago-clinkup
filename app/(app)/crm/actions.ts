@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { RATE_LIMIT_MESSAGE, RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { serviceContext, type ServiceContext } from "@/lib/services/context";
@@ -9,12 +10,16 @@ import {
   createStage,
   deleteLead,
   deleteStage,
+  addLeadNote,
   leadInputSchema,
+  leadPatchSchema,
   moveLead,
   moveLeadSchema,
+  noteSchema,
   reorderStages,
   stageInputSchema,
   stagePatchSchema,
+  updateLead,
   updateStage,
 } from "@/lib/services/crm";
 import { ServiceError } from "@/lib/services/errors";
@@ -36,7 +41,8 @@ async function run(task: (ctx: ServiceContext) => Promise<unknown>, success: str
     console.error("[crm] falha na ação", error);
     return { error: "Não consegui concluir agora. Tente novamente em alguns instantes." };
   }
-  revalidatePath("/crm");
+  // "layout": revalida o quadro e as fichas de lead (/crm/leads/[id]) de uma vez.
+  revalidatePath("/crm", "layout");
   return { success };
 }
 
@@ -57,7 +63,26 @@ export async function createLeadAction(_: CrmActionState, formData: FormData): P
 export async function deleteLeadAction(_: CrmActionState, formData: FormData): Promise<CrmActionState> {
   const parsed = z.uuid().safeParse(formData.get("leadId"));
   if (!parsed.success) return { error: INVALID };
-  return run((ctx) => deleteLead(ctx, parsed.data), "Lead excluído.");
+  const result = await run((ctx) => deleteLead(ctx, parsed.data), "Lead excluído.");
+  // Excluído pela ficha: a página do lead deixa de existir, então volta para o quadro.
+  if (result.success && formData.get("redirectTo") === "board") redirect("/crm");
+  return result;
+}
+
+export async function updateLeadAction(_: CrmActionState, formData: FormData): Promise<CrmActionState> {
+  const leadId = z.uuid().safeParse(formData.get("leadId"));
+  if (!leadId.success) return { error: INVALID };
+  const fields = Object.fromEntries(formData);
+  delete fields.leadId;
+  const patch = leadPatchSchema.safeParse(fields);
+  if (!patch.success) return { error: firstIssue(patch.error) };
+  return run((ctx) => updateLead(ctx, leadId.data, patch.data), "Dados do lead salvos.");
+}
+
+export async function addLeadNoteAction(_: CrmActionState, formData: FormData): Promise<CrmActionState> {
+  const parsed = noteSchema.safeParse({ leadId: formData.get("leadId"), content: formData.get("content") });
+  if (!parsed.success) return { error: firstIssue(parsed.error) };
+  return run((ctx) => addLeadNote(ctx, parsed.data.leadId, parsed.data.content), "Anotação adicionada.");
 }
 
 export async function createStageAction(_: CrmActionState, formData: FormData): Promise<CrmActionState> {

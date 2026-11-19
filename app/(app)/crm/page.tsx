@@ -7,10 +7,17 @@ import { serviceContext } from "@/lib/services/context";
 import { getDefaultBoard } from "@/lib/services/crm";
 import { requireWorkspace } from "@/lib/workspace";
 import { KanbanBoard, type BoardStage } from "./board";
+import { FunnelView } from "./funnel-view";
 
 export const metadata: Metadata = { title: "CRM" };
 
-export default async function CrmPage() {
+const TABS = [
+  { view: "quadro", label: "Quadro" },
+  { view: "funil", label: "Funil" },
+] as const;
+
+export default async function CrmPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+  const view = (await searchParams).view === "funil" ? "funil" : "quadro";
   const workspace = await requireWorkspace();
   const board = await getDefaultBoard(serviceContext(workspace, "manual"));
   const isAdmin = workspace.role !== "member";
@@ -52,14 +59,36 @@ export default async function CrmPage() {
         </Button>
       </header>
 
-      {!isAdmin && (
-        <p role="note" className="rounded-lg border border-border bg-secondary/50 p-3 text-sm text-muted-foreground">
-          Você pode adicionar e mover leads. Apenas proprietários e administradores podem alterar as etapas do funil e
-          excluir leads.
-        </p>
-      )}
+      <nav aria-label="Visões do CRM" className="flex gap-1 border-b border-border">
+        {TABS.map((tab) => (
+          <Link
+            key={tab.view}
+            href={tab.view === "quadro" ? "/crm" : `/crm?view=${tab.view}`}
+            aria-current={view === tab.view ? "page" : undefined}
+            className={
+              view === tab.view
+                ? "-mb-px border-b-2 border-primary px-4 py-2 text-sm font-medium text-primary"
+                : "px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+            }
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
 
-      <KanbanBoard initialStages={stages} isAdmin={isAdmin} />
+      {view === "funil" ? (
+        <FunnelView stages={stages} />
+      ) : (
+        <>
+          {!isAdmin && (
+            <p role="note" className="rounded-lg border border-border bg-secondary/50 p-3 text-sm text-muted-foreground">
+              Você pode adicionar e mover leads. Apenas proprietários e administradores podem alterar as etapas do funil e
+              excluir leads.
+            </p>
+          )}
+          <KanbanBoard initialStages={stages} isAdmin={isAdmin} />
+        </>
+      )}
     </div>
   );
 }

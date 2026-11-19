@@ -5,6 +5,10 @@ const requireWorkspace = vi.fn();
 vi.mock("@/lib/workspace", () => ({ requireWorkspace }));
 const rateLimit = vi.fn();
 vi.mock("@/lib/rate-limit", () => ({ rateLimit, RATE_LIMITS: { crmUser: {} }, RATE_LIMIT_MESSAGE: "Muitas tentativas." }));
+const redirect = vi.fn((url: string) => {
+  throw new Error(`REDIRECT:${url}`);
+});
+vi.mock("next/navigation", () => ({ redirect }));
 const services = {
   moveLead: vi.fn(),
   createLead: vi.fn(),
@@ -13,6 +17,8 @@ const services = {
   updateStage: vi.fn(),
   reorderStages: vi.fn(),
   deleteStage: vi.fn(),
+  updateLead: vi.fn(),
+  addLeadNote: vi.fn(),
 };
 vi.mock("@/lib/services/crm", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/services/crm")>()), ...services }));
 const revalidatePath = vi.fn();
@@ -50,7 +56,7 @@ describe("moveLeadAction", () => {
       stageId: ids.stage,
       index: 2,
     });
-    expect(revalidatePath).toHaveBeenCalledWith("/crm");
+    expect(revalidatePath).toHaveBeenCalledWith("/crm", "layout");
   });
 
   it("devolve a mensagem do service (o quadro desfaz o movimento) e esconde erro interno", async () => {
@@ -109,5 +115,29 @@ describe("etapas e exclusão", () => {
     expect(await actions.deleteLeadAction(undefined, form({ leadId: ids.lead }))).toEqual({ success: expect.any(String) });
     expect(services.deleteLead).toHaveBeenCalledWith(expect.anything(), ids.lead);
     expect(await actions.deleteLeadAction(undefined, form({ leadId: "abc" }))).toEqual({ error: expect.any(String) });
+  });
+});
+
+describe("ficha do lead", () => {
+  it("edita dados com o schema parcial e exige ao menos um campo", async () => {
+    services.updateLead.mockResolvedValue(undefined);
+    expect(await actions.updateLeadAction(undefined, form({ leadId: ids.lead, name: "Maria Souza", email: "maria@x.com" }))).toEqual({
+      success: expect.any(String),
+    });
+    expect(services.updateLead).toHaveBeenCalledWith(expect.anything(), ids.lead, expect.objectContaining({ name: "Maria Souza" }));
+    expect(await actions.updateLeadAction(undefined, form({ leadId: ids.lead, email: "invalido" }))).toEqual({ error: "Informe um e-mail válido." });
+  });
+
+  it("adiciona anotação validada", async () => {
+    services.addLeadNote.mockResolvedValue(undefined);
+    expect(await actions.addLeadNoteAction(undefined, form({ leadId: ids.lead, content: "Pediu retorno amanhã" }))).toEqual({
+      success: expect.any(String),
+    });
+    expect(services.addLeadNote).toHaveBeenCalledWith(expect.anything(), ids.lead, "Pediu retorno amanhã");
+    expect(await actions.addLeadNoteAction(undefined, form({ leadId: ids.lead, content: "  " }))).toEqual({ error: "Escreva a anotação." });
+  });
+
+  it("excluir pela ficha volta para o quadro", async () => {
+    await expect(actions.deleteLeadAction(undefined, form({ leadId: ids.lead, redirectTo: "board" }))).rejects.toThrow("REDIRECT:/crm");
   });
 });

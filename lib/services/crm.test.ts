@@ -8,6 +8,8 @@ import {
   createStage,
   deleteLead,
   deleteStage,
+  getLead,
+  memberNames,
   leadInputSchema,
   moveLead,
   POSITION_STEP,
@@ -255,5 +257,35 @@ describe("countOpenOpportunities", () => {
     expect(await countOpenOpportunities(ctxWith(supabase))).toBe(7);
     expect(ops.find((op) => op.table === "crm_stages")?.filters).toEqual(expect.arrayContaining(["organization_id=org-1", "kind=open"]));
     expect(ops.find((op) => op.head)?.filters).toEqual(expect.arrayContaining(["organization_id=org-1", "stage_id in s1,s2"]));
+  });
+});
+
+describe("getLead", () => {
+  it("busca o lead só na empresa do contexto e traz a etapa", async () => {
+    const { supabase, ops } = fakeSupabase((op) =>
+      op.table === "crm_leads" ? { data: { id: "lead-1", name: "Maria", stage_id: "s1", crm_stages: { name: "Novo Lead", kind: "open" } } } : {},
+    );
+    const lead = await getLead(ctxWith(supabase), "lead-1");
+    expect(lead).toMatchObject({ id: "lead-1", stage: { name: "Novo Lead", kind: "open" } });
+    expect(ops[0].filters).toEqual(["id=lead-1", "organization_id=org-1"]);
+  });
+
+  it("lead de outra empresa ou inexistente vira ServiceError", async () => {
+    const { supabase } = fakeSupabase(() => ({ data: null }));
+    await expect(getLead(ctxWith(supabase), "lead-x")).rejects.toBeInstanceOf(ServiceError);
+  });
+});
+
+describe("memberNames", () => {
+  it("só resolve nomes de quem é membro da empresa", async () => {
+    const { supabase, ops } = fakeSupabase((op) => {
+      if (op.table === "organization_members") return { data: [{ user_id: "u-2" }] };
+      if (op.table === "profiles") return { data: [{ id: "u-2", full_name: "Bruno Lima" }] };
+      return {};
+    });
+    const names = await memberNames(ctxWith(supabase), ["u-2", "u-de-fora"], supabase as never);
+    expect(Object.fromEntries(names)).toEqual({ "u-2": "Bruno Lima" });
+    expect(ops.find((op) => op.table === "organization_members")?.filters).toEqual(expect.arrayContaining(["organization_id=org-1", "user_id in u-2,u-de-fora"]));
+    expect(ops.find((op) => op.table === "profiles")?.filters).toEqual(["id in u-2"]);
   });
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getPlan } from "@/config/plans";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServiceContext } from "./context";
 import { ServiceError } from "./errors";
 
@@ -91,6 +92,19 @@ export async function getDefaultBoard(ctx: ServiceContext) {
   };
 }
 
+// Etapas do funil padrão, sem carregar leads (ficha do lead, seletores, Tools).
+export async function listStages(ctx: ServiceContext) {
+  const pipeline = await getDefaultPipeline(ctx);
+  const { data, error } = await ctx.supabase
+    .from("crm_stages")
+    .select("id, name, position, color, kind")
+    .eq("organization_id", ctx.organizationId)
+    .eq("pipeline_id", pipeline.id)
+    .order("position");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 async function getDefaultPipeline(ctx: ServiceContext): Promise<{ id: string }> {
   const { data, error } = await ctx.supabase
     .from("crm_pipelines")
@@ -178,6 +192,41 @@ export async function createLead(ctx: ServiceContext, input: LeadInput, source: 
     .single();
   if (error) throw new Error(error.message);
   return data;
+}
+
+export async function getLead(ctx: ServiceContext, leadId: string) {
+  const { data, error } = await ctx.supabase
+    .from("crm_leads")
+    .select(`${LEAD_COLUMNS}, scraped_lead_id, google_event_id, created_by, crm_stages(name, kind)`)
+    .eq("id", leadId)
+    .eq("organization_id", ctx.organizationId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new ServiceError(LEAD_NOT_FOUND);
+  const { crm_stages: stage, ...lead } = data as typeof data & { crm_stages: { name: string; kind: string } | null };
+  return { ...lead, stage };
+}
+
+// Nomes para a linha do tempo. Perfis só são legíveis pelo próprio usuário (RLS), então a leitura usa o cliente
+// admin, mas limitada a ids que a consulta com o contexto (RLS/filtro de org) confirmou serem membros da empresa.
+export async function memberNames(ctx: ServiceContext, userIds: string[], admin = createAdminClient()): Promise<Map<string, string>> {
+  const unique = [...new Set(userIds.filter(Boolean))];
+  if (unique.length === 0) return new Map();
+
+  const { data: members, error } = await ctx.supabase
+    .from("organization_members")
+    .select("user_id")
+    .eq("organization_id", ctx.organizationId)
+    .in("user_id", unique);
+  if (error) throw new Error(error.message);
+  const memberIds = (members ?? []).map((member) => member.user_id as string);
+  if (memberIds.length === 0) return new Map();
+
+  const { data: profiles, error: profilesError } = await admin.from("profiles").select("id, full_name").in("id", memberIds);
+  if (profilesError) throw new Error(profilesError.message);
+  return new Map(
+    (profiles ?? []).filter((profile) => profile.full_name).map((profile) => [profile.id as string, profile.full_name as string]),
+  );
 }
 
 export async function updateLead(ctx: ServiceContext, leadId: string, patch: LeadPatch) {

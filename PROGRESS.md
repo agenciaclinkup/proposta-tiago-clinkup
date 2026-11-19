@@ -5,25 +5,25 @@
 ## Estado atual
 
 - **Fase:** 4 — CRM Inteligente: Kanban e Funil de Vendas (Fases 2 e 3 ✅ concluídas)
-- **Etapa em andamento:** 4.3 — Ficha completa do lead e Visão de Funil
+- **Etapa em andamento:** 4.4 — Tools do Agente Hermes para o CRM
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**4.3 Ficha completa do lead e Visão de Funil** (TDD; carregar a skill `dataviz` antes de escrever o gráfico):
-1. **Service:** `getLead(ctx, leadId)` (dados + nome da etapa), reaproveitando `listLeadActivities`, `updateLead`, `addLeadNote`; testes de isolamento por org e "lead não encontrado".
-2. **Ficha** `app/(app)/crm/leads/[leadId]/page.tsx` (link pelo nome do card no Kanban): dados de contato com links de ação (WhatsApp `wa.me`, e-mail, site, Instagram), valor, origem, responsável, próxima reunião; formulário de edição (`updateLeadAction` com `leadPatchSchema`); seletor de etapa (reusa `moveLeadAction`); exclusão só owner/admin; **linha do tempo** (notas, mudanças de etapa, reuniões; ícone por tipo; "por você", "por fulano" ou "pelo Hermes"); campo de nova anotação (`addLeadNoteAction` com `noteSchema`).
-3. **Funil:** `funnelMetrics(stages)` pura em `lib/crm/funnel.ts` — por etapa: quantidade, valor, % do total e **taxa de passagem** para a próxima (leads que estão na etapa ou além ÷ os que estão na anterior ou além, etapas abertas na ordem + ganho; perdidos à parte) e conversão geral; testes com casos de zero.
-4. **Visão de Funil** em `/crm?view=funil` (abas "Quadro | Funil"): gráfico de funil/barras com Recharts (instalar versão fixa, cores dos tokens, tooltip pt-BR) + **tabela acessível** com os mesmos números; estado vazio didático.
-5. Nota de produto: a taxa de passagem é calculada pela foto atual do funil; histórico real por período (a partir de `crm_activities.stage_change`) fica como evolução.
+**4.4 Tools do Agente Hermes para o CRM** (TDD; mesmas funções e schemas da UI — `lib/services/crm.ts`):
+1. **Busca para o agente:** `searchLeads(ctx, { query?, stageId?, limit ≤ 20 })` (busca por nome/empresa/e-mail com `ilike`, escapando `%` e `_`; sempre filtrada por org) e `resolveStage(ctx, nomeOuId)` (o modelo fala o **nome** da etapa, sem acento/maiúscula; ambíguo ou inexistente → `ServiceError` listando as etapas válidas).
+2. **Tools** em `lib/hermes/tools.ts`: `list_leads`, `create_lead` (`leadInputSchema` + `stage` por nome; limite do plano já tratado), `update_lead` (`leadPatchSchema`), `move_lead_to_stage` (lead + nome da etapa, histórico com `created_via: hermes`), `add_lead_note`, `get_funnel_metrics` (contagem por etapa com `count` head por etapa — sem carregar todos os leads — + `funnelMetrics`).
+3. **Sem Tool de exclusão** (ação destrutiva fica só na UI, com confirmação). Avaliar `needsApproval` para mover vários leads de uma vez (não há Tool em lote nesta etapa).
+4. Rótulos pt-BR em `lib/hermes/tool-labels.ts` (o teste exige rótulo para toda Tool), system prompt atualizado com as novas capacidades e orientação de **perguntar qual lead** quando a busca trouxer mais de um.
+5. Testes: cada Tool chama o service certo com o `ServiceContext` do canal; resolução de etapa por nome; isolamento (`member` move/cria mas a etapa de outra org não resolve); Telegram usa as mesmas Tools.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
 - 4.2 `/crm` Kanban ✅.
-- 4.3 Ficha do lead + Visão de Funil (acima).
-- 4.4 Tools do Hermes: `create_lead`, `update_lead`, `move_lead_to_stage`, `list_leads`, `add_lead_note`, `get_funnel_metrics` (rótulos pt-BR) — mesmas funções da UI.
+- 4.3 Ficha do lead + Visão de Funil ✅.
+- 4.4 Tools do Hermes para o CRM (acima).
 - 4.5 Reunião na Agenda do Google a partir do lead (`schedule_meeting`, usa `getGoogleAccessToken` da 3.5; cria evento com convite) + KPI "Oportunidades no funil" e "Taxa de conversão" no dashboard.
 
 **Plano da Fase 3 (concluída):**
@@ -110,6 +110,9 @@
 - [ ] **Kanban em produção (Fase 4.2):** arrastar com mouse, toque (celular) e teclado (Tab até a alça ⋮⋮, espaço, setas, espaço) com leitor de tela anunciando em português; mover para outra etapa gera "Movido de … para …" no histórico; abrir o mesmo quadro em duas abas, excluir um lead numa e tentar movê-lo na outra → o card volta ao lugar com aviso.
 - [ ] Etapas: como owner/admin, criar, renomear/mudar cor, reordenar com as setas e excluir etapa vazia; tentar excluir etapa com leads → mensagem "ainda tem N leads"; como member, nenhum desses controles aparece e excluir lead não aparece.
 - [ ] Dashboard: "Oportunidades no funil" igual à soma dos leads nas etapas abertas (não conta "Fechado").
+- [ ] **Ficha do lead (Fase 4.3):** abrir pelo nome do card; atalhos de WhatsApp (abre conversa no número com 55), e-mail, telefone, site e Instagram funcionam no celular e no computador; salvar dados, trocar etapa (histórico "Movido de…"), adicionar anotação; linha do tempo mostra "por você", "por <nome do colega>" e "pelo Hermes" corretamente; excluir (só admin) volta ao quadro; abrir a URL de um lead de outra empresa → página não encontrada.
+- [ ] **Aba Funil (Fase 4.3):** números da tabela batem com o quadro; tooltip em português; gráfico só carrega ao abrir a aba; com zero leads aparece o estado vazio; sem etapa "ganho" a conversão mostra "—" com explicação. Conferir o gráfico visualmente (rótulos sem colisão em nomes longos de etapa).
+- [ ] Desempenho do quadro com volume real: o `/crm` carrega todos os leads do funil; medir com ~5 mil leads e, se ficar lento, priorizar paginação por coluna.
 - [ ] Teste real de isolamento: com duas empresas, criar lead na empresa A e tentar, pela API REST com o token de um usuário da B, ler/alterar o lead e mover para uma etapa da B (deve falhar por RLS e pela FK composta).
 
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
@@ -144,6 +147,16 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 4.3 Ficha completa do lead e Visão de Funil — ✅ (2026-11-18)
+- **Service:** `getLead` (com etapa; outro tenant → `ServiceError` → 404), `listStages` (sem carregar leads), `memberNames` (confirma membros via contexto, lê `profiles` com admin só desses ids).
+- **`lib/crm/lead-view.ts`:** `contactLinks` (WhatsApp `wa.me` com 55 para número BR, `mailto:`, `tel:`, site só `http(s)`, Instagram por @) e `activityAuthor` ("por você" / "por <nome>" / "pelo Hermes" / "por um membro da equipe").
+- **`lib/crm/funnel.ts`:** `funnelMetrics` (foto atual: participação, chegaram, taxa de passagem, perdidos à parte, conversão geral; sem divisão por zero).
+- **Ficha `app/(app)/crm/leads/[leadId]`:** cabeçalho com etapa/origem/responsável, contato rápido, seletor de etapa (reusa `moveLeadAction`, histórico), edição completa (`updateLeadAction`), linha do tempo com autoria e ícones, nova anotação (`addLeadNoteAction`), exclusão só owner/admin (`deleteLeadAction` com `redirectTo=board`). Nome do card no Kanban virou link.
+- **Aba Funil `/crm?view=funil`:** resumo (leads, conversão geral, valor), gráfico Recharts 3.11 (barras horizontais de uma série na cor primária, rótulo direto, tooltip pt-BR, **carregado sob demanda** — o `/crm` voltou de 143 kB para 25 kB) e tabela acessível com os mesmos números; estado vazio didático. Skill `dataviz` aplicada; cor validada com o script da skill (contraste PASS na superfície escura; a faixa de luminosidade é regra só de paletas categóricas).
+- Actions revalidam `/crm` com `"layout"` (quadro + fichas).
+
+**Testes:** `npm test` 250/250 (12 novos, RED verificado antes) · `npm run test:db` 96/96 · `tsc --noEmit` OK · lint limpo · build OK. Gráfico e ficha **não** vistos no navegador (passo "renderize e olhe" da skill fica no checklist).
 
 ### 4.2 Quadro Kanban com arrastar e soltar — ✅ (2026-11-18)
 - **Deps:** `@dnd-kit/core` 6.3.1, `@dnd-kit/sortable` 10.0.0, `@dnd-kit/utilities` 3.2.2 (peer `react >=16.8`, ok com React 19.1).

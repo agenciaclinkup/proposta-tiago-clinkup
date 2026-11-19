@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import {
   closestCorners,
@@ -294,7 +295,13 @@ function LeadCardView({
       <div className="flex items-start gap-1.5">
         {handle}
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{lead.name}</p>
+          {dragging ? (
+            <p className="truncate font-medium">{lead.name}</p>
+          ) : (
+            <Link href={`/crm/leads/${lead.id}`} className="block truncate font-medium hover:text-primary hover:underline">
+              {lead.name}
+            </Link>
+          )}
           {lead.company && <p className="truncate text-xs text-muted-foreground">{lead.company}</p>}
         </div>
         {actions}
