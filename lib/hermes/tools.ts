@@ -10,6 +10,7 @@ import { searchLeads, searchLeadsSchema, resolveStage, createLead, leadInputSche
 import type { ServiceContext } from "@/lib/services/context";
 import { ServiceError } from "@/lib/services/errors";
 import { listIntegrations, summarizeIntegrations } from "@/lib/services/integrations";
+import { meetingSchema, scheduleLeadMeeting } from "@/lib/services/meetings";
 import { defineTool, runTool, type HermesTool } from "./run-tool";
 
 const ONBOARDING_REQUIRED = "A memória da marca ainda não foi criada. Conclua o onboarding no painel para que eu possa usá-la.";
@@ -106,6 +107,12 @@ const getFunnelMetricsTool = defineTool({
   name: "get_funnel_metrics", description: "Consulta as métricas atuais do funil de vendas, incluindo totais e taxas de passagem.",
   input: z.object({}), execute: (ctx) => getFunnelMetrics(ctx),
 });
+const scheduleLeadMeetingTool = defineTool({
+  name: "schedule_lead_meeting",
+  description: "Agenda reunião no Google Calendar e envia convite ao e-mail do lead. Antes de usar, confirme lead, título, data, horário e duração com o usuário.",
+  input: meetingSchema,
+  execute: (ctx, input) => scheduleLeadMeeting(ctx, input),
+});
 
 export const HERMES_TOOLS: HermesTool[] = [
   getBrandContextTool,
@@ -115,6 +122,7 @@ export const HERMES_TOOLS: HermesTool[] = [
   listIntegrationsTool,
   getIntegrationSetupGuideTool,
   listLeadsTool, createLeadTool, updateLeadTool, moveLeadTool, addLeadNoteTool, getFunnelMetricsTool,
+  scheduleLeadMeetingTool,
 ] as HermesTool[];
 
 // Tools prontas para o AI SDK, já presas ao contexto (organização, usuário, canal) da requisição.

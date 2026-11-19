@@ -2,6 +2,7 @@ import type { HermesChannel } from "@/lib/services/context";
 
 // Rótulos pt-BR das Tools para o chat e o feed de atividades. Toda Tool nova em tools.ts precisa de entrada aqui.
 const TOOL_LABELS: Record<string, { running: string; done: string }> = {
+  schedule_lead_meeting: { running: "Agendando reunião…", done: "Agendou reunião" },
   list_leads: { running: "Buscando leads…", done: "Buscou leads" },
   create_lead: { running: "Cadastrando lead…", done: "Cadastrou lead" },
   update_lead: { running: "Atualizando lead…", done: "Atualizou lead" },

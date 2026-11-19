@@ -4,11 +4,18 @@ vi.mock("@/lib/services/hermes-log", () => ({ recordHermesLog: vi.fn() }));
 const crm = await import("@/lib/services/crm");
 const { HERMES_TOOLS } = await import("./tools");
 const { runTool } = await import("./run-tool");
+const meetings = await import("@/lib/services/meetings");
 const ctx = { organizationId: "org", userId: "user", via: "hermes", channel: "telegram", role: "member" } as ServiceContext;
 const id = "11111111-1111-4111-8111-111111111111";
 const stageId = "22222222-2222-4222-8222-222222222222";
 const call = (name: string, input: unknown) => runTool(ctx, HERMES_TOOLS.find((t) => t.name === name)!, input);
 describe("Tools CRM", () => {
+  it("agenda reunião com o contexto do Telegram pelo serviço compartilhado", async () => {
+    const schedule = vi.spyOn(meetings, "scheduleLeadMeeting").mockResolvedValue({ eventId: "evento", startAt: "2030-01-01T12:00:00Z", durationMinutes: 30, attendee: "ana@example.com" });
+    const input = { leadId: id, title: "Reunião", startAt: "2030-01-01T12:00:00Z", durationMinutes: 30 };
+    expect((await call("schedule_lead_meeting", input)).ok).toBe(true);
+    expect(schedule).toHaveBeenCalledWith(ctx, input);
+  });
   it("registra as seis operações sem exclusão", () => {
     expect(HERMES_TOOLS.map((t) => t.name)).toEqual(expect.arrayContaining(["list_leads", "create_lead", "update_lead", "move_lead_to_stage", "add_lead_note", "get_funnel_metrics"]));
     expect(HERMES_TOOLS.some((t) => t.name === "delete_lead")).toBe(false);

@@ -4,22 +4,22 @@
 
 ## Estado atual
 
-- **Fase:** 4 — CRM Inteligente: Kanban e Funil de Vendas (Fases 2 e 3 ✅ concluídas)
-- **Etapa em andamento:** 4.5 — Reunião na Agenda do Google e indicadores no dashboard
+- **Fase:** 5 — Calendário editorial e publicação omnichannel (Fases 2, 3 e 4 ✅ concluídas)
+- **Etapa em andamento:** 5.1 — Dados e serviços do calendário editorial
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Codex
 
 ## Próxima microtarefa (exata)
 
-**4.5 Reunião na Agenda do Google e indicadores no dashboard:** implementar `schedule_meeting` a partir do lead, usando `getGoogleAccessToken` da 3.5, com convite; integrar os indicadores de oportunidades no funil e taxa de conversão ao dashboard. Compartilhar a lógica entre interface e Hermes, validar permissões e cobrir com testes.
+**5.1 Dados e serviços do calendário editorial:** planejar e implementar, com TDD, a migration de `social_posts` conforme `ARCHITECTURE.md` (canais, formato, mídia, copy, data e status), isolamento por organização, RLS e grants explícitos; criar schemas Zod e serviços compartilhados para cadastro, consulta e alterações manuais e pelo Hermes. Definir e testar as transições de status e os limites do plano antes de implementar a interface e a publicação nas próximas microtarefas.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
 - 4.2 `/crm` Kanban ✅.
 - 4.3 Ficha do lead + Visão de Funil ✅.
 - 4.4 Tools do Hermes para o CRM ✅.
-- 4.5 Reunião na Agenda do Google a partir do lead (`schedule_meeting`, usa `getGoogleAccessToken` da 3.5; cria evento com convite) + KPI "Oportunidades no funil" e "Taxa de conversão" no dashboard.
+- 4.5 Reunião na Agenda do Google e indicadores no dashboard ✅.
 
 **Plano da Fase 3 (concluída):**
 - 3.1 dados + cofre ✅.
@@ -105,6 +105,7 @@
 - [ ] **Kanban em produção (Fase 4.2):** arrastar com mouse, toque (celular) e teclado (Tab até a alça ⋮⋮, espaço, setas, espaço) com leitor de tela anunciando em português; mover para outra etapa gera "Movido de … para …" no histórico; abrir o mesmo quadro em duas abas, excluir um lead numa e tentar movê-lo na outra → o card volta ao lugar com aviso.
 - [ ] Etapas: como owner/admin, criar, renomear/mudar cor, reordenar com as setas e excluir etapa vazia; tentar excluir etapa com leads → mensagem "ainda tem N leads"; como member, nenhum desses controles aparece e excluir lead não aparece.
 - [ ] Dashboard: "Oportunidades no funil" igual à soma dos leads nas etapas abertas (não conta "Fechado").
+- [ ] **Reuniões e dashboard (Fase 4.5):** com Google Calendar real conectado, agendar pela ficha e pelo Hermes, conferir convite recebido, fuso de Brasília, renovação de token, registro na linha do tempo e isolamento entre empresas; conferir conversão e valor do dashboard contra a visão do funil. Validar ausência de conexão e recuperação após falha parcial antes de tentar novamente.
 - [ ] **Ficha do lead (Fase 4.3):** abrir pelo nome do card; atalhos de WhatsApp (abre conversa no número com 55), e-mail, telefone, site e Instagram funcionam no celular e no computador; salvar dados, trocar etapa (histórico "Movido de…"), adicionar anotação; linha do tempo mostra "por você", "por <nome do colega>" e "pelo Hermes" corretamente; excluir (só admin) volta ao quadro; abrir a URL de um lead de outra empresa → página não encontrada.
 - [ ] **Aba Funil (Fase 4.3):** números da tabela batem com o quadro; tooltip em português; gráfico só carrega ao abrir a aba; com zero leads aparece o estado vazio; sem etapa "ganho" a conversão mostra "—" com explicação. Conferir o gráfico visualmente (rótulos sem colisão em nomes longos de etapa).
 - [ ] Desempenho do quadro com volume real: o `/crm` carrega todos os leads do funil; medir com ~5 mil leads e, se ficar lento, priorizar paginação por coluna.
@@ -142,6 +143,12 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 4.5 Reunião na Agenda do Google e indicadores — ✅ (2026-11-18) · **Fase 4 concluída**
+- `lib/services/meetings.ts`: schema e serviço compartilhado, token renovável, convite ao e-mail do lead, registro de atividade e atualização do lead; mensagens para conexão ausente e resposta ou gravação inconclusiva. O calendário conectado mais antigo é usado quando há mais de um.
+- `app/(app)/crm/actions.ts` e ficha do lead: formulário com título, data e hora de Brasília, duração e descrição; validação e limite de requisições existentes. `lib/hermes/tools.ts`, `system-prompt.ts` e `tool-labels.ts`: Tool `schedule_lead_meeting` e orientações em português.
+- `app/(app)/dashboard/page.tsx`: conversão e valor do funil por organização, com a mesma definição da visão de funil. Testes em `lib/services/meetings.test.ts`, `lib/hermes/crm-tools.test.ts` e `app/(app)/crm/actions.test.ts`.
+- **Testes:** `npm test` 265/265; `npm run lint` limpo; `npm run build` OK. RED inicial do serviço verificado antes da implementação. Google Calendar e interface não foram testados com conta real ou no navegador; validação permanece no checklist.
 
 ### 4.4 Tools do Hermes para o CRM — ✅ (2026-11-18)
 - Seis Tools para busca, cadastro, alteração, movimentação, anotações e métricas, usando os serviços e schemas do CRM; sem exclusão pelo agente.

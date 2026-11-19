@@ -23,6 +23,7 @@ import {
   updateStage,
 } from "@/lib/services/crm";
 import { ServiceError } from "@/lib/services/errors";
+import { meetingSchema, scheduleLeadMeeting } from "@/lib/services/meetings";
 import { requireWorkspace } from "@/lib/workspace";
 
 export type CrmActionState = { error?: string; success?: string } | undefined;
@@ -83,6 +84,17 @@ export async function addLeadNoteAction(_: CrmActionState, formData: FormData): 
   const parsed = noteSchema.safeParse({ leadId: formData.get("leadId"), content: formData.get("content") });
   if (!parsed.success) return { error: firstIssue(parsed.error) };
   return run((ctx) => addLeadNote(ctx, parsed.data.leadId, parsed.data.content), "Anotação adicionada.");
+}
+
+export async function scheduleLeadMeetingAction(_: CrmActionState, formData: FormData): Promise<CrmActionState> {
+  const localStart = String(formData.get("startAt") ?? "");
+  const parsed = meetingSchema.safeParse({
+    leadId: formData.get("leadId"), title: formData.get("title"),
+    startAt: `${localStart}:00-03:00`, durationMinutes: formData.get("durationMinutes"),
+    description: formData.get("description") || undefined,
+  });
+  if (!parsed.success) return { error: firstIssue(parsed.error) };
+  return run((ctx) => scheduleLeadMeeting(ctx, parsed.data), "Reunião agendada e convite enviado.");
 }
 
 export async function createStageAction(_: CrmActionState, formData: FormData): Promise<CrmActionState> {

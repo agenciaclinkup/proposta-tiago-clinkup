@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, Bot, CalendarDays, Check, KanbanSquare, Megaphone, PlugZap, Users } from "lucide-react";
+import { AlertTriangle, Bot, CalendarDays, Check, KanbanSquare, Megaphone, PlugZap, Users, Percent, CircleDollarSign } from "lucide-react";
 import { UsageCard } from "@/components/usage-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,16 +9,17 @@ import { getPlan } from "@/config/plans";
 import { CHANNEL_LABELS, toolLabel } from "@/lib/hermes/tool-labels";
 import { listRecentActivity } from "@/lib/services/activity";
 import { serviceContext, type HermesChannel } from "@/lib/services/context";
-import { countOpenOpportunities } from "@/lib/services/crm";
+import { countOpenOpportunities, getFunnelMetrics } from "@/lib/services/crm";
 import { getUsageSummary } from "@/lib/services/usage";
 import { requireWorkspace } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-// "Oportunidades no funil" é real (Fase 4.2); os demais ficam zerados até seus módulos gravarem dados.
 const KPIS = [
   { key: "scraped", label: "Leads extraídos", icon: Users, href: null },
   { key: "opportunities", label: "Oportunidades no funil", icon: KanbanSquare, href: "/crm" },
+  { key: "conversion", label: "Conversão do funil", icon: Percent, href: "/crm" },
+  { key: "value", label: "Valor total no funil", icon: CircleDollarSign, href: "/crm" },
   { key: "posts", label: "Posts agendados", icon: CalendarDays, href: null },
   { key: "ads", label: "Investimento em Meta Ads", icon: Megaphone, href: null },
 ] as const;
@@ -35,12 +36,17 @@ export default async function DashboardPage() {
   const workspace = await requireWorkspace();
   const { organization, subscription, profile } = workspace;
   const ctx = serviceContext(workspace, "manual");
-  const [usage, activity, opportunities] = await Promise.all([
+  const [usage, activity, opportunities, funnel] = await Promise.all([
     getUsageSummary(ctx),
     listRecentActivity(ctx, 6),
     countOpenOpportunities(ctx),
+    getFunnelMetrics(ctx),
   ]);
-  const kpiValue: Record<(typeof KPIS)[number]["key"], number> = { scraped: 0, opportunities, posts: 0, ads: 0 };
+  const kpiValue: Record<(typeof KPIS)[number]["key"], string> = {
+    scraped: "0", opportunities: opportunities.toLocaleString("pt-BR"), posts: "0", ads: "0",
+    conversion: funnel.conversion === null ? "—" : new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 1 }).format(funnel.conversion),
+    value: new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(funnel.totalValue),
+  };
   const plan = getPlan(subscription?.plan_id ?? organization.plan_id);
   const trialDaysLeft =
     subscription?.status === "trialing" && subscription.trial_ends_at
@@ -74,7 +80,9 @@ export default async function DashboardPage() {
               <Icon className="size-4 text-primary" aria-hidden />
             </CardHeader>
             <CardContent>
-              <p className="font-heading text-3xl font-semibold">{kpiValue[key].toLocaleString("pt-BR")}</p>
+              <p className="font-heading text-3xl font-semibold">{kpiValue[key]}</p>
+              {key === "conversion" && <p className="text-xs text-muted-foreground">Leads ganhos sobre o total atual</p>}
+              {key === "value" && <p className="text-xs text-muted-foreground">Soma dos leads em todas as etapas</p>}
               {href && (
                 <Link href={href} className="text-xs text-primary hover:underline">
                   Abrir o CRM
@@ -93,7 +101,7 @@ export default async function DashboardPage() {
             </CardTitle>
             <CardDescription>
               A memória da sua marca está pronta e o Hermes já pode conversar com você. Peça ideias de conteúdo,
-              ajustes na memória da marca ou um resumo do seu plano. Agendamento de posts, CRM e campanhas chegam em
+              ajustes na memória da marca, ações no CRM ou um resumo do seu plano. Agendamento de posts e campanhas chegam em
               breve.
             </CardDescription>
           </CardHeader>

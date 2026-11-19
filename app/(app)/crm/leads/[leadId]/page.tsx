@@ -26,7 +26,7 @@ import { getLead, listLeadActivities, listStages, memberNames } from "@/lib/serv
 import { ServiceError } from "@/lib/services/errors";
 import { requireWorkspace } from "@/lib/workspace";
 import { deleteLeadAction } from "../../actions";
-import { LeadEditForm, LeadStageSelect, NoteForm } from "./lead-forms";
+import { LeadEditForm, LeadStageSelect, NoteForm, MeetingForm } from "./lead-forms";
 
 export const metadata: Metadata = { title: "Ficha do lead" };
 
@@ -107,6 +107,10 @@ export default async function LeadPage({ params }: { params: Promise<{ leadId: s
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
         <div className="space-y-6">
+          <Card className="glass">
+            <CardHeader><CardTitle>Agendar reunião</CardTitle><CardDescription>Crie o evento no Google Calendar e envie o convite ao lead.</CardDescription></CardHeader>
+            <CardContent><MeetingForm leadId={lead.id} email={lead.email} /></CardContent>
+          </Card>
           <Card className="glass">
             <CardHeader>
               <CardTitle>Contato rápido</CardTitle>

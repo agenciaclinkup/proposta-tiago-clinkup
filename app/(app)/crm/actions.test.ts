@@ -21,6 +21,8 @@ const services = {
   addLeadNote: vi.fn(),
 };
 vi.mock("@/lib/services/crm", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/services/crm")>()), ...services }));
+const scheduleMeeting = vi.fn();
+vi.mock("@/lib/services/meetings", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/services/meetings")>()), scheduleLeadMeeting: scheduleMeeting }));
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath }));
 
@@ -71,6 +73,18 @@ describe("moveLeadAction", () => {
   it("aplica rate limit", async () => {
     rateLimit.mockResolvedValue(false);
     expect(await actions.moveLeadAction({ leadId: ids.lead, stageId: ids.stage, index: 0 })).toEqual({ error: "Muitas tentativas." });
+  });
+});
+
+describe("scheduleLeadMeetingAction", () => {
+  it("valida e envia o horário de Brasília ao serviço com contexto manual", async () => {
+    const input = form({ leadId: ids.lead, title: "Conversa", startAt: "2030-01-01T09:00", durationMinutes: "30" });
+    expect(await actions.scheduleLeadMeetingAction(undefined, input)).toEqual({ success: expect.any(String) });
+    expect(scheduleMeeting).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-1", via: "manual" }), expect.objectContaining({ startAt: "2030-01-01T09:00:00-03:00", durationMinutes: 30 }));
+  });
+  it("rejeita duração inválida antes do serviço", async () => {
+    expect((await actions.scheduleLeadMeetingAction(undefined, form({ leadId: ids.lead, title: "Conversa", startAt: "2030-01-01T09:00", durationMinutes: "0" })))?.error).toBeTruthy();
+    expect(scheduleMeeting).not.toHaveBeenCalled();
   });
 });
 

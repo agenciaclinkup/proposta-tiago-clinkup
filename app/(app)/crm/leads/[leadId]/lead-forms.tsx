@@ -7,7 +7,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { addLeadNoteAction, moveLeadAction, updateLeadAction } from "../../actions";
+import { addLeadNoteAction, moveLeadAction, updateLeadAction, scheduleLeadMeetingAction } from "../../actions";
+
+export function MeetingForm({ leadId, email }: { leadId: string; email: string | null }) {
+  const [state, action, pending] = useActionState(scheduleLeadMeetingAction, undefined);
+  return (
+    <form action={action} className="space-y-4">
+      <input type="hidden" name="leadId" value={leadId} />
+      <p className="text-sm text-muted-foreground">O convite será enviado para {email || "o e-mail cadastrado na ficha do lead"}. Conecte o Google Calendar em <a href="/integrations" className="text-primary underline">Integrações</a>.</p>
+      <div className="space-y-1.5"><Label htmlFor="meeting-title">Título</Label><Input id="meeting-title" name="title" required maxLength={200} /></div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5"><Label htmlFor="meeting-start">Data e horário de Brasília</Label><Input id="meeting-start" name="startAt" type="datetime-local" required /></div>
+        <div className="space-y-1.5"><Label htmlFor="meeting-duration">Duração (minutos)</Label><Input id="meeting-duration" name="durationMinutes" type="number" min={5} max={480} defaultValue={30} required /></div>
+      </div>
+      <div className="space-y-1.5"><Label htmlFor="meeting-description">Descrição</Label><Textarea id="meeting-description" name="description" rows={3} maxLength={5000} /></div>
+      {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
+      {state?.success && <p role="status" className="text-sm text-primary">{state.success}</p>}
+      <Button type="submit" disabled={pending}>{pending ? "Agendando…" : "Agendar e enviar convite"}</Button>
+    </form>
+  );
+}
 
 type EditableLead = {
   id: string;
