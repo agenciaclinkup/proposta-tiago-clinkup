@@ -5,14 +5,14 @@
 ## Estado atual
 
 - **Fase:** 6 — Estúdio (Fases 2, 3, 4 e 5 ✅ concluídas)
-- **Etapa em andamento:** 6.1 — Dados e serviços compartilhados do Estúdio
+- **Etapa em andamento:** 6.2 — Interface do Estúdio e exportação para o calendário
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-19 — Codex
 
 ## Próxima microtarefa (exata)
 
-**6.1 Estúdio — dados e serviços compartilhados:** implementar, com TDD e RLS estrito por empresa, as tabelas `carousels` e `landing_pages` previstas em `ARCHITECTURE.md`, incluindo slides hook/conteúdo/CTA, tema, status e exportações; páginas com slug único por empresa, seções e destino seguro no funil CRM. Criar serviços compartilhados para interface e Hermes com validação Zod, permissões e testes de banco em memória; preparar a interface e exportação para o calendário na microtarefa seguinte. Preservar a seção de Go-Live e registrar quaisquer migrations e configurações novas.
+**6.2 Estúdio — interface e exportação para o calendário:** criar `/studio` para listar e editar carrosséis, slides hook/conteúdo/CTA, tema e imagens, reutilizando os schemas e serviços de 6.1; fornecer estados acessíveis, claros e responsivos. Implementar exportação dos slides para um rascunho no calendário usando o serviço social compartilhado, copiando assets autorizados de `studio-assets` para `social-media` sob a mesma empresa, sem publicar ou agendar implicitamente. Definir geração real com cobrança idempotente e estorno explícito apenas quando o provedor estiver integrado; não disparar uma geração novamente quando `created` for `false`. Tratar interrupções de gerações `started` e limpeza de arquivos órfãos antes de integrar provedores. Cobrir permissões, isolamento, falhas, limites e testes de interface; manter checklist e preparar a próxima microtarefa da Fase 6.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
@@ -153,7 +153,14 @@
 
 - [ ] **Confirmações e publicação imediata (5.4b):** aplicar `20261119035734_social_confirmation.sql` e rodar advisors; validar web e Telegram entre turnos com usuários, organizações, canais e conversas distintos; testar expiração, replay, mudança de conta/post, limite e concorrência real com conexões PostgreSQL separadas. Validar publicação imediata com contas reais e conciliação antes de ativar o Cron. O item anterior da 5.4 registra o estado histórico anterior a esta implementação.
 
+- [ ] **Dados e assets do Estúdio (6.1):** aplicar `20261119041214_studio_data.sql`, verificar advisors e o bucket privado `studio-assets`; testar com duas empresas uploads e URLs assinadas, RLS, funis, consumo/estorno no mês original e concorrência real de solicitações repetidas e limites. Validar as políticas globais de `storage.objects` para garantir que não concedam acesso amplo ao bucket. Antes da exportação, conferir a cópia autorizada entre buckets e os limites de armazenamento; definir recuperação de gerações interrompidas e limpeza de assets órfãos antes de integrar provedores.
+
 ## Concluído
+
+### 6.1 Dados e serviços compartilhados do Estúdio — ✅ (2026-11-19)
+- Migration `20261119041214_studio_data.sql`: carrosséis, slides, landing pages e histórico de gerações com RLS, FKs compostas por empresa, slug único por organização e bucket privado de imagens.
+- `lib/services/studio.ts`: schemas Zod e operações compartilhadas para painel e Hermes, checagem de associação e caminhos de assets, URLs assinadas, histórico e destino seguro de leads no CRM. A geração registra uma chave idempotente, cobra um crédito do plano atomicamente e estorna uma única vez no período original em caso de falha explícita; não chama provedores.
+- **Testes:** `npm test` 328/328; `npm run test:db`, `npm run lint` e `npm run build` verdes; testes reais de Storage e concorrência PostgreSQL permanecem no checklist.
 
 ### 5.4b Confirmação persistente e publicação imediata — ✅ (2026-11-19)
 - `social_confirmation`: autorização privada, vinculada a empresa, usuário, canal, conversa, operação, conteúdo e contas externas; expira em 15 minutos, exige prova de uso único e bloqueio transacional. Propostas semanais e cota são gravadas integralmente ou revertidas.
