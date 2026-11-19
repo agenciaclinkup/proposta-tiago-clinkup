@@ -350,3 +350,43 @@ await expectFail("published target cannot start again", () => asService(`select 
 await asService(`select public.start_social_target('${partialRetry.id}', '${orgA}', '${socialFacebook}', '${secondLease.lease_token}')`);
 await asService(`select public.finish_social_target('${partialRetry.id}', '${orgA}', '${socialFacebook}', '${secondLease.lease_token}', 'published', 'fb-published', null)`);
 check("partial retry finishes without losing first result", (await as(A, `select external_ids from public.social_posts where id = '${partialRetry.id}'`)).rows[0].external_ids.instagram === "ig-published");
+
+// Confirmação persistente: vínculo de canal, usuário e conversa e consumo único transacional.
+const proofHash = "a".repeat(64);
+const conversation = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+await asService(`insert into public.social_confirmations (organization_id,user_id,channel,conversation_id,operation,proof_hash,payload) values ('${orgA}','${A}','web','${conversation}','weekly','${proofHash}','[${socialPayload}]'::jsonb)`);
+await expectFail("confirmation table is private", () => as(A, "select * from public.social_confirmations"));
+const confirm = (org, user, channel, conv, hash, limit = 99) => asService(`select public.confirm_social_action('${org}','${user}','${channel}',${conv ? `'${conv}'` : "null"},'${hash}',${limit}) as result`);
+await expectFail("confirmation rejects other organization", () => confirm(orgB, B, "web", conversation, proofHash));
+await expectFail("confirmation rejects other channel", () => confirm(orgA, A, "telegram", conversation, proofHash));
+await expectFail("confirmation rejects other conversation", () => confirm(orgA, A, "web", null, proofHash));
+check("confirmation schedules the exact stored plan", (await confirm(orgA, A, "web", conversation, proofHash)).rows[0].result.posts.length === 1);
+await expectFail("confirmation cannot be replayed", () => confirm(orgA, A, "web", conversation, proofHash));
+const expiredProof = "b".repeat(64);
+await asService(`insert into public.social_confirmations (organization_id,user_id,channel,conversation_id,operation,proof_hash,payload,expires_at) values ('${orgA}','${A}','web','${conversation}','weekly','${expiredProof}','[${socialPayload}]'::jsonb,now() - interval '1 second')`);
+await expectFail("confirmation expires", () => confirm(orgA, A, "web", conversation, expiredProof));
+const quotaProof = "c".repeat(64);
+await asService(`insert into public.social_confirmations (organization_id,user_id,channel,conversation_id,operation,proof_hash,payload) values ('${orgA}','${A}','web','${conversation}','weekly','${quotaProof}','[${socialPayload},${socialPayload}]'::jsonb)`);
+const beforeQuota = Number((await asService(`select count(*) as n from public.social_posts where organization_id = '${orgA}'`)).rows[0].n);
+await expectFail("weekly plan rolls back entirely when quota is exceeded", () => confirm(orgA, A, "web", conversation, quotaProof, 1));
+check("failed weekly plan creates no posts", Number((await asService(`select count(*) as n from public.social_posts where organization_id = '${orgA}'`)).rows[0].n) === beforeQuota);
+check("failed weekly plan remains unconsumed", (await asService(`select consumed_at from public.social_confirmations where proof_hash = '${quotaProof}'`)).rows[0].consumed_at === null);
+
+const immediate = (await saveSocial(orgA, A, null, "draft", 99)).rows[0].result;
+const immediateHash = "d".repeat(64);
+await asService(`insert into public.social_confirmations (organization_id,user_id,channel,operation,proof_hash,payload) select '${orgA}','${A}','web','publish_now','${immediateHash}',jsonb_build_object('postId',id,'updatedAt',updated_at) from public.social_posts where id = '${immediate.id}'`);
+const claimedNow = (await confirm(orgA, A, "web", null, immediateHash)).rows[0].result;
+check("immediate publication reserves a single lease", claimedNow.operation === "publish_now" && claimedNow.postId === immediate.id && claimedNow.leaseToken);
+await expectFail("immediate publication cannot be confirmed twice", () => confirm(orgA, A, "web", null, immediateHash));
+check("cron cannot claim an immediately reserved post", !(await asService("select * from public.claim_social_posts(10)")).rows.some((row) => row.id === immediate.id));
+await asService(`select public.start_social_target('${immediate.id}', '${orgA}', '${socialInt}', '${claimedNow.leaseToken}')`);
+await expectFail("immediate destination cannot start twice", () => asService(`select public.start_social_target('${immediate.id}', '${orgA}', '${socialInt}', '${claimedNow.leaseToken}')`));
+const changed = (await saveSocial(orgA, A, null, "draft", 99)).rows[0].result;
+const changedHash = "e".repeat(64);
+await asService(`insert into public.social_confirmations (organization_id,user_id,channel,operation,proof_hash,payload) select '${orgA}','${A}','web','publish_now','${changedHash}',jsonb_build_object('postId',id,'updatedAt',updated_at) from public.social_posts where id = '${changed.id}'`);
+await asService(`update public.social_posts set caption = 'alterado' where id = '${changed.id}'`);
+await expectFail("immediate confirmation rejects changed content", () => confirm(orgA, A, "web", null, changedHash));
+const accountHash = "f".repeat(64);
+await asService(`insert into public.social_confirmations (organization_id,user_id,channel,operation,proof_hash,payload) select '${orgA}','${A}','web','publish_now','${accountHash}',jsonb_build_object('postId',id,'updatedAt',updated_at) from public.social_posts where id = '${changed.id}'`);
+await asService(`update public.integrations set external_account_id = 'another-account' where id = '${socialInt}'`);
+await expectFail("confirmation rejects a changed external account", () => confirm(orgA, A, "web", null, accountHash));

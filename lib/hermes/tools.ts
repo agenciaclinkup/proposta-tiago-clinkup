@@ -12,6 +12,7 @@ import { ServiceError } from "@/lib/services/errors";
 import { listIntegrations, summarizeIntegrations } from "@/lib/services/integrations";
 import { meetingSchema, scheduleLeadMeeting } from "@/lib/services/meetings";
 import { getSocialPost, listSocialPosts, saveSocialPost, saveSocialPostSchema, socialPostSchema } from "@/lib/services/social-posts";
+import { confirmSocialAction, proposePublishNow, proposeSocialWeek } from "@/lib/services/social-confirmations";
 import { defineTool, runTool, type HermesTool } from "./run-tool";
 
 const ONBOARDING_REQUIRED = "A memória da marca ainda não foi criada. Conclua o onboarding no painel para que eu possa usá-la.";
@@ -173,6 +174,7 @@ const reschedulePostTool = defineTool({
   execute: async (ctx, { postId, scheduledAt }) => {
     const post = await getSocialPost(ctx, postId);
     if (!["draft", "scheduled"].includes(post.status)) throw new ServiceError("Este post não pode ser reagendado no status atual.");
+    if (post.status === "draft") throw new ServiceError("Para agendar um rascunho, apresente uma proposta e peça confirmação em uma nova mensagem.");
     return saveSocialPost(ctx, { postId, status: "scheduled", post: {
       format: post.format, caption: post.caption, hashtags: post.hashtags, media: post.media, scheduledAt,
       targets: post.social_post_targets.map((target: { channel: "instagram" | "facebook" | "google_business"; integration_id: string }) => ({ channel: target.channel, integrationId: target.integration_id })),
@@ -205,11 +207,20 @@ export const HERMES_TOOLS: HermesTool[] = [
 ] as HermesTool[];
 
 // Tools prontas para o AI SDK, já presas ao contexto (organização, usuário, canal) da requisição.
-export function buildHermesTools(ctx: ServiceContext): ToolSet {
+export function buildHermesTools(ctx: ServiceContext, approval?: { conversationId: string; proof: string | null }): ToolSet {
   // A proposta não pode ser agendada no mesmo turno em que foi exibida.
   let planPresented = false;
+  const publishTool = defineTool({ name: "publish_post_now", description: "Prepara a publicação imediata de um post existente. Não publica antes de confirmação explícita em nova mensagem.", input: z.object({ postId: z.uuid() }), execute: async (context, { postId }) => {
+    if (!approval) throw new ServiceError("Não foi possível identificar esta conversa.");
+    const proposal = await proposePublishNow(context, { conversationId: approval.conversationId }, postId);
+    return { post: proposal.post, requiresConfirmation: true, instruction: `Para confirmar esta publicação, responda exatamente: CONFIRMAR ${proposal.code}` };
+  } });
+  const confirmTool = defineTool({ name: "confirm_calendar_action", description: "Executa a proposta aprovada somente quando a mensagem atual do usuário contém o comando de confirmação completo.", input: z.object({}), execute: async (context) => {
+    if (!approval?.proof) throw new ServiceError("Peça ao usuário que envie o comando de confirmação recebido na proposta.");
+    return confirmSocialAction(context, { conversationId: approval.conversationId }, approval.proof);
+  } });
   return Object.fromEntries(
-    HERMES_TOOLS.map((definition) => [
+    [...HERMES_TOOLS, publishTool, confirmTool].map((definition) => [
       definition.name,
       tool({
         description: definition.description,
@@ -221,6 +232,14 @@ export function buildHermesTools(ctx: ServiceContext): ToolSet {
           if (planPresented && (schedulingNewPost || definition.name === "reschedule_post" || definition.name === "update_post")) {
             return runTool(ctx, { ...definition, execute: async () => { throw new ServiceError("A proposta foi apresentada agora. Peça ao usuário confirmação em uma nova mensagem antes de agendar."); } }, input);
           }
+          if (definition.name === "plan_week_with_ai" && approval) {
+            return runTool(ctx, { ...planWeekTool, execute: async (context, value) => {
+              const preview = await planWeekTool.execute(context, value);
+              const code = await proposeSocialWeek(context, { conversationId: approval.conversationId }, value.posts);
+              return { ...preview, instruction: `Para agendar esta proposta, responda exatamente: CONFIRMAR ${code}` };
+            } }, input);
+          }
+          if (schedulingNewPost && approval) return runTool(ctx, { ...definition, execute: async () => { throw new ServiceError("Para agendar, apresente uma proposta e peça a confirmação em uma nova mensagem."); } }, input);
           return runTool(ctx, definition, input);
         },
       }),

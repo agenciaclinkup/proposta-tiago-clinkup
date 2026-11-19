@@ -41,8 +41,13 @@ export async function runSocialPublishBatch() {
   const { data, error } = await admin.rpc("claim_social_posts", { p_limit: 5 });
   if (error) throw new Error(error.message);
   const claims = z.array(claimSchema).parse(data);
-  const outcomes = await Promise.all(claims.map(async (item) => {
-    const claim: SocialClaim = { id: item.id, organizationId: item.organization_id, leaseToken: item.lease_token };
+  const outcomes = await Promise.all(claims.map((item) => runClaim({ id: item.id, organizationId: item.organization_id, leaseToken: item.lease_token })));
+  return { claimed: claims.length, processed: outcomes.filter(Boolean).length };
+}
+
+export async function runClaim(claim: SocialClaim, expectedAccounts?: Record<string, { account: string; provider: string; status: string }>) {
+  const admin = createAdminClient();
+
     try {
       const [postResult, targetResult] = await Promise.all([
         admin.from("social_posts").select("format,caption,hashtags,media").eq("id", claim.id).eq("organization_id", claim.organizationId).eq("lease_token", claim.leaseToken).single(),
@@ -66,6 +71,8 @@ export async function runSocialPublishBatch() {
           const provider = { instagram: "instagram", facebook: "facebook_page", google_business: "google_business" }[target.channel];
           if (integrationError) throw new Error("integration lookup failed");
           if (!integration || integration.status !== "connected" || integration.provider !== provider) throw new RejectedPublication("integration disconnected");
+          const expected = expectedAccounts?.[integrationId];
+          if (expectedAccounts && (!expected || expected.account !== integration.external_account_id || expected.provider !== provider || expected.status !== "connected")) throw new RejectedPublication("integration disconnected");
           const media = [];
           for (const item of post.media) {
             if (!item.path.startsWith(`${claim.organizationId}/`) || item.path.includes("..")) throw new RejectedPublication("invalid media");
@@ -81,7 +88,8 @@ export async function runSocialPublishBatch() {
             throw error;
           }
           const caption = [post.caption, post.hashtags.join(" ")].filter(Boolean).join("\n\n");
-          const accountId = target.channel === "google_business" ? await resolveGoogleBusinessLocation(token, integration.external_account_id) : integration.external_account_id;
+          const externalAccount = expected?.account ?? integration.external_account_id;
+          const accountId = target.channel === "google_business" ? await resolveGoogleBusinessLocation(token, externalAccount) : externalAccount;
           input = { accountId, token, caption, media, format: post.format };
           } catch (error) {
             if (error instanceof RejectedPublication) throw error;
@@ -103,6 +111,4 @@ export async function runSocialPublishBatch() {
       console.error("[social-publisher] não foi possível concluir a tarefa", error instanceof Error ? error.name : "erro");
       return false;
     }
-  }));
-  return { claimed: claims.length, processed: outcomes.filter(Boolean).length };
 }

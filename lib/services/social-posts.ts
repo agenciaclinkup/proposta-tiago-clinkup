@@ -27,11 +27,11 @@ export const saveSocialPostSchema = z.object({
     ctx.addIssue({ code: "custom", message: "Escolha ao menos um canal para agendar.", path: ["post", "targets"] });
 });
 
-export async function saveSocialPost(ctx: ServiceContext, input: z.infer<typeof saveSocialPostSchema>) {
+export function validateSocialPost(ctx: ServiceContext, input: z.infer<typeof saveSocialPostSchema>) {
   const parsed = saveSocialPostSchema.safeParse(input);
   if (!parsed.success) throw new ServiceError(parsed.error.issues[0]?.message ?? "Dados do post inválidos.");
   if (!ctx.userId) throw new ServiceError("Entre na sua conta para salvar um post.");
-  const { post, postId, status } = parsed.data;
+  const { post, status } = parsed.data;
   if (post.media.some((item) => !item.path.startsWith(`${ctx.organizationId}/`) || item.path.includes(".."))) {
     throw new ServiceError("A mídia precisa pertencer à sua empresa. Envie o arquivo novamente.");
   }
@@ -52,12 +52,20 @@ export async function saveSocialPost(ctx: ServiceContext, input: z.infer<typeof 
       }
     }
   }
+  return parsed.data;
+}
+
+export function socialPostPayload(post: z.output<typeof socialPostSchema>) {
+  return { format: post.format, caption: post.caption, hashtags: post.hashtags, media: post.media, scheduled_at: post.scheduledAt ?? null, targets: post.targets.map((target) => ({ channel: target.channel, integration_id: target.integrationId })) };
+}
+
+export async function saveSocialPost(ctx: ServiceContext, input: z.infer<typeof saveSocialPostSchema>) {
+  const { post, postId, status } = validateSocialPost(ctx, input);
   const limit = limitFor(ctx.planId, "scheduled_posts");
   const { data, error } = await createAdminClient().rpc("save_social_post", {
     p_organization_id: ctx.organizationId, p_user_id: ctx.userId, p_post_id: postId ?? null,
     p_via: ctx.via, p_status: status, p_limit: limit,
-    p_payload: { format: post.format, caption: post.caption, hashtags: post.hashtags, media: post.media,
-      scheduled_at: post.scheduledAt ?? null, targets: post.targets.map((target) => ({ channel: target.channel, integration_id: target.integrationId })) },
+    p_payload: socialPostPayload(post),
   });
   if (error) {
     if (error.message.includes("social_limit_reached:")) {
@@ -89,7 +97,7 @@ export async function getSocialPost(ctx: ServiceContext, postId: string) {
   const id = z.uuid().safeParse(postId);
   if (!id.success) throw new ServiceError("Identificador do post inválido.");
   const { data, error } = await ctx.supabase.from("social_posts")
-    .select("id, status, format, caption, hashtags, media, scheduled_at, social_post_targets(channel, integration_id, attempt_count)")
+    .select("id, status, format, caption, hashtags, media, scheduled_at, updated_at, social_post_targets(channel, integration_id, attempt_count)")
     .eq("organization_id", ctx.organizationId).eq("id", id.data).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new ServiceError("Não encontramos este post na sua empresa.");

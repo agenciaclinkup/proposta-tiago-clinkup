@@ -8,6 +8,7 @@ import { consumeUsage, refundUsage } from "@/lib/services/usage";
 import { messagesToPersist } from "./chat";
 import { buildSystemPrompt } from "./system-prompt";
 import { buildHermesTools } from "./tools";
+import { confirmationFromUserMessage } from "./approval-proof";
 
 export const HERMES_MODEL = "claude-opus-5-5";
 const MAX_STEPS = 6;
@@ -53,7 +54,7 @@ export async function startHermesTurn(
           now: new Date(),
         }),
         messages: await convertToModelMessages(messages),
-        tools: buildHermesTools(ctx),
+        tools: buildHermesTools(ctx, { conversationId: input.conversationId, proof: confirmationFromUserMessage(input.userMessage) }),
         stopWhen: isStepCount(MAX_STEPS),
         maxOutputTokens: 16000,
         providerOptions: {

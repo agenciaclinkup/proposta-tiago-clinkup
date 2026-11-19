@@ -9,6 +9,38 @@ import { requireWorkspace } from "@/lib/workspace";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { confirmSocialAction, proposePublishNow } from "@/lib/services/social-confirmations";
+
+export async function preparePublishNowAction(input: unknown): Promise<{ code?: string; preview?: { format: string; caption: string; hashtags: string[]; mediaCount: number; channels: string[] }; error?: string }> {
+  const workspace = await requireWorkspace();
+  if (!(await rateLimit(`calendar:user:${workspace.user.id}`, RATE_LIMITS.calendarUser))) return { error: RATE_LIMIT_MESSAGE };
+  const parsed = z.object({ postId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { error: "Confira o post selecionado." };
+  try {
+    const proposal = await proposePublishNow(serviceContext(workspace, "manual"), { conversationId: null }, parsed.data.postId);
+    return { code: proposal.code, preview: { format: proposal.post.format, caption: proposal.post.caption, hashtags: proposal.post.hashtags, mediaCount: proposal.post.media.length, channels: proposal.post.social_post_targets.map((target: { channel: string }) => target.channel) } };
+  } catch (error) {
+    if (error instanceof ServiceError) return { error: error.message };
+    console.error("[calendar] falha ao preparar publicação", error);
+    return { error: "Não foi possível preparar a publicação. Tente novamente." };
+  }
+}
+
+export async function confirmPublishNowAction(input: unknown): Promise<{ success?: boolean; error?: string }> {
+  const workspace = await requireWorkspace();
+  if (!(await rateLimit(`calendar:user:${workspace.user.id}`, RATE_LIMITS.calendarUser))) return { error: RATE_LIMIT_MESSAGE };
+  const parsed = z.object({ code: z.string().regex(/^[0-9a-f]{32}$/) }).safeParse(input);
+  if (!parsed.success) return { error: "Confirmação inválida. Prepare a publicação novamente." };
+  try {
+    await confirmSocialAction(serviceContext(workspace, "manual"), { conversationId: null }, parsed.data.code);
+    revalidatePath("/calendar");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ServiceError) return { error: error.message };
+    console.error("[calendar] falha ao confirmar publicação", error);
+    return { error: "Não foi possível concluir a publicação. Confira o estado do post antes de tentar novamente." };
+  }
+}
 
 export async function savePostAction(input: unknown): Promise<{ success?: boolean; error?: string }> {
   const workspace = await requireWorkspace();

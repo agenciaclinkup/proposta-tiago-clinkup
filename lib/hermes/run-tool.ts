@@ -39,7 +39,9 @@ export async function runTool<S extends z.ZodType, R>(
 
   try {
     const data = await tool.execute(ctx, parsed.data);
-    await recordHermesLog(ctx, { toolName: tool.name, input: parsed.data, output: data, status: "success", durationMs: elapsed() });
+    // Códigos de confirmação são credenciais de uso único e não pertencem ao feed da organização.
+    const output = ["plan_week_with_ai", "publish_post_now"].includes(tool.name) ? { requiresConfirmation: true } : data;
+    await recordHermesLog(ctx, { toolName: tool.name, input: parsed.data, output, status: "success", durationMs: elapsed() });
     return { ok: true, data };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

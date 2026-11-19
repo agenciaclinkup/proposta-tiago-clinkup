@@ -4,15 +4,15 @@
 
 ## Estado atual
 
-- **Fase:** 5 — Calendário editorial e publicação omnichannel (Fases 2, 3 e 4 ✅ concluídas)
-- **Etapa em andamento:** 5.4b — Confirmação persistente e publicação imediata
+- **Fase:** 6 — Estúdio (Fases 2, 3, 4 e 5 ✅ concluídas)
+- **Etapa em andamento:** 6.1 — Dados e serviços compartilhados do Estúdio
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-19 — Codex
 
 ## Próxima microtarefa (exata)
 
-**5.4b Confirmação persistente e publicação imediata:** completar a 5.4 antes de iniciar a Fase 6. Criar confirmação vinculada ao usuário, empresa, canal, conteúdo e operação, com expiração e consumo único, validada a partir da mensagem real do usuário e não de um campo fornecido pelo modelo. Garantir confirmação da proposta semanal entre turnos e sob chamadas paralelas, nos canais web e Telegram; a prévia de 5.4a não grava posts e seu bloqueio local cobre apenas chamadas posteriores na mesma instância de Tools. Implementar publicação imediata manual e `publish_post_now` sobre o mesmo publicador, com confirmação explícita, consumo de cota atômico e sem reenviar destinos inconclusivos. Cobrir isolamento, concorrência, replay, expiração, canal e falhas. Após concluir, preparar **6.1 Estúdio**: dados e serviços compartilhados para carrosséis e landing pages conforme `ARCHITECTURE.md`.
+**6.1 Estúdio — dados e serviços compartilhados:** implementar, com TDD e RLS estrito por empresa, as tabelas `carousels` e `landing_pages` previstas em `ARCHITECTURE.md`, incluindo slides hook/conteúdo/CTA, tema, status e exportações; páginas com slug único por empresa, seções e destino seguro no funil CRM. Criar serviços compartilhados para interface e Hermes com validação Zod, permissões e testes de banco em memória; preparar a interface e exportação para o calendário na microtarefa seguinte. Preservar a seção de Go-Live e registrar quaisquer migrations e configurações novas.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
@@ -151,7 +151,15 @@
 - [ ] Monitorar logs `[hermes]` (falha ao salvar mensagens ou no streaming).
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
+- [ ] **Confirmações e publicação imediata (5.4b):** aplicar `20261119035734_social_confirmation.sql` e rodar advisors; validar web e Telegram entre turnos com usuários, organizações, canais e conversas distintos; testar expiração, replay, mudança de conta/post, limite e concorrência real com conexões PostgreSQL separadas. Validar publicação imediata com contas reais e conciliação antes de ativar o Cron. O item anterior da 5.4 registra o estado histórico anterior a esta implementação.
+
 ## Concluído
+
+### 5.4b Confirmação persistente e publicação imediata — ✅ (2026-11-19)
+- `social_confirmation`: autorização privada, vinculada a empresa, usuário, canal, conversa, operação, conteúdo e contas externas; expira em 15 minutos, exige prova de uso único e bloqueio transacional. Propostas semanais e cota são gravadas integralmente ou revertidas.
+- `lib/services/social-confirmations.ts`, `lib/hermes/approval-proof.ts`, `tools.ts` e `turn.ts`: a prova vem exclusivamente da mensagem real do usuário; a proposta é persistida entre turnos web e Telegram. O agendamento de posts novos pelo Hermes passa pela proposta confirmada.
+- Calendário manual e `publish_post_now`: exibição do conteúdo salvo e confirmação explícita, reserva atômica com posse, cota e execução do mesmo publicador da fila. Post alterado ou conta trocada invalida a confirmação; destinos inconclusivos não são reenviados automaticamente.
+- **Testes:** `npm test` 318/318; `npm run test:db`, `npm run lint` e `npm run build` verdes. Banco em memória cobre isolamento, expiração, replay, falha de cota, alteração de conteúdo e conta, reserva e duplicação de destino; concorrência com conexões PostgreSQL reais e provedores depende do checklist.
 
 ### 5.4a Tools de gestão do calendário — parcial (2026-11-19)
 - `lib/hermes/tools.ts`: `list_posts`, `list_calendar_accounts`, `create_post`, `update_post`, `reschedule_post` e `cancel_post` usam serviços e schemas compartilhados; `plan_week_with_ai` devolve apenas uma proposta baseada na memória da marca, sem gravar. A seleção de posts é explícita e cancelamento mantém rascunho. O bloqueio local depois da prévia não substitui confirmação persistente nem protege todas as chamadas paralelas ou turnos posteriores.

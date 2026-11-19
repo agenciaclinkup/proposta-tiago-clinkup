@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { canEditPost, statusLabel } from "@/lib/calendar/state";
-import { prepareMediaUpload, retryPostAction, savePostAction } from "./actions";
+import { confirmPublishNowAction, prepareMediaUpload, preparePublishNowAction, retryPostAction, savePostAction } from "./actions";
 
 type Channel = "instagram" | "facebook" | "google_business";
 type Media = { path: string; type: "image" | "video" };
@@ -90,6 +90,19 @@ function PostEditor({ post, accounts, onClose }: { post: CalendarPost | null; ac
     setError("");
     start(async () => { const result = await retryPostAction({ postId: post.id, integrationId, confirmed: true }); if (result.error) setError(result.error); else onClose(); });
   }
+  function publishNow() {
+    if (!post) return;
+    setError("");
+    start(async () => {
+      const prepared = await preparePublishNowAction({ postId: post.id });
+      if (!prepared.code || !prepared.preview) { setError(prepared.error ?? "Não foi possível preparar a publicação."); return; }
+      const preview = prepared.preview;
+      const channels = preview.channels.map((id) => CHANNELS.find((channel) => channel.id === id)?.name ?? id).join(", ");
+      if (!window.confirm(`Publicar agora o conteúdo salvo?\n\nCanais: ${channels}\nFormato: ${FORMATS.find(([id]) => id === preview.format)?.[1] ?? preview.format}\nLegenda: ${preview.caption || "(sem legenda)"}\nHashtags: ${preview.hashtags.join(" ") || "(nenhuma)"}\nArquivos de mídia: ${preview.mediaCount}\n\nAlterações ainda não salvas não serão incluídas.`)) return;
+      const result = await confirmPublishNowAction({ code: prepared.code });
+      if (result.error) setError(result.error); else onClose();
+    });
+  }
   return <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/75 p-4" role="dialog" aria-modal="true" aria-labelledby="editor-title"><div className="my-4 w-full max-w-2xl rounded-xl border border-border bg-card p-5 shadow-2xl sm:p-6"><div className="mb-5 flex items-center justify-between gap-3"><h2 id="editor-title" className="text-xl font-semibold">{post ? "Detalhes do post" : "Novo post"}</h2><Button variant="ghost" onClick={onClose}>Fechar</Button></div>
     {!editable && <div className="mb-4 space-y-2 text-sm text-muted-foreground"><p>Situação: {postStatus(post!)}. Este post não pode ser editado agora.</p>{post!.social_post_targets.map((target) => <div key={target.integration_id}><p>{CHANNELS.find((channel) => channel.id === target.channel)?.name}: {target.publish_state === "published" ? "publicado" : target.publish_error ?? "aguardando resultado"}{target.external_id && target.publish_state === "uncertain" ? ` Referência: ${target.external_id}` : ""}.</p>{post!.status === "failed" && ["failed", "uncertain"].includes(target.publish_state ?? "") && !target.external_id && (target.attempt_count ?? 0) < 3 && <Button variant="outline" size="sm" disabled={pending} onClick={() => retry(target.integration_id)}>Conferi o canal e quero tentar novamente</Button>}</div>)}</div>}
     {!editable && error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
@@ -101,7 +114,7 @@ function PostEditor({ post, accounts, onClose }: { post: CalendarPost | null; ac
       <div className="space-y-1.5"><Label htmlFor="post-media">Mídia</Label><Input id="post-media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void upload(file); }} /><p className="text-xs text-muted-foreground">JPEG, PNG, WebP ou MP4, até 50 MB por arquivo. {uploading && "Enviando…"}</p>{media.map((item, index) => <div key={item.path} className="flex items-center justify-between gap-2 text-sm"><span>{item.type === "image" ? "Imagem" : "Vídeo"} {index + 1}</span><Button type="button" variant="ghost" size="sm" onClick={() => setMedia(media.filter((_, i) => i !== index))}>Remover</Button></div>)}</div>
       <div className="space-y-1.5"><Label htmlFor="post-date">Data e horário de Brasília</Label><Input id="post-date" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} /></div>
       {editable && error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      {editable && <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => save("draft")}>Salvar rascunho</Button><Button type="button" onClick={() => save("scheduled")}>Agendar post</Button></div>}
+      {editable && <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => save("draft")}>Salvar rascunho</Button><Button type="button" onClick={() => save("scheduled")}>Agendar post</Button>{post && <Button type="button" variant="outline" onClick={publishNow}>Publicar post salvo agora</Button>}</div>}
     </fieldset>
   </div></div>;
 }
