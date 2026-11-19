@@ -44,8 +44,8 @@ export async function saveSocialPost(ctx: ServiceContext, input: z.infer<typeof 
       }
       if (target.channel === "facebook") {
         const images = post.media.every((item) => item.type === "image");
-        const valid = (post.format === "feed" && (post.media.length === 0 || images || (post.media.length === 1 && post.media[0].type === "video"))) || (post.format === "carousel" && post.media.length >= 2 && images) || (post.format === "reels" && post.media.length === 1 && post.media[0].type === "video");
-        if (!valid) throw new ServiceError("No Facebook, escolha Feed, Carrossel com imagens ou Reels com um vídeo; Stories ainda não está disponível para publicação automática.");
+        const valid = (post.format === "feed" && (post.media.length === 0 || images || (post.media.length === 1 && post.media[0].type === "video"))) || (post.format === "carousel" && post.media.length >= 2 && images) || (post.format === "reels" && post.media.length === 1 && post.media[0].type === "video") || (post.format === "stories" && post.media.length === 1 && !post.caption && post.hashtags.length === 0);
+        if (!valid) throw new ServiceError("No Facebook, escolha Feed, Carrossel com imagens, Reels com um vídeo ou Stories com uma mídia sem legenda ou hashtags.");
       }
       if (target.channel === "google_business" && (!['feed', 'gmb_update'].includes(post.format) || post.media.length > 1 || post.media.some((item) => item.type !== "image") || (!post.caption && !post.hashtags.length))) {
         throw new ServiceError("No Google, escolha Feed ou Atualização Google, informe uma legenda e use no máximo uma imagem.");
@@ -76,10 +76,28 @@ export async function saveSocialPost(ctx: ServiceContext, input: z.infer<typeof 
 
 export async function listSocialPosts(ctx: ServiceContext, options: { from?: string; to?: string; limit?: number; offset?: number } = {}) {
   const filter = z.object({ from: z.iso.datetime({ offset: true }).optional(), to: z.iso.datetime({ offset: true }).optional(), limit: z.number().int().min(1).max(100).default(50), offset: z.number().int().min(0).default(0) }).parse(options);
-  let query = ctx.supabase.from("social_posts").select("*, social_post_targets(channel, integration_id, publish_state, publish_error, external_id)").eq("organization_id", ctx.organizationId).order("scheduled_at", { ascending: true, nullsFirst: false }).order("id").range(filter.offset, filter.offset + filter.limit - 1);
+  let query = ctx.supabase.from("social_posts").select("*, social_post_targets(channel, integration_id, publish_state, publish_error, external_id, attempt_count, next_attempt_at)").eq("organization_id", ctx.organizationId).order("scheduled_at", { ascending: true, nullsFirst: false }).order("id").range(filter.offset, filter.offset + filter.limit - 1);
   if (filter.from) query = query.gte("scheduled_at", filter.from);
   if (filter.to) query = query.lt("scheduled_at", filter.to);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+export const requestSocialRetrySchema = z.object({
+  postId: z.uuid(), integrationId: z.uuid(), confirmed: z.boolean().refine((value) => value, "Confira o canal e confirme que o post não foi publicado."),
+});
+
+export async function requestSocialRetry(ctx: ServiceContext, input: z.infer<typeof requestSocialRetrySchema>) {
+  const parsed = requestSocialRetrySchema.safeParse(input);
+  if (!parsed.success) throw new ServiceError(parsed.error.issues[0]?.message ?? "Confira os dados da tentativa.");
+  if (!ctx.userId) throw new ServiceError("Entre na sua conta para solicitar uma nova tentativa.");
+  const { data, error } = await createAdminClient().rpc("request_social_retry", { p_org: ctx.organizationId, p_user: ctx.userId, p_post: parsed.data.postId, p_integration: parsed.data.integrationId, p_confirmed: parsed.data.confirmed });
+  if (error) {
+    if (error.message.includes("social_forbidden")) throw new ServiceError("Você não tem acesso a esta empresa.");
+    if (error.message.includes("retry_confirmation_required")) throw new ServiceError("Confira o canal e confirme que o post não foi publicado.");
+    if (error.message.includes("retry_state_invalid") || error.message.includes("retry_target_invalid")) throw new ServiceError("Não é possível repetir este destino: ele pode estar em andamento, ter uma referência externa ou ter esgotado as tentativas.");
+    throw new Error(error.message);
+  }
+  return data;
 }

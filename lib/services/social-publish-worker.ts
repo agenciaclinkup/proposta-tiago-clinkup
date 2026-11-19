@@ -5,7 +5,7 @@ import { checkPublishedStatus, publishFacebook, publishGoogle, publishInstagram 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getIntegrationToken } from "./integrations";
 import { ServiceError } from "./errors";
-import { processClaim, RejectedPublication, type SocialClaim } from "./social-publish-queue";
+import { processClaim, RejectedPublication, SafeTransientError, type SocialClaim } from "./social-publish-queue";
 
 const claimSchema = z.object({ id: z.uuid(), organization_id: z.uuid(), lease_token: z.uuid() });
 const postSchema = z.object({ format: z.string(), caption: z.string(), hashtags: z.array(z.string()), media: z.array(z.object({ path: z.string(), type: z.enum(["image", "video"]) })) });
@@ -59,6 +59,9 @@ export async function runSocialPublishBatch() {
         },
         publish: async (integrationId) => {
           const target = byId.get(integrationId)!;
+          // Esta preparação não cria post público: falhas transitórias podem ser repetidas.
+          let input: { accountId: string; token: string; caption: string; media: { url: string; type: "image" | "video" }[]; format: string };
+          try {
           const { data: integration, error: integrationError } = await admin.from("integrations").select("provider,status,external_account_id").eq("id", integrationId).eq("organization_id", claim.organizationId).maybeSingle();
           const provider = { instagram: "instagram", facebook: "facebook_page", google_business: "google_business" }[target.channel];
           if (integrationError) throw new Error("integration lookup failed");
@@ -78,13 +81,16 @@ export async function runSocialPublishBatch() {
             throw error;
           }
           const caption = [post.caption, post.hashtags.join(" ")].filter(Boolean).join("\n\n");
-          const input = { accountId: integration.external_account_id, token, caption, media, format: post.format };
+          const accountId = target.channel === "google_business" ? await resolveGoogleBusinessLocation(token, integration.external_account_id) : integration.external_account_id;
+          input = { accountId, token, caption, media, format: post.format };
+          } catch (error) {
+            if (error instanceof RejectedPublication) throw error;
+            if (error instanceof ServiceError) throw new RejectedPublication("integration disconnected");
+            throw new SafeTransientError();
+          }
           if (target.channel === "instagram") return publishInstagram(input);
           if (target.channel === "facebook") return publishFacebook(input);
-          let accountId: string;
-          try { accountId = await resolveGoogleBusinessLocation(token, integration.external_account_id); }
-          catch (error) { if (error instanceof ServiceError) throw new RejectedPublication("integration disconnected"); throw error; }
-          return publishGoogle({ ...input, accountId });
+          return publishGoogle(input);
         },
         finish: async (integrationId, result, externalId, message) => {
           const finished = await admin.rpc("finish_social_target", { p_post: claim.id, p_org: claim.organizationId, p_integration: integrationId, p_lease: claim.leaseToken, p_result: result, p_external_id: externalId, p_error: message });

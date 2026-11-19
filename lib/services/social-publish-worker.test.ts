@@ -28,6 +28,12 @@ describe("worker de publicações", () => {
     expect(mocks.publish).toHaveBeenCalledWith(expect.objectContaining({ accountId: "123", caption: "Oi\n\n#marca" }));
     expect(mocks.rpc).toHaveBeenCalledWith("finish_social_target", expect.objectContaining({ p_org: org, p_lease: lease, p_result: "published", p_external_id: "external-id" }));
   });
+  it("falha temporária antes de chamar provedor solicita retry seguro", async () => {
+    mocks.token.mockRejectedValueOnce(new Error("serviço indisponível"));
+    await runSocialPublishBatch();
+    expect(mocks.publish).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledWith("finish_social_target", expect.objectContaining({ p_result: "retry", p_external_id: null }));
+  });
   it("reconcilia resultado por leitura sem reenviar a publicação", async () => {
     mocks.check.mockResolvedValue("published");
     mocks.from.mockImplementation((table: string) => {

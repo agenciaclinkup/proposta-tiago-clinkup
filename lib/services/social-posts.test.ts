@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServiceContext } from "./context";
 const rpc = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc }) }));
-import { saveSocialPost, socialPostSchema } from "./social-posts";
+import { requestSocialRetry, saveSocialPost, socialPostSchema } from "./social-posts";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const ctx = { organizationId: id, userId: id, via: "hermes", planId: "starter" } as ServiceContext;
@@ -30,5 +30,11 @@ describe("social posts", () => {
   it("recusa combinação incompatível antes de consumir limite", async () => {
     await expect(saveSocialPost(ctx, { status: "scheduled", post: socialPostSchema.parse({ ...post, media: [] }) })).rejects.toThrow("Feed exige uma imagem");
     expect(rpc).not.toHaveBeenCalled();
+  });
+  it("repetição manual exige confirmação e repassa empresa e usuário", async () => {
+    await expect(requestSocialRetry(ctx, { postId: id, integrationId: id, confirmed: false })).rejects.toThrow("confirme");
+    expect(rpc).not.toHaveBeenCalled();
+    await requestSocialRetry(ctx, { postId: id, integrationId: id, confirmed: true });
+    expect(rpc).toHaveBeenCalledWith("request_social_retry", { p_org: id, p_user: id, p_post: id, p_integration: id, p_confirmed: true });
   });
 });

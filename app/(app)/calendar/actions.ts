@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { RATE_LIMIT_MESSAGE, RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 import { serviceContext } from "@/lib/services/context";
 import { ServiceError } from "@/lib/services/errors";
-import { saveSocialPost, saveSocialPostSchema } from "@/lib/services/social-posts";
+import { requestSocialRetry, requestSocialRetrySchema, saveSocialPost, saveSocialPostSchema } from "@/lib/services/social-posts";
 import { requireWorkspace } from "@/lib/workspace";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { randomUUID } from "node:crypto";
@@ -26,6 +26,22 @@ export async function savePostAction(input: unknown): Promise<{ success?: boolea
     if (error instanceof ServiceError) return { error: error.message };
     console.error("[calendar] falha ao salvar post", error);
     return { error: "Não foi possível salvar o post. Tente novamente em alguns instantes." };
+  }
+}
+
+export async function retryPostAction(input: unknown): Promise<{ success?: boolean; error?: string }> {
+  const workspace = await requireWorkspace();
+  if (!(await rateLimit(`calendar:user:${workspace.user.id}`, RATE_LIMITS.calendarUser))) return { error: RATE_LIMIT_MESSAGE };
+  const parsed = requestSocialRetrySchema.safeParse(input);
+  if (!parsed.success) return { error: "Confira o canal e confirme que o post não foi publicado." };
+  try {
+    await requestSocialRetry(serviceContext(workspace, "manual"), parsed.data);
+    revalidatePath("/calendar");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof ServiceError) return { error: error.message };
+    console.error("[calendar] falha ao solicitar nova tentativa", error);
+    return { error: "Não foi possível solicitar nova tentativa. Tente novamente em instantes." };
   }
 }
 

@@ -306,3 +306,47 @@ await expectFail("authenticated cannot reconcile", () => as(A, `select public.re
 check("processing result remains uncertain", (await asService(`select public.reconcile_social_target('${pendingPost.id}', '${orgA}', '${socialInt}', 'remote-id', 'pending') as ok`)).rows[0].ok === true && (await as(A, `select publish_state from public.social_post_targets where post_id = '${pendingPost.id}'`)).rows[0].publish_state === "uncertain");
 check("read-only confirmation marks post published", (await asService(`select public.reconcile_social_target('${pendingPost.id}', '${orgA}', '${socialInt}', 'remote-id', 'published') as ok`)).rows[0].ok === true && (await as(A, `select status from public.social_posts where id = '${pendingPost.id}'`)).rows[0].status === "published");
 check("repeated reconciliation is harmless", (await asService(`select public.reconcile_social_target('${pendingPost.id}', '${orgA}', '${socialInt}', 'remote-id', 'published') as ok`)).rows[0].ok === false);
+
+// Retry somente para falha comprovadamente anterior ao envio visível.
+const retryPost = (await saveSocial(orgA, A, null, "scheduled", 5)).rows[0].result;
+await asService(`update public.social_posts set scheduled_at = now() - interval '1 minute' where id = '${retryPost.id}'`);
+for (let attempt = 1; attempt <= 3; attempt++) {
+  const row = (await asService("select * from public.claim_social_posts(1)")).rows[0];
+  check(`retry attempt ${attempt} acquired`, row?.id === retryPost.id);
+  await asService(`select public.start_social_target('${retryPost.id}', '${orgA}', '${socialInt}', '${row.lease_token}')`);
+  await asService(`select public.finish_social_target('${retryPost.id}', '${orgA}', '${socialInt}', '${row.lease_token}', 'retry', null, 'Falha transitória antes do envio')`);
+  const target = (await as(A, `select publish_state, attempt_count, next_attempt_at from public.social_post_targets where post_id = '${retryPost.id}'`)).rows[0];
+  check(`retry attempt ${attempt} counted`, target.attempt_count === attempt);
+  if (attempt < 3) {
+    check(`retry ${attempt} waits for backoff`, target.publish_state === "retry_wait" && target.next_attempt_at !== null && (await asService("select * from public.claim_social_posts(1)")).rows.length === 0);
+    await expectFail("post with attempted destinations cannot be edited", () => saveSocial(orgA, A, retryPost.id, "draft", 5));
+    await asService(`update public.social_posts set retry_after = now() - interval '1 second' where id = '${retryPost.id}'`);
+    await asService(`update public.social_post_targets set next_attempt_at = now() - interval '1 second' where post_id = '${retryPost.id}'`);
+  } else check("retry exhaustion is terminal", target.publish_state === "failed" && (await as(A, `select status from public.social_posts where id = '${retryPost.id}'`)).rows[0].status === "failed");
+}
+check("uncertain destination is never auto retried", (await as(A, `select publish_state from public.social_post_targets where post_id = '${interrupted.id}'`)).rows[0].publish_state === "uncertain");
+await expectFail("authenticated cannot call manual retry RPC", () => as(A, `select public.request_social_retry('${orgA}', '${A}', '${partial.id}', '${socialFacebook}', true)`));
+await expectFail("manual retry rejects non-member", () => asService(`select public.request_social_retry('${orgA}', '${B}', '${partial.id}', '${socialFacebook}', true)`));
+await expectFail("manual retry requires acknowledgement", () => asService(`select public.request_social_retry('${orgA}', '${A}', '${partial.id}', '${socialFacebook}', false)`));
+check("manual retry schedules only selected unsuccessful destination", (await asService(`select public.request_social_retry('${orgA}', '${A}', '${partial.id}', '${socialFacebook}', true) as ok`)).rows[0].ok === true && (await as(A, `select publish_state from public.social_post_targets where post_id = '${partial.id}' and integration_id = '${socialInt}'`)).rows[0].publish_state === "published");
+check("manual retry records who confirmed", (await as(A, `select retry_confirmed_by from public.social_post_targets where post_id = '${partial.id}' and integration_id = '${socialFacebook}'`)).rows[0].retry_confirmed_by === A);
+await expectFail("manual retry cannot overwrite active retry", () => asService(`select public.request_social_retry('${orgA}', '${A}', '${partial.id}', '${socialFacebook}', true)`));
+await expectFail("manual retry cannot repeat published destination", () => asService(`select public.request_social_retry('${orgA}', '${A}', '${pendingPost.id}', '${socialInt}', true)`));
+await expectFail("manual retry cannot exceed attempt limit", () => asService(`select public.request_social_retry('${orgA}', '${A}', '${retryPost.id}', '${socialInt}', true)`));
+await asService(`update public.social_post_targets set external_id = 'external-unknown' where post_id = '${interrupted.id}' and integration_id = '${socialInt}'`);
+await expectFail("manual retry rejects inconclusive external id", () => asService(`select public.request_social_retry('${orgA}', '${A}', '${interrupted.id}', '${socialInt}', true)`));
+const partialRetry = (await saveSocial(orgA, A, null, "scheduled", 6, multiPayload)).rows[0].result;
+await asService(`update public.social_posts set scheduled_at = now() - interval '1 minute' where id = '${partialRetry.id}'`);
+const firstLease = (await asService("select * from public.claim_social_posts(1)")).rows[0];
+await asService(`select public.start_social_target('${partialRetry.id}', '${orgA}', '${socialInt}', '${firstLease.lease_token}')`);
+await asService(`select public.finish_social_target('${partialRetry.id}', '${orgA}', '${socialInt}', '${firstLease.lease_token}', 'published', 'ig-published', null)`);
+await asService(`select public.start_social_target('${partialRetry.id}', '${orgA}', '${socialFacebook}', '${firstLease.lease_token}')`);
+await asService(`select public.finish_social_target('${partialRetry.id}', '${orgA}', '${socialFacebook}', '${firstLease.lease_token}', 'retry', null, 'Falha anterior ao envio')`);
+await asService(`update public.social_posts set retry_after = now() - interval '1 second' where id = '${partialRetry.id}'`);
+await asService(`update public.social_post_targets set next_attempt_at = now() - interval '1 second' where post_id = '${partialRetry.id}' and publish_state = 'retry_wait'`);
+const secondLease = (await asService("select * from public.claim_social_posts(1)")).rows[0];
+check("partial retry selects only unpublished target", (await asService(`select integration_id from public.social_post_targets where post_id = '${partialRetry.id}' and publish_state = 'pending'`)).rows.map((row) => row.integration_id).join() === socialFacebook);
+await expectFail("published target cannot start again", () => asService(`select public.start_social_target('${partialRetry.id}', '${orgA}', '${socialInt}', '${secondLease.lease_token}')`));
+await asService(`select public.start_social_target('${partialRetry.id}', '${orgA}', '${socialFacebook}', '${secondLease.lease_token}')`);
+await asService(`select public.finish_social_target('${partialRetry.id}', '${orgA}', '${socialFacebook}', '${secondLease.lease_token}', 'published', 'fb-published', null)`);
+check("partial retry finishes without losing first result", (await as(A, `select external_ids from public.social_posts where id = '${partialRetry.id}'`)).rows[0].external_ids.instagram === "ig-published");

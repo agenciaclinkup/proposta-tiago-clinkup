@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkPublishedStatus, publishFacebook, publishGoogle, publishInstagram } from "./social-publish";
-import { RejectedPublication, UnconfirmedPublication } from "@/lib/services/social-publish-queue";
+import { RejectedPublication, SafeTransientError, UnconfirmedPublication } from "@/lib/services/social-publish-queue";
 
 afterEach(() => vi.unstubAllGlobals());
 describe("publicação em provedores", () => {
@@ -26,6 +26,28 @@ describe("publicação em provedores", () => {
     vi.stubGlobal("fetch", request);
     await expect(publishFacebook({ accountId: "123", token: "token", caption: "Oi", media: [{ url: "https://example.com/video", type: "video" }], format: "reels" })).rejects.toMatchObject({ externalId: "1234" });
     expect(request.mock.calls[1][0]).toContain("rupload.facebook.com");
+  });
+  it("prepara foto privada e publica Story da Página", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ id: "234" }) }).mockResolvedValueOnce({ ok: true, json: async () => ({ post_id: "345" }) });
+    vi.stubGlobal("fetch", fetcher);
+    expect(await publishFacebook({ accountId: "123", token: "token", caption: "", media: [{ url: "https://example.com/photo", type: "image" }], format: "stories" })).toBe("345");
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({ published: false });
+    expect(fetcher.mock.calls[1][0]).toContain("/123/photo_stories");
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toMatchObject({ photo_id: "234" });
+  });
+  it("envia vídeo de Story em etapas e guarda a referência enquanto processa", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ video_id: "1234" }) }).mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) }).mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) });
+    vi.stubGlobal("fetch", fetcher);
+    await expect(publishFacebook({ accountId: "123", token: "token", caption: "", media: [{ url: "https://example.com/video", type: "video" }], format: "stories" })).rejects.toMatchObject({ externalId: "1234" });
+    expect(fetcher.mock.calls[2][0]).toContain("/video_stories");
+    expect(JSON.parse(fetcher.mock.calls[2][1].body)).toMatchObject({ upload_phase: "finish", video_id: "1234" });
+  });
+  it("permite retry em preparação, mas não após envio final sem confirmação", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("timeout")));
+    await expect(publishFacebook({ accountId: "123", token: "token", caption: "", media: [{ url: "https://example.com/photo", type: "image" }], format: "stories" })).rejects.toBeInstanceOf(SafeTransientError);
+    const fetcher = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ id: "234" }) }).mockRejectedValueOnce(new Error("timeout"));
+    vi.stubGlobal("fetch", fetcher);
+    await expect(publishFacebook({ accountId: "123", token: "token", caption: "", media: [{ url: "https://example.com/photo", type: "image" }], format: "stories" })).rejects.not.toBeInstanceOf(SafeTransientError);
   });
   it("publica no Instagram somente depois do contêiner ficar pronto", async () => {
     const request = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ id: "1234" }) }).mockResolvedValueOnce({ ok: true, json: async () => ({ status_code: "FINISHED" }) }).mockResolvedValueOnce({ ok: true, json: async () => ({ id: "4321" }) });

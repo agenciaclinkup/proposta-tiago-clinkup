@@ -9,12 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { canEditPost, statusLabel } from "@/lib/calendar/state";
-import { prepareMediaUpload, savePostAction } from "./actions";
+import { prepareMediaUpload, retryPostAction, savePostAction } from "./actions";
 
 type Channel = "instagram" | "facebook" | "google_business";
 type Media = { path: string; type: "image" | "video" };
 export type CalendarIntegration = { id: string; provider: string; name: string };
-export type CalendarPost = { id: string; status: string; format: string; caption: string; hashtags: string[]; media: Media[]; scheduled_at: string | null; social_post_targets: { channel: Channel; integration_id: string; publish_state?: string; publish_error?: string | null; external_id?: string | null }[] };
+export type CalendarPost = { id: string; status: string; format: string; caption: string; hashtags: string[]; media: Media[]; scheduled_at: string | null; social_post_targets: { channel: Channel; integration_id: string; publish_state?: string; publish_error?: string | null; external_id?: string | null; attempt_count?: number; next_attempt_at?: string | null }[] };
 const CHANNELS: { id: Channel; name: string; provider: string }[] = [
   { id: "instagram", name: "Instagram", provider: "instagram" }, { id: "facebook", name: "Facebook", provider: "facebook_page" }, { id: "google_business", name: "Google Meu Negócio", provider: "google_business" },
 ];
@@ -24,7 +24,7 @@ const dateKey = (date: Date) => date.toISOString().slice(0, 10);
 const dayName = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const today = () => new Date(new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10) + "T12:00:00Z");
 const label = (post: CalendarPost) => post.caption.trim().slice(0, 55) || FORMATS.find(([id]) => id === post.format)?.[1] || "Post sem legenda";
-const postStatus = (post: CalendarPost) => post.social_post_targets.some((target) => target.publish_state === "uncertain") ? "A conferir" : statusLabel(post.status);
+const postStatus = (post: CalendarPost) => post.social_post_targets.some((target) => target.publish_state === "uncertain") ? "A conferir" : post.social_post_targets.some((target) => target.publish_state === "retry_wait") ? "Nova tentativa agendada" : statusLabel(post.status);
 
 export function CalendarView({ posts, accounts, truncated }: { posts: CalendarPost[]; accounts: CalendarIntegration[]; truncated: boolean }) {
   const [view, setView] = useState<"month" | "week" | "list">("month");
@@ -68,7 +68,7 @@ function PostEditor({ post, accounts, onClose }: { post: CalendarPost | null; ac
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [pending, start] = useTransition();
-  const editable = canEditPost(post?.status ?? null);
+  const editable = canEditPost(post?.status ?? null) && !post?.social_post_targets.some((target) => (target.attempt_count ?? 0) > 0);
   async function upload(file: File) {
     setError(""); setUploading(true);
     try {
@@ -85,8 +85,14 @@ function PostEditor({ post, accounts, onClose }: { post: CalendarPost | null; ac
     const payload = { postId: post?.id, status, post: { format, caption, hashtags: hashtags.split(/[\s,]+/).filter(Boolean), media, targets: Object.entries(targets).filter(([, id]) => id).map(([channel, integrationId]) => ({ channel, integrationId })), scheduledAt: date ? `${date}:00-03:00` : null } };
     start(async () => { const result = await savePostAction(payload); if (result.error) setError(result.error); else onClose(); });
   }
+  function retry(integrationId: string) {
+    if (!post || !window.confirm("Você conferiu diretamente na conta do canal e confirmou que este post NÃO foi publicado? Repetir sem essa conferência pode causar uma publicação duplicada.")) return;
+    setError("");
+    start(async () => { const result = await retryPostAction({ postId: post.id, integrationId, confirmed: true }); if (result.error) setError(result.error); else onClose(); });
+  }
   return <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/75 p-4" role="dialog" aria-modal="true" aria-labelledby="editor-title"><div className="my-4 w-full max-w-2xl rounded-xl border border-border bg-card p-5 shadow-2xl sm:p-6"><div className="mb-5 flex items-center justify-between gap-3"><h2 id="editor-title" className="text-xl font-semibold">{post ? "Detalhes do post" : "Novo post"}</h2><Button variant="ghost" onClick={onClose}>Fechar</Button></div>
-    {!editable && <div className="mb-4 space-y-2 text-sm text-muted-foreground"><p>Situação: {postStatus(post!)}. Este post não pode ser editado agora.</p>{post!.social_post_targets.map((target) => <p key={target.integration_id}>{CHANNELS.find((channel) => channel.id === target.channel)?.name}: {target.publish_state === "published" ? "publicado" : target.publish_error ?? "aguardando resultado"}{target.external_id && target.publish_state === "uncertain" ? ` Referência: ${target.external_id}` : ""}.</p>)}</div>}
+    {!editable && <div className="mb-4 space-y-2 text-sm text-muted-foreground"><p>Situação: {postStatus(post!)}. Este post não pode ser editado agora.</p>{post!.social_post_targets.map((target) => <div key={target.integration_id}><p>{CHANNELS.find((channel) => channel.id === target.channel)?.name}: {target.publish_state === "published" ? "publicado" : target.publish_error ?? "aguardando resultado"}{target.external_id && target.publish_state === "uncertain" ? ` Referência: ${target.external_id}` : ""}.</p>{post!.status === "failed" && ["failed", "uncertain"].includes(target.publish_state ?? "") && !target.external_id && (target.attempt_count ?? 0) < 3 && <Button variant="outline" size="sm" disabled={pending} onClick={() => retry(target.integration_id)}>Conferi o canal e quero tentar novamente</Button>}</div>)}</div>}
+    {!editable && error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
     <fieldset disabled={!editable || pending || uploading} className="space-y-4 disabled:opacity-60">
       <div className="space-y-1.5"><Label htmlFor="post-format">Formato</Label><select id="post-format" value={format} onChange={(e) => setFormat(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">{FORMATS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></div>
       <div className="space-y-2"><p className="text-sm font-medium">Canais e contas</p>{CHANNELS.map((channel) => <div key={channel.id}><Label htmlFor={`channel-${channel.id}`} className="mb-1 block">{channel.name}</Label><select id={`channel-${channel.id}`} value={targets[channel.id] ?? ""} onChange={(e) => setTargets({ ...targets, [channel.id]: e.target.value })} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Não usar este canal</option>{accounts.filter((account) => account.provider === channel.provider).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}{targets[channel.id] && !accounts.some((account) => account.id === targets[channel.id]) && <option value={targets[channel.id]}>Conta indisponível — reconecte</option>}</select></div>)}<p className="text-xs text-muted-foreground">Não encontrou sua conta? <Link href="/integrations" className="text-primary underline">Conecte em Integrações</Link>.</p></div>
@@ -94,7 +100,7 @@ function PostEditor({ post, accounts, onClose }: { post: CalendarPost | null; ac
       <div className="space-y-1.5"><Label htmlFor="post-hashtags">Hashtags</Label><Input id="post-hashtags" value={hashtags} onChange={(e) => setHashtags(e.target.value)} placeholder="#conteúdo #marca" /><p className="text-xs text-muted-foreground">Separe por espaços ou vírgulas.</p></div>
       <div className="space-y-1.5"><Label htmlFor="post-media">Mídia</Label><Input id="post-media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void upload(file); }} /><p className="text-xs text-muted-foreground">JPEG, PNG, WebP ou MP4, até 50 MB por arquivo. {uploading && "Enviando…"}</p>{media.map((item, index) => <div key={item.path} className="flex items-center justify-between gap-2 text-sm"><span>{item.type === "image" ? "Imagem" : "Vídeo"} {index + 1}</span><Button type="button" variant="ghost" size="sm" onClick={() => setMedia(media.filter((_, i) => i !== index))}>Remover</Button></div>)}</div>
       <div className="space-y-1.5"><Label htmlFor="post-date">Data e horário de Brasília</Label><Input id="post-date" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {editable && error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {editable && <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => save("draft")}>Salvar rascunho</Button><Button type="button" onClick={() => save("scheduled")}>Agendar post</Button></div>}
     </fieldset>
   </div></div>;

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { processClaim, UnconfirmedPublication } from "./social-publish-queue";
+import { processClaim, SafeTransientError, UnconfirmedPublication } from "./social-publish-queue";
 
 describe("fila de publicação", () => {
   it("persiste cada resultado parcial sem repetir destino confirmado", async () => {
@@ -24,5 +24,10 @@ describe("fila de publicação", () => {
     const finish = vi.fn();
     await processClaim({ id: "post", organizationId: "org", leaseToken: "lease" }, ["a"], { start: vi.fn(), publish: vi.fn().mockRejectedValue(new UnconfirmedPublication("remote-id")), finish });
     expect(finish).toHaveBeenCalledWith("a", "uncertain", "remote-id", expect.stringContaining("Confira"));
+  });
+  it("autoriza retry apenas de falha confirmada antes da publicação", async () => {
+    const finish = vi.fn();
+    await processClaim({ id: "post", organizationId: "org", leaseToken: "lease" }, ["a"], { start: vi.fn(), publish: vi.fn().mockRejectedValue(new SafeTransientError()), finish });
+    expect(finish).toHaveBeenCalledWith("a", "retry", null, expect.stringContaining("temporária"));
   });
 });

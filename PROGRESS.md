@@ -5,14 +5,14 @@
 ## Estado atual
 
 - **Fase:** 5 — Calendário editorial e publicação omnichannel (Fases 2, 3 e 4 ✅ concluídas)
-- **Etapa em andamento:** 5.3b — Conciliação de publicações e cobertura restante
+- **Etapa em andamento:** 5.4 — Tools do Agente Hermes para o Calendário Editorial
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-19 — Codex
 
 ## Próxima microtarefa (exata)
 
-**5.3b Cobertura restante:** concluir a 5.3 antes de avançar para publicação instantânea e Tools do Hermes. Implementar fluxo explícito de conferência/repetição apenas de destinos comprovadamente não publicados, incluindo os casos sem ID externo. Investigar e implementar Stories em Páginas do Facebook com documentação oficial verificável; até lá o agendamento dessa combinação é recusado. Testar concorrência real entre transações PostgreSQL independentes e integração ponta a ponta em staging quando disponíveis; manter o Cron desativado até cumprir os itens de go-live. Depois, detalhar 5.4 (postagem instantânea e Tools do Hermes reutilizando o mesmo publicador).
+**5.4 Tools do Agente Hermes para o Calendário Editorial:** implementar `list_posts`, `create_post`, `reschedule_post` e `cancel_post` reutilizando `lib/services/social-posts.ts`, seus schemas, a cota e as mesmas permissões da interface; desambiguar posts quando a busca retornar mais de um e orientar corretamente o fuso de Brasília. Projetar `plan_week_with_ai` com Contexto Mestre e confirmação do usuário antes de agendar; publicação instantânea manual e `publish_post_now` devem compartilhar o publicador com confirmação explícita e preservação da idempotência, sem contornar limites nem reenviar destinos inconclusivos. Atualizar prompt e rótulos pt-BR, testar web/Telegram, isolamento e falhas, e manter o Cron desativado até concluir o checklist.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
@@ -112,6 +112,8 @@
 - [ ] Validar em staging com contas e permissões reais da Meta e Google Business Profile, tipos de mídia, URLs assinadas, fuso, renovação OAuth, falhas e resultados parciais. Testar concorrência real com transações independentes, duração da função, recuperação de posse expirada e ausência de duplicações após timeout. O teste PGlite atual verifica capturas sucessivas e posse, mas não simula transações simultâneas independentes.
 - [ ] Medir atraso da fila sob carga: cada execução captura até cinco posts em paralelo e ocorre no máximo uma vez por minuto na configuração prevista; não há garantia de publicação no segundo exato nem de ausência de fila quando o volume ultrapassar a capacidade.
 - [ ] Validar a reconciliação por leitura de IDs externos: Google em `PROCESSING` e vídeos/Reels Facebook aceitos são marcados "A conferir" até confirmação, sem novo envio. Concluir fluxo seguro de conferência e repetição de destinos não publicados e verificar limites e cobertura de Stories para Facebook com documentação Meta atual e permissões aprovadas.
+- [ ] **Retry e Stories Facebook (Fase 5.3b):** aplicar `20261119032105_social_publish_retry.sql`, verificar backfill conservador e advisors; validar em PostgreSQL real concorrência, bloqueio de edição após tentativa, retry por destino, espera de 1 e 2 minutos, limite de três tentativas e auditoria da confirmação manual. Confirmar que timeouts após envio final jamais são repetidos automaticamente e que destinos já publicados não são reenviados.
+- [ ] **Contratos da Meta a validar antes de ativar o Cron:** a documentação oficial acessível para Stories de Páginas não pôde ser confirmada nesta etapa. Validar com conta e permissões reais `/{page_id}/photos` com `published=false`, `/{page_id}/photo_stories` com `photo_id`, `/{page_id}/video_stories` com fases `start`/`finish`, upload hospedado para `rupload.facebook.com`, campos e IDs das respostas, autenticação, disponibilidade, limites de arquivo/duração e consulta do estado assíncrono. Validar também se Stories aceita conteúdo sem legenda/hashtags e se mídias temporárias devem ser removidas após falha.
 - [ ] **Ficha do lead (Fase 4.3):** abrir pelo nome do card; atalhos de WhatsApp (abre conversa no número com 55), e-mail, telefone, site e Instagram funcionam no celular e no computador; salvar dados, trocar etapa (histórico "Movido de…"), adicionar anotação; linha do tempo mostra "por você", "por <nome do colega>" e "pelo Hermes" corretamente; excluir (só admin) volta ao quadro; abrir a URL de um lead de outra empresa → página não encontrada.
 - [ ] **Aba Funil (Fase 4.3):** números da tabela batem com o quadro; tooltip em português; gráfico só carrega ao abrir a aba; com zero leads aparece o estado vazio; sem etapa "ganho" a conversão mostra "—" com explicação. Conferir o gráfico visualmente (rótulos sem colisão em nomes longos de etapa).
 - [ ] Desempenho do quadro com volume real: o `/crm` carrega todos os leads do funil; medir com ~5 mil leads e, se ficar lento, priorizar paginação por coluna.
@@ -150,12 +152,18 @@
 
 ## Concluído
 
+### 5.3b Retry seguro e Stories Facebook — ✅ (2026-11-19)
+- Migration `20261119032105_social_publish_retry.sql`: contagem por destino, backoff de 1 e 2 minutos, no máximo três tentativas, preservação dos resultados publicados, bloqueio de edição após tentativa e backfill conservador. Repetição manual exige confirmação, verifica membro/empresa, registra usuário e horário e só aceita destino sem ID externo e com tentativas disponíveis.
+- `lib/services/social-publish-{queue,worker}.ts` e `lib/integrations/social-publish.ts`: só falhas transitórias comprovadamente anteriores ao envio público geram retry automático; falhas no envio final seguem inconclusivas e não são reenviadas. Stories de Página com uma foto ou vídeo usam preparação e envio separados; vídeo aceito fica em conciliação. A implementação de Stories depende da validação real e dos contratos listados no checklist.
+- `app/(app)/calendar` e `lib/services/social-posts.ts`: status de nova tentativa, confirmação explícita após verificar o canal e Server Action autenticada com rate limit. Resultados bem-sucedidos não são repetidos; a reexecução não consome nova cota.
+- **Testes:** `npm test` 299/299; `npm run test:db` OK; `npm run lint` limpo; `npm run build` OK. RED da migração e da classificação de retry verificado. Sem testes contra Meta real ou PostgreSQL com conexões simultâneas; não ativar o Cron antes do checklist.
+
 ### 5.3a Fila e adaptadores de publicação — parcial (2026-11-19)
 - `supabase/migrations/20261119025634_social_publish_queue.sql`: captura com `FOR UPDATE SKIP LOCKED`, posse por token e prazo, resultados por canal e recuperação conservadora de tarefas expiradas. Nenhuma tentativa inconclusiva é reenviada automaticamente.
 - `app/api/cron/publish/route.ts`, `lib/services/social-publish-{queue,worker}.ts`: endpoint com `CRON_SECRET`, rate limit e worker limitado a cinco posts paralelos por execução; validação e filtro explícito por empresa, segredos só no servidor e mensagens seguras em português.
 - `lib/integrations/social-publish.ts` e `google.ts`: publicação Meta e Google com URLs de mídia assinadas, resolução da conta Google, renovação de token Google e validação de formato. Google `PROCESSING` e vídeos/Reels Facebook aceitos são conciliados em consultas posteriores por ID, sem repetir a criação; casos sem confirmação permanecem inconclusivos. Stories Facebook ainda é recusado. Fontes consultadas: documentação [Meta Pages](https://developers.facebook.com/documentation/pages-api/posts), [Meta Instagram](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api), [Meta Reels](https://www.postman.com/meta/facebook/documentation/r56bjfd/facebook-api) e [Google Local Posts](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.localPosts/create).
 - `app/(app)/calendar/view.tsx` mostra resultados individuais e "A conferir"; `lib/services/social-posts.ts` impede combinações ainda incompatíveis antes de consumir cota.
-- **Testes:** `npm test` 292/292; `npm run test:db` OK; `npm run lint` limpo; `npm run build` OK. RED inicial das funções da fila, adaptadores e rota verificado. Sem chamadas externas reais nem teste de concorrência com conexões independentes; pendências acima. A 5.3 **não está integralmente concluída** até 5.3b.
+- **Testes:** `npm test` 292/292; `npm run test:db` OK; `npm run lint` limpo; `npm run build` OK. RED inicial das funções da fila, adaptadores e rota verificado. Sem chamadas externas reais nem teste de concorrência com conexões independentes; pendências acima. Complementada em 5.3b.
 
 ### 5.2 Interface do calendário editorial — ✅ (2026-11-18)
 - `/calendar`: visões de mês, semana e lista, rascunhos, edição, escolha de contas e canais, formatos, legenda, hashtags e agendamento em horário de Brasília; cobrança e disponibilidade futura da publicação explicadas na interface. Navegação ativada.

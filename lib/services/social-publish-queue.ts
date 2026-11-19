@@ -1,8 +1,10 @@
 import "server-only";
 
 export type SocialClaim = { id: string; organizationId: string; leaseToken: string };
-export type PublishResult = "published" | "failed" | "uncertain";
+export type PublishResult = "published" | "failed" | "uncertain" | "retry";
 export class RejectedPublication extends Error {}
+// Só pode ser lançado quando nenhuma solicitação de publicação visível foi iniciada.
+export class SafeTransientError extends Error {}
 export class UnconfirmedPublication extends Error {
   constructor(readonly externalId: string) { super("publication not confirmed"); }
 }
@@ -23,7 +25,10 @@ export async function processClaim(claim: SocialClaim, targets: string[], operat
       externalId = await operations.publish(target, claim);
       if (!externalId) throw new Error("missing external id");
     } catch (error) {
-      if (error instanceof RejectedPublication) {
+      if (error instanceof SafeTransientError) {
+        result = "retry";
+        message = "Falha temporária antes do envio. Uma nova tentativa segura será feita.";
+      } else if (error instanceof RejectedPublication) {
         result = "failed";
         const reasons: Record<string, string> = {
           "unsupported format": "Este formato ainda não é compatível com o canal selecionado.",
