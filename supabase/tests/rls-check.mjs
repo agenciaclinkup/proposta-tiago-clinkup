@@ -228,3 +228,35 @@ await expectFail("activity cannot reference lead of another org", () =>
   asService(`insert into public.crm_activities (organization_id, lead_id, type, content) values ('${orgB}', '${leadA}', 'note', 'x')`));
 check("admin deletes lead (history cascades)", (await as(A, `delete from public.crm_leads where id = '${leadA}' returning id`)).rows.length === 1
   && (await db.query(`select count(*)::int as n from public.crm_activities`)).rows[0].n === 0);
+
+// Calendário: mutações somente via serviço, cobrança e gravação na mesma transação.
+const socialInt = "60000000-0000-0000-0000-00000000000a";
+await asService(`insert into public.integrations (id, organization_id, provider, status, external_account_id) values ('${socialInt}', '${orgA}', 'instagram', 'connected', 'social-test')`);
+const socialPayload = JSON.stringify({ format: "feed", caption: "Olá", hashtags: [], media: [], scheduled_at: "2030-01-01T12:00:00Z", targets: [{ channel: "instagram", integration_id: socialInt }] });
+const saveSocial = (org, user, post, status, limit, payload = socialPayload) => asService(`select public.save_social_post('${org}', '${user}', ${post ? `'${post}'` : 'null'}, 'manual', '${status}', '${payload}'::jsonb, ${limit}) as result`);
+const saved = (await saveSocial(orgA, A, null, "scheduled", 1)).rows[0].result;
+check("scheduled post consumes quota", saved.status === "scheduled");
+check("member reads social post", (await as(C, `select id from public.social_posts`)).rows.length === 1);
+check("other org cannot read social post", (await as(B, `select id from public.social_posts`)).rows.length === 0);
+await expectFail("user cannot bypass quota with direct insert", () => as(A, `insert into public.social_posts (organization_id) values ('${orgA}')`));
+await expectFail("user cannot call privileged social RPC", () => as(A, `select public.save_social_post('${orgA}', '${A}', null, 'manual', 'scheduled', '${socialPayload}'::jsonb, 999)`));
+await expectFail("quota enforced for second schedule", () => saveSocial(orgA, A, null, "scheduled", 1));
+check("quota failure rolls back post", (await as(A, `select id from public.social_posts`)).rows.length === 1);
+await expectFail("other org cannot reference integration", () => saveSocial(orgB, B, null, "scheduled", 1));
+await expectFail("non-member cannot use service RPC", () => saveSocial(orgA, B, null, "draft", 1));
+check("rescheduling existing post does not charge twice", (await saveSocial(orgA, A, saved.id, "scheduled", 1)).rows[0].result.id === saved.id);
+const socialFacebook = "60000000-0000-0000-0000-00000000000b";
+await asService(`insert into public.integrations (id, organization_id, provider, status, external_account_id) values ('${socialFacebook}', '${orgA}', 'facebook_page', 'connected', 'social-page')`);
+const multiPayload = JSON.stringify({ format: "feed", caption: "Olá", hashtags: [], media: [], scheduled_at: "2030-01-01T12:00:00Z", targets: [{ channel: "instagram", integration_id: socialInt }, { channel: "facebook", integration_id: socialFacebook }] });
+await saveSocial(orgA, A, saved.id, "scheduled", 1, multiPayload);
+check("multi-channel post keeps both targets", (await as(A, `select * from public.social_post_targets where post_id = '${saved.id}'`)).rows.length === 2);
+check("cancel to draft is allowed", (await saveSocial(orgA, A, saved.id, "draft", 1)).rows[0].result.status === "draft");
+await expectFail("scheduling again consumes a new unit", () => saveSocial(orgA, A, saved.id, "scheduled", 1));
+check("failed reschedule preserves draft", (await as(A, `select status from public.social_posts where id = '${saved.id}'`)).rows[0].status === "draft");
+check("other org cannot see targets", (await as(B, `select * from public.social_post_targets`)).rows.length === 0);
+await expectFail("target cannot link integration of another organization", () => asService(`insert into public.social_post_targets (post_id, organization_id, channel, integration_id, provider) values ('${saved.id}', '${orgA}', 'facebook', '${socialInt}', 'facebook_page')`));
+const invalidPayload = JSON.stringify({ format: "feed", caption: "x", hashtags: [], media: [], scheduled_at: "2030-01-01T12:00:00Z", targets: [{ channel: "facebook", integration_id: socialInt }] });
+await expectFail("wrong integration provider rejected", () => saveSocial(orgB, B, null, "scheduled", 2, invalidPayload));
+check("failed schedule rolls back usage", (await asService(`select used from public.usage_counters where organization_id = '${orgB}' and metric = 'scheduled_posts'`)).rows.length === 0);
+await asService(`update public.social_posts set status = 'publishing' where id = '${saved.id}'`);
+await expectFail("cannot edit post being published", () => saveSocial(orgA, A, saved.id, "draft", 1));
