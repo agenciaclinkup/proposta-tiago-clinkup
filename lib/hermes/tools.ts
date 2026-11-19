@@ -11,6 +11,7 @@ import type { ServiceContext } from "@/lib/services/context";
 import { ServiceError } from "@/lib/services/errors";
 import { listIntegrations, summarizeIntegrations } from "@/lib/services/integrations";
 import { meetingSchema, scheduleLeadMeeting } from "@/lib/services/meetings";
+import { getSocialPost, listSocialPosts, saveSocialPost, saveSocialPostSchema, socialPostSchema } from "@/lib/services/social-posts";
 import { defineTool, runTool, type HermesTool } from "./run-tool";
 
 const ONBOARDING_REQUIRED = "A memória da marca ainda não foi criada. Conclua o onboarding no painel para que eu possa usá-la.";
@@ -114,6 +115,83 @@ const scheduleLeadMeetingTool = defineTool({
   execute: (ctx, input) => scheduleLeadMeeting(ctx, input),
 });
 
+const listPostsTool = defineTool({
+  name: "list_posts", description: "Lista posts e rascunhos do calendário da empresa. Use os IDs retornados e peça ao usuário para escolher quando houver mais de um post compatível.",
+  input: z.object({ from: z.iso.datetime({ offset: true }).optional(), to: z.iso.datetime({ offset: true }).optional(), limit: z.number().int().min(1).max(20).default(20), offset: z.number().int().min(0).default(0) }),
+  execute: async (ctx, input) => {
+    const posts = await listSocialPosts(ctx, input);
+    return { posts, selectionRequired: posts.length > 1, mayHaveMore: posts.length === input.limit, nextOffset: input.offset + posts.length };
+  },
+});
+const listCalendarAccountsTool = defineTool({
+  name: "list_calendar_accounts", description: "Lista os IDs e nomes das contas conectadas para Instagram, Facebook e Google Meu Negócio, para selecionar destinos de posts.",
+  input: z.object({}),
+  execute: async (ctx) => (await listIntegrations(ctx)).filter((row) => row.status === "connected" && ["instagram", "facebook_page", "google_business"].includes(row.provider))
+    .map((row) => ({ integrationId: row.id, provider: row.provider, name: row.display_name ?? row.external_account_id })),
+});
+const createPostTool = defineTool({
+  name: "create_post", description: "Cria um rascunho ou agenda um novo post no calendário; use IDs de contas conectadas e mídias da empresa, respeitando o horário informado.",
+  input: z.object({ status: z.enum(["draft", "scheduled"]), post: socialPostSchema }),
+  execute: (ctx, input) => saveSocialPost(ctx, input),
+});
+const postPatchSchema = z.object({
+  format: socialPostSchema.shape.format.optional(),
+  caption: socialPostSchema.shape.caption.unwrap().optional(),
+  hashtags: socialPostSchema.shape.hashtags.unwrap().optional(),
+  media: socialPostSchema.shape.media.unwrap().optional(),
+  targets: socialPostSchema.shape.targets.unwrap().optional(),
+  scheduledAt: socialPostSchema.shape.scheduledAt,
+}).refine((patch) => Object.values(patch).some((value) => value !== undefined), { message: "Informe o que deseja alterar no post." });
+const updatePostTool = defineTool({
+  name: "update_post", description: "Atualiza somente os campos informados em rascunho ou post agendado, preservando os demais dados e as regras do calendário.",
+  input: z.object({ postId: z.uuid(), patch: postPatchSchema }),
+  execute: async (ctx, { postId, patch }) => {
+    const post = await getSocialPost(ctx, postId);
+    if (post.status !== "draft" && post.status !== "scheduled") throw new ServiceError("Este post não pode ser editado no status atual.");
+    return saveSocialPost(ctx, { postId, status: post.status, post: {
+      format: post.format, caption: post.caption, hashtags: post.hashtags, media: post.media, scheduledAt: post.scheduled_at,
+      targets: post.social_post_targets.map((target: { channel: "instagram" | "facebook" | "google_business"; integration_id: string }) => ({ channel: target.channel, integrationId: target.integration_id })), ...patch,
+    } });
+  },
+});
+const planWeekTool = defineTool({
+  name: "plan_week_with_ai", description: "Apresenta uma proposta de até sete posts criada a partir do Contexto Mestre. É somente prévia: peça confirmação explícita antes de qualquer agendamento.",
+  input: z.object({ posts: z.array(socialPostSchema).min(1).max(7) }),
+  execute: async (ctx, { posts }) => {
+    const brand = await getBrandContext(ctx);
+    if (!brand) throw new ServiceError(ONBOARDING_REQUIRED);
+    for (const post of posts) {
+      const checked = saveSocialPostSchema.safeParse({ status: "scheduled", post });
+      if (!checked.success) throw new ServiceError(checked.error.issues[0]?.message ?? "Confira a proposta de agendamento.");
+    }
+    return { company: brand.company_name, posts, scheduled: false, requiresConfirmation: true, notice: "Esta é uma proposta; nenhum post foi agendado. Peça confirmação explícita antes de continuar." };
+  },
+});
+const reschedulePostTool = defineTool({
+  name: "reschedule_post", description: "Agenda um rascunho ou altera a data de um post agendado, identificado por ID. Use data e hora ISO com fuso explícito.",
+  input: z.object({ postId: z.uuid(), scheduledAt: z.iso.datetime({ offset: true }) }),
+  execute: async (ctx, { postId, scheduledAt }) => {
+    const post = await getSocialPost(ctx, postId);
+    if (!["draft", "scheduled"].includes(post.status)) throw new ServiceError("Este post não pode ser reagendado no status atual.");
+    return saveSocialPost(ctx, { postId, status: "scheduled", post: {
+      format: post.format, caption: post.caption, hashtags: post.hashtags, media: post.media, scheduledAt,
+      targets: post.social_post_targets.map((target: { channel: "instagram" | "facebook" | "google_business"; integration_id: string }) => ({ channel: target.channel, integrationId: target.integration_id })),
+    } });
+  },
+});
+const cancelPostTool = defineTool({
+  name: "cancel_post", description: "Cancela o agendamento de um post identificado por ID, mantendo seu conteúdo como rascunho. Não exclui o post nem estorna a cota.",
+  input: z.object({ postId: z.uuid() }),
+  execute: async (ctx, { postId }) => {
+    const post = await getSocialPost(ctx, postId);
+    if (post.status !== "scheduled") throw new ServiceError("Somente posts agendados podem ter o agendamento cancelado.");
+    return saveSocialPost(ctx, { postId, status: "draft", post: {
+      format: post.format, caption: post.caption, hashtags: post.hashtags, media: post.media, scheduledAt: null,
+      targets: post.social_post_targets.map((target: { channel: "instagram" | "facebook" | "google_business"; integration_id: string }) => ({ channel: target.channel, integrationId: target.integration_id })),
+    } });
+  },
+});
+
 export const HERMES_TOOLS: HermesTool[] = [
   getBrandContextTool,
   updateBrandContextTool,
@@ -123,10 +201,13 @@ export const HERMES_TOOLS: HermesTool[] = [
   getIntegrationSetupGuideTool,
   listLeadsTool, createLeadTool, updateLeadTool, moveLeadTool, addLeadNoteTool, getFunnelMetricsTool,
   scheduleLeadMeetingTool,
+  listPostsTool, listCalendarAccountsTool, createPostTool, updatePostTool, reschedulePostTool, cancelPostTool, planWeekTool,
 ] as HermesTool[];
 
 // Tools prontas para o AI SDK, já presas ao contexto (organização, usuário, canal) da requisição.
 export function buildHermesTools(ctx: ServiceContext): ToolSet {
+  // A proposta não pode ser agendada no mesmo turno em que foi exibida.
+  let planPresented = false;
   return Object.fromEntries(
     HERMES_TOOLS.map((definition) => [
       definition.name,
@@ -134,7 +215,14 @@ export function buildHermesTools(ctx: ServiceContext): ToolSet {
         description: definition.description,
         inputSchema: definition.input,
         needsApproval: definition.needsApproval,
-        execute: (input: unknown) => runTool(ctx, definition, input),
+        execute: async (input: unknown) => {
+          if (definition.name === "plan_week_with_ai") planPresented = true;
+          const schedulingNewPost = definition.name === "create_post" && z.object({ status: z.literal("scheduled") }).safeParse(input).success;
+          if (planPresented && (schedulingNewPost || definition.name === "reschedule_post" || definition.name === "update_post")) {
+            return runTool(ctx, { ...definition, execute: async () => { throw new ServiceError("A proposta foi apresentada agora. Peça ao usuário confirmação em uma nova mensagem antes de agendar."); } }, input);
+          }
+          return runTool(ctx, definition, input);
+        },
       }),
     ]),
   );

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServiceContext } from "./context";
 const rpc = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc }) }));
-import { requestSocialRetry, saveSocialPost, socialPostSchema } from "./social-posts";
+import { getSocialPost, requestSocialRetry, saveSocialPost, socialPostSchema } from "./social-posts";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const ctx = { organizationId: id, userId: id, via: "hermes", planId: "starter" } as ServiceContext;
@@ -36,5 +36,12 @@ describe("social posts", () => {
     expect(rpc).not.toHaveBeenCalled();
     await requestSocialRetry(ctx, { postId: id, integrationId: id, confirmed: true });
     expect(rpc).toHaveBeenCalledWith("request_social_retry", { p_org: id, p_user: id, p_post: id, p_integration: id, p_confirmed: true });
+  });
+  it("busca post somente na organização, inclusive com cliente privilegiado", async () => {
+    const filters: [string, string][] = [];
+    const builder = { select: () => builder, eq: (key: string, value: string) => { filters.push([key, value]); return builder; }, maybeSingle: async () => ({ data: null, error: null }) };
+    const privileged = { ...ctx, supabase: { from: () => builder } } as unknown as ServiceContext;
+    await expect(getSocialPost(privileged, id)).rejects.toThrow("Não encontramos");
+    expect(filters).toEqual(expect.arrayContaining([["organization_id", id], ["id", id]]));
   });
 });

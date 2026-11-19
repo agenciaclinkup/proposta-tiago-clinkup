@@ -84,6 +84,18 @@ export async function listSocialPosts(ctx: ServiceContext, options: { from?: str
   return data ?? [];
 }
 
+// Usado por ações pontuais: mesmo filtro de organização, inclusive no Telegram com cliente privilegiado.
+export async function getSocialPost(ctx: ServiceContext, postId: string) {
+  const id = z.uuid().safeParse(postId);
+  if (!id.success) throw new ServiceError("Identificador do post inválido.");
+  const { data, error } = await ctx.supabase.from("social_posts")
+    .select("id, status, format, caption, hashtags, media, scheduled_at, social_post_targets(channel, integration_id, attempt_count)")
+    .eq("organization_id", ctx.organizationId).eq("id", id.data).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new ServiceError("Não encontramos este post na sua empresa.");
+  return data;
+}
+
 export const requestSocialRetrySchema = z.object({
   postId: z.uuid(), integrationId: z.uuid(), confirmed: z.boolean().refine((value) => value, "Confira o canal e confirme que o post não foi publicado."),
 });

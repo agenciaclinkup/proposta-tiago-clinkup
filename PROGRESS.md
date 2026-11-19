@@ -5,14 +5,14 @@
 ## Estado atual
 
 - **Fase:** 5 — Calendário editorial e publicação omnichannel (Fases 2, 3 e 4 ✅ concluídas)
-- **Etapa em andamento:** 5.4 — Tools do Agente Hermes para o Calendário Editorial
+- **Etapa em andamento:** 5.4b — Confirmação persistente e publicação imediata
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-19 — Codex
 
 ## Próxima microtarefa (exata)
 
-**5.4 Tools do Agente Hermes para o Calendário Editorial:** implementar `list_posts`, `create_post`, `reschedule_post` e `cancel_post` reutilizando `lib/services/social-posts.ts`, seus schemas, a cota e as mesmas permissões da interface; desambiguar posts quando a busca retornar mais de um e orientar corretamente o fuso de Brasília. Projetar `plan_week_with_ai` com Contexto Mestre e confirmação do usuário antes de agendar; publicação instantânea manual e `publish_post_now` devem compartilhar o publicador com confirmação explícita e preservação da idempotência, sem contornar limites nem reenviar destinos inconclusivos. Atualizar prompt e rótulos pt-BR, testar web/Telegram, isolamento e falhas, e manter o Cron desativado até concluir o checklist.
+**5.4b Confirmação persistente e publicação imediata:** completar a 5.4 antes de iniciar a Fase 6. Criar confirmação vinculada ao usuário, empresa, canal, conteúdo e operação, com expiração e consumo único, validada a partir da mensagem real do usuário e não de um campo fornecido pelo modelo. Garantir confirmação da proposta semanal entre turnos e sob chamadas paralelas, nos canais web e Telegram; a prévia de 5.4a não grava posts e seu bloqueio local cobre apenas chamadas posteriores na mesma instância de Tools. Implementar publicação imediata manual e `publish_post_now` sobre o mesmo publicador, com confirmação explícita, consumo de cota atômico e sem reenviar destinos inconclusivos. Cobrir isolamento, concorrência, replay, expiração, canal e falhas. Após concluir, preparar **6.1 Estúdio**: dados e serviços compartilhados para carrosséis e landing pages conforme `ARCHITECTURE.md`.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
@@ -114,6 +114,7 @@
 - [ ] Validar a reconciliação por leitura de IDs externos: Google em `PROCESSING` e vídeos/Reels Facebook aceitos são marcados "A conferir" até confirmação, sem novo envio. Concluir fluxo seguro de conferência e repetição de destinos não publicados e verificar limites e cobertura de Stories para Facebook com documentação Meta atual e permissões aprovadas.
 - [ ] **Retry e Stories Facebook (Fase 5.3b):** aplicar `20261119032105_social_publish_retry.sql`, verificar backfill conservador e advisors; validar em PostgreSQL real concorrência, bloqueio de edição após tentativa, retry por destino, espera de 1 e 2 minutos, limite de três tentativas e auditoria da confirmação manual. Confirmar que timeouts após envio final jamais são repetidos automaticamente e que destinos já publicados não são reenviados.
 - [ ] **Contratos da Meta a validar antes de ativar o Cron:** a documentação oficial acessível para Stories de Páginas não pôde ser confirmada nesta etapa. Validar com conta e permissões reais `/{page_id}/photos` com `published=false`, `/{page_id}/photo_stories` com `photo_id`, `/{page_id}/video_stories` com fases `start`/`finish`, upload hospedado para `rupload.facebook.com`, campos e IDs das respostas, autenticação, disponibilidade, limites de arquivo/duração e consulta do estado assíncrono. Validar também se Stories aceita conteúdo sem legenda/hashtags e se mídias temporárias devem ser removidas após falha.
+- [ ] **Hermes e calendário (Fase 5.4):** validar web e Telegram com usuários e organizações distintos, cotas, datas e seleção de posts; a confirmação da proposta semanal entre turnos e sob chamadas paralelas ainda não é garantida pelo servidor. Publicação imediata ainda não foi implementada e deve permanecer indisponível até 5.4b e os testes de go-live.
 - [ ] **Ficha do lead (Fase 4.3):** abrir pelo nome do card; atalhos de WhatsApp (abre conversa no número com 55), e-mail, telefone, site e Instagram funcionam no celular e no computador; salvar dados, trocar etapa (histórico "Movido de…"), adicionar anotação; linha do tempo mostra "por você", "por <nome do colega>" e "pelo Hermes" corretamente; excluir (só admin) volta ao quadro; abrir a URL de um lead de outra empresa → página não encontrada.
 - [ ] **Aba Funil (Fase 4.3):** números da tabela batem com o quadro; tooltip em português; gráfico só carrega ao abrir a aba; com zero leads aparece o estado vazio; sem etapa "ganho" a conversão mostra "—" com explicação. Conferir o gráfico visualmente (rótulos sem colisão em nomes longos de etapa).
 - [ ] Desempenho do quadro com volume real: o `/crm` carrega todos os leads do funil; medir com ~5 mil leads e, se ficar lento, priorizar paginação por coluna.
@@ -151,6 +152,11 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 5.4a Tools de gestão do calendário — parcial (2026-11-19)
+- `lib/hermes/tools.ts`: `list_posts`, `list_calendar_accounts`, `create_post`, `update_post`, `reschedule_post` e `cancel_post` usam serviços e schemas compartilhados; `plan_week_with_ai` devolve apenas uma proposta baseada na memória da marca, sem gravar. A seleção de posts é explícita e cancelamento mantém rascunho. O bloqueio local depois da prévia não substitui confirmação persistente nem protege todas as chamadas paralelas ou turnos posteriores.
+- `lib/services/social-posts.ts`: `getSocialPost` filtra a empresa mesmo com cliente privilegiado. `system-prompt.ts` e `tool-labels.ts`: orientação e rótulos pt-BR. Sem Tool de exclusão ou publicação imediata.
+- **Testes:** `npm test` 311/311; `npm run test:db` OK; `npm run lint` limpo; `npm run build` OK. RED das Tools e da prévia verificado; testes incluem contexto Telegram, limites e isolamento no service com cliente simulado. Sem chamada real ao modelo ou Supabase. A 5.4 permanece aberta até 5.4b.
 
 ### 5.3b Retry seguro e Stories Facebook — ✅ (2026-11-19)
 - Migration `20261119032105_social_publish_retry.sql`: contagem por destino, backoff de 1 e 2 minutos, no máximo três tentativas, preservação dos resultados publicados, bloqueio de edição após tentativa e backfill conservador. Repetição manual exige confirmação, verifica membro/empresa, registra usuário e horário e só aceita destino sem ID externo e com tentativas disponíveis.
