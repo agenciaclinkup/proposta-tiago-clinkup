@@ -70,7 +70,7 @@ export async function getDefaultBoard(ctx: ServiceContext) {
   const [stages, leads] = await Promise.all([
     ctx.supabase
       .from("crm_stages")
-      .select("id, name, position, color, kind")
+      .select("id, name, position, color, kind, pipeline_id")
       .eq("organization_id", ctx.organizationId)
       .eq("pipeline_id", pipeline.id)
       .order("position"),
@@ -98,7 +98,7 @@ export async function listStages(ctx: ServiceContext) {
   const pipeline = await getDefaultPipeline(ctx);
   const { data, error } = await ctx.supabase
     .from("crm_stages")
-    .select("id, name, position, color, kind")
+    .select("id, name, position, color, kind, pipeline_id")
     .eq("organization_id", ctx.organizationId)
     .eq("pipeline_id", pipeline.id)
     .order("position");
@@ -343,7 +343,7 @@ export async function createStage(ctx: ServiceContext, input: z.infer<typeof sta
       kind: input.kind ?? "open",
       position: (stages ?? []).length,
     })
-    .select("id, name, position, color, kind")
+    .select("id, name, position, color, kind, pipeline_id")
     .single();
   if (insertError) throw new Error(insertError.message);
   return data;

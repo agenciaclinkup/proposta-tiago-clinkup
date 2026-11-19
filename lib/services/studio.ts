@@ -94,6 +94,13 @@ export async function listCarousels(ctx: ServiceContext) {
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+export async function getCarousel(ctx: ServiceContext, carouselId: string) {
+  const id = parse(z.uuid(), carouselId); await requireMember(ctx);
+  const { data, error } = await ctx.supabase.from("carousels").select("*, studio_slides(*)").eq("organization_id", ctx.organizationId).eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new ServiceError("Não encontramos este projeto na sua empresa.");
+  return data;
+}
 export async function listLandingPages(ctx: ServiceContext) {
   await requireMember(ctx);
   const { data, error } = await ctx.supabase.from("landing_pages").select("*").eq("organization_id", ctx.organizationId).order("updated_at", { ascending: false }).limit(100);

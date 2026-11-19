@@ -5,14 +5,31 @@
 ## Estado atual
 
 - **Fase:** 6 — Estúdio (Fases 2, 3, 4 e 5 ✅ concluídas)
-- **Etapa em andamento:** 6.2 — Interface do Estúdio e exportação para o calendário
+- **Etapa em andamento:** 6.3 — Tools do Agente Hermes para o Estúdio
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-19 — Codex
+- **Última atualização:** 2026-11-19 — Claude (6.2)
 
 ## Próxima microtarefa (exata)
 
-**6.2 Estúdio — interface e exportação para o calendário:** criar `/studio` para listar e editar carrosséis, slides hook/conteúdo/CTA, tema e imagens, reutilizando os schemas e serviços de 6.1; fornecer estados acessíveis, claros e responsivos. Implementar exportação dos slides para um rascunho no calendário usando o serviço social compartilhado, copiando assets autorizados de `studio-assets` para `social-media` sob a mesma empresa, sem publicar ou agendar implicitamente. Definir geração real com cobrança idempotente e estorno explícito apenas quando o provedor estiver integrado; não disparar uma geração novamente quando `created` for `false`. Tratar interrupções de gerações `started` e limpeza de arquivos órfãos antes de integrar provedores. Cobrir permissões, isolamento, falhas, limites e testes de interface; manter checklist e preparar a próxima microtarefa da Fase 6.
+**6.3 Tools do Agente Hermes para o Estúdio:** registrar em `lib/hermes/tools.ts` (com rótulo em `tool-labels.ts` e menção no `system-prompt.ts`) Tools que chamam **somente** os serviços de `lib/services/studio.ts` e `lib/services/studio-workflows.ts`, com os mesmos schemas Zod:
+- `list_carousels`: resumo, sem slides completos.
+- `save_carousel`: criar ou editar título, tema, slides e situação.
+- `generate_carousel`: o `requestId` deve ser determinístico por chamada de Tool (ex.: UUID v5 do `toolCallId` + conversa), para que uma repetição do modelo ou do Telegram não cobre duas vezes. Responder "em andamento" quando `status = started`.
+- `export_carousel_to_calendar`: **rascunho por padrão**. Agendar exige a confirmação persistente já usada no calendário (`social-confirmations` / `confirm_calendar_action`), com data, contas e quantidade de slides na prévia.
+- `save_landing_page`: inclui a escolha da etapa do CRM por nome, via `listStages`.
+
+Também:
+- Respeitar `ctx.role` e membership em canais sem sessão (Telegram usa cliente admin).
+- Aplicar rate limit de geração (`studioGenerateUser`) também pelo Hermes.
+- Cobrir com testes: isolamento entre empresas, idempotência do `requestId`, recusa sem confirmação, limite de créditos e mensagens pt-BR.
+- Manter o checklist e preparar 6.4: página pública da landing page `/p/[slug]` com formulário Zod + rate limit por IP que cria lead no CRM.
+
+**Plano da Fase 6:**
+- 6.1 dados + serviços ✅.
+- 6.2 `/studio` + geração assistida + exportação para o calendário ✅.
+- 6.3 Tools do Hermes para o Estúdio.
+- 6.4 Landing page pública e captura de leads no CRM.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
@@ -155,7 +172,50 @@
 
 - [ ] **Dados e assets do Estúdio (6.1):** aplicar `20261119041214_studio_data.sql`, verificar advisors e o bucket privado `studio-assets`; testar com duas empresas uploads e URLs assinadas, RLS, funis, consumo/estorno no mês original e concorrência real de solicitações repetidas e limites. Validar as políticas globais de `storage.objects` para garantir que não concedam acesso amplo ao bucket. Antes da exportação, conferir a cópia autorizada entre buckets e os limites de armazenamento; definir recuperação de gerações interrompidas e limpeza de assets órfãos antes de integrar provedores.
 
+- [ ] **Estúdio — interface, IA e exportação (6.2).** Nenhuma migration nova; usa `ANTHROPIC_API_KEY` (já listada). Sem a chave, o Estúdio usa o modelo local sem cobrança.
+  - **Geração com IA:** com a chave real, gerar em `/studio` e conferir:
+    - `studio_generations` com `succeeded`;
+    - `usage_counters.ai_credits` +1;
+    - slides aplicados no carrossel.
+  - **Falha do provedor:** forçar uma chave inválida em staging. Esperado: mensagem "Seu crédito foi devolvido", `failed` + `credit_refunded = true` e contador de volta ao valor anterior.
+  - **Saída estruturada:** confirmar que `Output.object` + `fallbacks: "default"` + beta `server-side-fallback-2026-07-01` são aceitos pela API com `claude-opus-5-5`. Se retornar 400, remover as opções em `lib/studio/generator.ts`.
+  - **Exportação real:** exportar um carrossel concluído como rascunho e como agendado. Conferir:
+    - PNGs 1080×1350 em `social-media/<org>/`, com acentuação correta;
+    - a imagem de fundo aparece;
+    - o post aparece em `/calendar` com formato Carrossel (≥2 slides) ou Feed (1 slide);
+    - o agendamento conta 1 post no limite.
+    - Forçar falha (ex.: limite de posts atingido) e verificar que nenhum PNG fica no bucket.
+  - **Fontes:** o PNG exportado usa a fonte padrão do `next/og`, não Inter/Plus Jakarta Sans. Para fidelidade de marca, embutir as fontes no `ImageResponse` antes do lançamento.
+  - **Hospedagem:** suporta `maxDuration = 120` em `/studio` (as Server Actions de geração e exportação herdam esse limite).
+  - **Validação visual:** `/studio` em desktop e celular, com teclado (lista de slides, mover/excluir, upload) e com leitor de tela. O ambiente desta etapa não tinha navegador nem credenciais.
+  - **Limpeza de órfãos (pendente):** imagens enviadas ao `studio-assets` e depois removidas/trocadas no editor continuam no bucket. Rotina de limpeza (objetos sem referência em `studio_slides` há mais de 24 h) antes do lançamento.
+  - **Gerações `started` órfãs:** são encerradas com estorno ao repetir a mesma solicitação após 5 min. Gerações abandonadas sem repetição continuam `started` com o crédito consumido. Definir varredura periódica (finalizar como `failed` com estorno) antes do lançamento.
+
 ## Concluído
+
+### 6.2 Interface do Estúdio, geração assistida e exportação para o calendário — ✅ (2026-11-19)
+- **`/studio`** (`app/(app)/studio/{page,view,carousel-editor,landing-editor,actions}.tsx`), item "Estúdio" ativado no menu.
+  - Abas de carrosséis/peças e landing pages, com saldo de créditos de IA do mês.
+  - **Editor de carrossel:** nome, situação, cores e fonte, slides gancho/conteúdo/CTA (adicionar, mover, excluir), imagem de fundo por upload assinado ao `studio-assets`, prévia ao vivo 1080×1350 e miniaturas.
+  - **Painel "Gerar com IA":** prompt e quantidade de slides; confirma antes de substituir os slides.
+  - **Painel "Enviar ao calendário":** rascunho, ou agendamento explícito com data e contas conectadas.
+  - **Editor de landing page:** seções, endereço automático, etapa do CRM e prévia.
+- **Server Actions:** Zod, sessão e rate limit (`studioUser` 60/min, `studioGenerateUser` 10/min). Mensagens seguras; erros internos só no log.
+- **`lib/studio/generator.ts`:** adaptador de IA. Provedor Anthropic com saída estruturada validada, ou modelo local sem cobrança quando falta `ANTHROPIC_API_KEY`.
+- **`lib/services/studio-workflows.ts`:**
+  - `generateCarousel`: idempotente; `created=false` não chama o provedor; `started` com mais de 5 min é encerrada com estorno; falha do provedor → estorno.
+  - `exportCarouselToCalendar`: exige carrossel `ready` com até 10 slides; PNG → `social-media/<org>/` → `saveSocialPost`; limpeza dos PNGs em caso de falha.
+- **Renderização:** `components/studio/slide-art.tsx` (mesma arte na prévia e no PNG) e `lib/studio/render.tsx` (`next/og`).
+- **Utilitários:** `lib/studio/editor.ts` (mover, slug, motivo de bloqueio da exportação).
+- **Outros arquivos:**
+  - `lib/services/studio.ts`: `getCarousel`.
+  - `lib/services/crm.ts`: `listStages` devolve `pipeline_id`.
+  - `vitest.config.mts`: JSX transformado nos testes.
+- **Testes:**
+  - `npm test` 356/356 (+28: gerador, fluxos de geração/exportação, ações, utilitários do editor e renderização real de PNG).
+  - `npm run test:db` 198 `ok`.
+  - `npm run lint` e `npm run build` verdes (`/studio` 22,7 kB).
+  - `npx tsc --noEmit` só acusa 2 erros **pré-existentes** em `lib/hermes/social-confirmation-tools.test.ts` (opção `context` exigida por `ToolExecutionOptions`). Não afetam build/teste; corrigir na 6.3.
 
 ### 6.1 Dados e serviços compartilhados do Estúdio — ✅ (2026-11-19)
 - Migration `20261119041214_studio_data.sql`: carrosséis, slides, landing pages e histórico de gerações com RLS, FKs compostas por empresa, slug único por organização e bucket privado de imagens.

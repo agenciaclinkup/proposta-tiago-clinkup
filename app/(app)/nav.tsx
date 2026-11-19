@@ -21,7 +21,7 @@ const ITEMS: { href: string; label: string; icon: LucideIcon; ready: boolean }[]
   { href: "/hermes", label: "Agente Hermes", icon: Bot, ready: true },
   { href: "/crm", label: "CRM", icon: KanbanSquare, ready: true },
   { href: "/calendar", label: "Calendário", icon: CalendarDays, ready: true },
-  { href: "/studio", label: "Estúdio", icon: Palette, ready: false },
+  { href: "/studio", label: "Estúdio", icon: Palette, ready: true },
   { href: "/leads-ads", label: "Leads & Ads", icon: Megaphone, ready: false },
   { href: "/integrations", label: "Integrações", icon: PlugZap, ready: true },
   { href: "/billing", label: "Planos", icon: CreditCard, ready: true },

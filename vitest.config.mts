@@ -8,5 +8,7 @@ export default defineConfig({
       "server-only": fileURLToPath(new URL("./test/stubs/server-only.ts", import.meta.url)),
     },
   },
+  // tsconfig usa jsx "preserve" (Next compila); nos testes o oxc precisa transformar o JSX.
+  oxc: { jsx: { runtime: "automatic" } },
   test: { include: ["{app,lib,config,components}/**/*.test.ts"] },
 });
