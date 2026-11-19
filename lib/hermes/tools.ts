@@ -14,6 +14,7 @@ import { meetingSchema, scheduleLeadMeeting } from "@/lib/services/meetings";
 import { getSocialPost, listSocialPosts, saveSocialPost, saveSocialPostSchema, socialPostSchema } from "@/lib/services/social-posts";
 import { confirmSocialAction, proposePublishNow, proposeSocialWeek } from "@/lib/services/social-confirmations";
 import { defineTool, runTool, type HermesTool } from "./run-tool";
+import { buildStudioTurnTools, STUDIO_TOOLS } from "./studio-tools";
 
 const ONBOARDING_REQUIRED = "A memória da marca ainda não foi criada. Conclua o onboarding no painel para que eu possa usá-la.";
 
@@ -204,10 +205,11 @@ export const HERMES_TOOLS: HermesTool[] = [
   listLeadsTool, createLeadTool, updateLeadTool, moveLeadTool, addLeadNoteTool, getFunnelMetricsTool,
   scheduleLeadMeetingTool,
   listPostsTool, listCalendarAccountsTool, createPostTool, updatePostTool, reschedulePostTool, cancelPostTool, planWeekTool,
+  ...STUDIO_TOOLS,
 ] as HermesTool[];
 
 // Tools prontas para o AI SDK, já presas ao contexto (organização, usuário, canal) da requisição.
-export function buildHermesTools(ctx: ServiceContext, approval?: { conversationId: string; proof: string | null }): ToolSet {
+export function buildHermesTools(ctx: ServiceContext, approval?: { conversationId: string; proof: string | null; messageId?: string }): ToolSet {
   // A proposta não pode ser agendada no mesmo turno em que foi exibida.
   let planPresented = false;
   const publishTool = defineTool({ name: "publish_post_now", description: "Prepara a publicação imediata de um post existente. Não publica antes de confirmação explícita em nova mensagem.", input: z.object({ postId: z.uuid() }), execute: async (context, { postId }) => {
@@ -220,7 +222,7 @@ export function buildHermesTools(ctx: ServiceContext, approval?: { conversationI
     return confirmSocialAction(context, { conversationId: approval.conversationId }, approval.proof);
   } });
   return Object.fromEntries(
-    [...HERMES_TOOLS, publishTool, confirmTool].map((definition) => [
+    [...HERMES_TOOLS, publishTool, confirmTool, ...buildStudioTurnTools(approval?.messageId ? { conversationId: approval.conversationId, messageId: approval.messageId } : undefined)].map((definition) => [
       definition.name,
       tool({
         description: definition.description,

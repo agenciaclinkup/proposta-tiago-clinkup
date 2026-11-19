@@ -5,30 +5,35 @@
 ## Estado atual
 
 - **Fase:** 6 — Estúdio (Fases 2, 3, 4 e 5 ✅ concluídas)
-- **Etapa em andamento:** 6.3 — Tools do Agente Hermes para o Estúdio
+- **Etapa em andamento:** 6.4 — Páginas públicas das landing pages e captura de leads no CRM
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-19 — Claude (6.2)
+- **Última atualização:** 2026-11-19 — Claude (6.3)
 
 ## Próxima microtarefa (exata)
 
-**6.3 Tools do Agente Hermes para o Estúdio:** registrar em `lib/hermes/tools.ts` (com rótulo em `tool-labels.ts` e menção no `system-prompt.ts`) Tools que chamam **somente** os serviços de `lib/services/studio.ts` e `lib/services/studio-workflows.ts`, com os mesmos schemas Zod:
-- `list_carousels`: resumo, sem slides completos.
-- `save_carousel`: criar ou editar título, tema, slides e situação.
-- `generate_carousel`: o `requestId` deve ser determinístico por chamada de Tool (ex.: UUID v5 do `toolCallId` + conversa), para que uma repetição do modelo ou do Telegram não cobre duas vezes. Responder "em andamento" quando `status = started`.
-- `export_carousel_to_calendar`: **rascunho por padrão**. Agendar exige a confirmação persistente já usada no calendário (`social-confirmations` / `confirm_calendar_action`), com data, contas e quantidade de slides na prévia.
-- `save_landing_page`: inclui a escolha da etapa do CRM por nome, via `listStages`.
-
-Também:
-- Respeitar `ctx.role` e membership em canais sem sessão (Telegram usa cliente admin).
-- Aplicar rate limit de geração (`studioGenerateUser`) também pelo Hermes.
-- Cobrir com testes: isolamento entre empresas, idempotência do `requestId`, recusa sem confirmação, limite de créditos e mensagens pt-BR.
-- Manter o checklist e preparar 6.4: página pública da landing page `/p/[slug]` com formulário Zod + rate limit por IP que cria lead no CRM.
+**6.4 Páginas públicas das landing pages e captura direta de leads no CRM:**
+- Rota pública `/p/[orgSlug]/[slug]` (ou domínio White-Label), renderizada no servidor.
+  - Mostra somente páginas com `published = true`.
+  - Leitura por função/cliente admin restrita a colunas públicas: nunca expor IDs de funil, `organization_id` ou dados de outras páginas.
+  - Página inexistente ou não publicada responde 404.
+  - Metadados (title/description/OG) a partir do conteúdo; layout responsivo com a identidade da empresa.
+- Formulário da seção `form`: Route Handler ou Server Action pública.
+  - Validação Zod: nome, e-mail e/ou WhatsApp, mensagem e consentimento LGPD obrigatório.
+  - Rate limit por IP + página (`rateLimitByIp`) e honeypot antibot.
+  - Lead criado via função transacional `service_role` na etapa configurada da própria organização (FK composta). Aplica o limite `crmLeads` do plano; registra `source = landing_page` e atividade "Recebido pela landing page …".
+  - Resposta genérica em pt-BR (sem revelar limite/plano ao visitante); página sem etapa do CRM não aceita envio.
+- No `/studio`: link "Ver página publicada" e aviso honesto quando o funil não estiver configurado.
+- Remover os avisos "chegando" do editor e do `system-prompt.ts`.
+- Testes:
+  - unitários: schema, rate limit, honeypot, isolamento entre empresas, página não publicada e limite de leads;
+  - `test:db`: grants da função pública e etapa de outra empresa recusada.
+- Atualizar checklist (domínio/rota pública, política de privacidade/LGPD no formulário) e preparar a Fase 7 (Leads & Ads).
 
 **Plano da Fase 6:**
 - 6.1 dados + serviços ✅.
 - 6.2 `/studio` + geração assistida + exportação para o calendário ✅.
-- 6.3 Tools do Hermes para o Estúdio.
+- 6.3 Tools do Hermes para o Estúdio ✅.
 - 6.4 Landing page pública e captura de leads no CRM.
 
 **Plano da Fase 4:**
@@ -191,7 +196,42 @@ Também:
   - **Limpeza de órfãos (pendente):** imagens enviadas ao `studio-assets` e depois removidas/trocadas no editor continuam no bucket. Rotina de limpeza (objetos sem referência em `studio_slides` há mais de 24 h) antes do lançamento.
   - **Gerações `started` órfãs:** são encerradas com estorno ao repetir a mesma solicitação após 5 min. Gerações abandonadas sem repetição continuam `started` com o crédito consumido. Definir varredura periódica (finalizar como `failed` com estorno) antes do lançamento.
 
+- [ ] **Hermes no Estúdio (6.3).**
+  - **Migration:** `db push` aplica `20261119162544_social_schedule_confirmation.sql`, que adiciona a operação `schedule_post` em `social_confirmations` e recria `private.snapshot_social_confirmation` e `public.confirm_social_action`. Rodar advisors e conferir `grant execute` de `confirm_social_action` só para `service_role`.
+  - **Web e Telegram, com créditos reais:**
+    - "crie um carrossel sobre X" → `save_carousel` + `generate_carousel`;
+    - `ai_credits` +1 por geração **além** do crédito do turno (1 do turno + 1 da geração), deixar isso claro na página de planos;
+    - pedir de novo na mesma mensagem não cobra outra vez (mesmo `studio_generations.id`).
+  - **Exportação pelo Hermes:**
+    - "envie ao calendário" cria **rascunho**;
+    - "agende para amanhã às 10h no Instagram" cria o rascunho e mostra `CONFIRMAR <código>`;
+    - enviar o comando em nova mensagem agenda **o mesmo post**, sem duplicar, e consome 1 post da cota;
+    - comando enviado em outra conversa, por outro usuário ou após editar o rascunho é recusado;
+    - código expira em 15 min.
+  - **Telegram:** a chave de geração usa o ID da mensagem do turno. No Telegram esse ID é aleatório por processamento; a proteção contra reentrega é a deduplicação por `update_id`. Confirmar em produção que reentregas do Telegram não reprocessam o turno.
+  - **Landing page por nome de etapa:** "conecte a página à etapa Novo Lead" resolve a etapa da própria empresa; nome ambíguo ou inexistente lista as etapas disponíveis.
+  - **Limite conhecido:** chamar `export_carousel_to_calendar` duas vezes cria dois rascunhos (a Tool não é idempotente). O prompt instrui chamada única; avaliar chave idempotente se ocorrer em produção.
+
 ## Concluído
+
+### 6.3 Tools do Agente Hermes para o Estúdio — ✅ (2026-11-19)
+- **Correção de tipagem:** `lib/hermes/social-confirmation-tools.test.ts` agora chama as Tools com um helper tipado; `npx tsc --noEmit` passa limpo.
+- **`lib/hermes/studio-tools.ts`:**
+  - `list_studio_projects`: resumo de carrosséis e landing pages.
+  - `get_studio_project`: carrossel com slides no formato de edição, ou landing page.
+  - `save_carousel`: `carouselSchema` do serviço.
+  - `save_landing_page`: etapa do CRM por nome via `resolveStage`/`listStages`.
+  - `generate_carousel`: `requestId` = UUID v5 de empresa + usuário + conversa + ID da mensagem + carrossel + prompt + quantidade. Repetição do modelo, da mesma mensagem ou do cliente reutiliza a chave e não cobra de novo. Usa rate limit `studioGenerateUser` compartilhado com o painel e trata "em andamento" e falha com estorno.
+  - `export_carousel_to_calendar`: rascunho por padrão. Com `schedule` (data futura + ≥1 conta), cria o rascunho e uma proposta persistente `schedule_post`; somente `confirm_calendar_action` com o comando enviado em nova mensagem agenda o mesmo post. Se a proposta falhar, o rascunho é mantido e o motivo é explicado.
+- **`lib/services/social-confirmations.ts`:** `proposeScheduledPost` (somente rascunho; valida regras de canal; vincula `postId` + `updated_at`) e retorno `schedule_post` em `confirmSocialAction`.
+- **Migration `20261119162544_social_schedule_confirmation.sql`:** operação `schedule_post`. A confirmação trava o post, exige rascunho na versão aprovada e chama `save_social_post` no mesmo ID (cota mensal e rollback preservados).
+- **`run-tool.ts`:** o comando de confirmação (`instruction`) nunca vai para `hermes_logs`.
+- **`turn.ts`:** passa `messageId` ao montar as Tools.
+- **Rótulos e prompt:** rótulos pt-BR em `tool-labels.ts`; `system-prompt.ts` orienta o Estúdio (gerar uma vez, preservar imagens, exportar como rascunho, agendar só com confirmação) e não diz mais que o Estúdio está "em breve".
+- **Testes:**
+  - `npm test` 374/374 (+18: Tools do Estúdio, proposta/confirmação `schedule_post`, redação do código no log, prompt).
+  - `npm run test:db` 206 `ok` (+8: snapshot da conta, outro usuário, mesmo post sem duplicar, replay, rascunho alterado, cota).
+  - `npx tsc --noEmit`, `npm run lint` e `npm run build` verdes.
 
 ### 6.2 Interface do Estúdio, geração assistida e exportação para o calendário — ✅ (2026-11-19)
 - **`/studio`** (`app/(app)/studio/{page,view,carousel-editor,landing-editor,actions}.tsx`), item "Estúdio" ativado no menu.

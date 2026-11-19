@@ -141,7 +141,7 @@ Cada Tool = wrapper de um service com o mesmo schema Zod, executada sempre por `
 | Conta | `get_plan_and_usage`, `get_dashboard_kpis`, `list_recent_activity` |
 | Integrações | `list_integrations`, `get_integration_setup_guide`, `create_telegram_link_code` |
 | Calendário | `create_post`, `list_posts`, `reschedule_post`, `cancel_post`, `publish_post_now`, `plan_week_with_ai` |
-| Estúdio | `generate_carousel`, `update_carousel`, `export_carousel_to_calendar`, `generate_landing_page` |
+| Estúdio | `list_studio_projects`, `get_studio_project`, `save_carousel`, `save_landing_page`, `generate_carousel` (requestId UUID v5 por mensagem), `export_carousel_to_calendar` (rascunho; agendamento via confirmação `schedule_post`) |
 | CRM | `create_lead`, `update_lead`, `move_lead_to_stage`, `list_leads`, `add_lead_note`, `get_funnel_metrics`, `schedule_meeting` |
 | Leads | `search_leads`, `list_scraped_leads`, `send_scraped_leads_to_crm`, `create_custom_audience` |
 | Ads | `check_ads_readiness`, `create_ad_campaign`, `update_campaign_budget`, `pause_campaign`, `get_campaign_metrics` |

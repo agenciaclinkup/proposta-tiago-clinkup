@@ -54,7 +54,7 @@ export async function startHermesTurn(
           now: new Date(),
         }),
         messages: await convertToModelMessages(messages),
-        tools: buildHermesTools(ctx, { conversationId: input.conversationId, proof: confirmationFromUserMessage(input.userMessage) }),
+        tools: buildHermesTools(ctx, { conversationId: input.conversationId, proof: confirmationFromUserMessage(input.userMessage), messageId: input.userMessage.id }),
         stopWhen: isStepCount(MAX_STEPS),
         maxOutputTokens: 16000,
         providerOptions: {

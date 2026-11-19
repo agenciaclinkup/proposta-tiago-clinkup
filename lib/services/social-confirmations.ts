@@ -11,7 +11,7 @@ import { runClaim } from "./social-publish-worker";
 const hash = (code: string) => createHash("sha256").update(code).digest("hex");
 type Binding = { conversationId: string | null };
 
-async function createConfirmation(ctx: ServiceContext, binding: Binding, operation: "weekly" | "publish_now", payload: unknown) {
+async function createConfirmation(ctx: ServiceContext, binding: Binding, operation: "weekly" | "publish_now" | "schedule_post", payload: unknown) {
   if (!ctx.userId || !["web", "telegram"].includes(ctx.channel)) throw new ServiceError("Entre na sua conta para confirmar esta ação.");
   const admin = createAdminClient();
   const membership = await admin.from("organization_members").select("user_id").eq("organization_id", ctx.organizationId).eq("user_id", ctx.userId).maybeSingle();
@@ -41,6 +41,15 @@ export async function proposePublishNow(ctx: ServiceContext, binding: Binding, p
   return { code, post };
 }
 
+// Agendar um rascunho existente (ex.: exportado do Estúdio) sem criar outro post; vincula a versão aprovada.
+export async function proposeScheduledPost(ctx: ServiceContext, binding: Binding, input: { postId: string; scheduledAt: string; targets: z.input<typeof socialPostSchema>["targets"] }) {
+  const post = await getSocialPost(ctx, input.postId);
+  if (post.status !== "draft") throw new ServiceError("Somente rascunhos podem ser agendados por esta confirmação.");
+  const checked = validateSocialPost(ctx, { status: "scheduled", post: { format: post.format, caption: post.caption, hashtags: post.hashtags, media: post.media, targets: input.targets ?? [], scheduledAt: input.scheduledAt } });
+  const code = await createConfirmation(ctx, binding, "schedule_post", { postId: post.id, updatedAt: post.updated_at, post: socialPostPayload(checked.post) });
+  return { code, post: checked.post };
+}
+
 export async function confirmSocialAction(ctx: ServiceContext, binding: Binding, proof: string) {
   if (!ctx.userId || !/^[0-9a-f]{32}$/.test(proof)) throw new ServiceError("Confirmação inválida. Solicite uma nova proposta.");
   const { data, error } = await createAdminClient().rpc("confirm_social_action", { p_org: ctx.organizationId, p_user: ctx.userId, p_channel: ctx.channel, p_conversation: binding.conversationId, p_hash: hash(proof), p_limit: limitFor(ctx.planId, "scheduled_posts") });
@@ -52,6 +61,7 @@ export async function confirmSocialAction(ctx: ServiceContext, binding: Binding,
     if (error.message.includes("social_schedule_invalid")) throw new ServiceError("Uma data da proposta já passou. Solicite uma nova proposta.");
     throw new Error(error.message);
   }
+  if (data.operation === "schedule_post") return { operation: "schedule_post" as const, post: data.post };
   if (data.operation === "publish_now") {
     const processed = await runClaim({ id: data.postId, organizationId: data.organizationId, leaseToken: data.leaseToken }, data.integrationSnapshot);
     return { operation: "publish_now" as const, postId: data.postId, processed };

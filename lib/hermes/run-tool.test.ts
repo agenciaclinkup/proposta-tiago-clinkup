@@ -52,3 +52,14 @@ describe("runTool", () => {
     expect(recordHermesLog).toHaveBeenCalledWith(ctx, expect.objectContaining({ status: "error", error: "connection refused 10.0.0.5" }));
   });
 });
+
+describe("runTool e códigos de confirmação", () => {
+  it("não grava o comando de confirmação no log de atividades", async () => {
+    const proposal = defineTool({ name: "export_carousel_to_calendar", description: "x", input: z.object({}), execute: async () => ({ postId: "post", instruction: "Para agendar este post, responda exatamente: CONFIRMAR abc" }) });
+    const result = await runTool(ctx, proposal, {});
+    expect(result).toMatchObject({ ok: true, data: { instruction: expect.stringContaining("CONFIRMAR") } });
+    const logged = recordHermesLog.mock.calls[0]?.[1].output;
+    expect(logged).toMatchObject({ postId: "post", requiresConfirmation: true });
+    expect(JSON.stringify(logged)).not.toContain("CONFIRMAR");
+  });
+});

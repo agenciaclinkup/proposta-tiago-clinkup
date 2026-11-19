@@ -391,6 +391,29 @@ await asService(`insert into public.social_confirmations (organization_id,user_i
 await asService(`update public.integrations set external_account_id = 'another-account' where id = '${socialInt}'`);
 await expectFail("confirmation rejects a changed external account", () => confirm(orgA, A, "web", null, accountHash));
 
+// Agendar rascunho existente (exportação do Estúdio pelo Hermes): atualiza o mesmo post, sem duplicar.
+const draftToSchedule = (await saveSocial(orgA, A, null, "draft", 99, JSON.stringify({ format: "feed", caption: "Rascunho", hashtags: [], media: [], scheduled_at: null, targets: [] }))).rows[0].result;
+const scheduleHash = "1".repeat(64);
+const insertSchedule = (hash, post) => asService(`insert into public.social_confirmations (organization_id,user_id,channel,conversation_id,operation,proof_hash,payload) select '${orgA}','${A}','telegram','${conversation}','schedule_post','${hash}',jsonb_build_object('postId',id,'updatedAt',updated_at,'post','${socialPayload}'::jsonb) from public.social_posts where id = '${post}'`);
+await insertSchedule(scheduleHash, draftToSchedule.id);
+check("schedule confirmation snapshots the chosen account", Object.keys((await asService(`select integration_snapshot from public.social_confirmations where proof_hash = '${scheduleHash}'`)).rows[0].integration_snapshot).join() === socialInt);
+const postsBeforeSchedule = Number((await asService(`select count(*) as n from public.social_posts where organization_id = '${orgA}'`)).rows[0].n);
+await expectFail("schedule confirmation rejects other user", () => confirm(orgA, B, "telegram", conversation, scheduleHash));
+const scheduledDraft = (await confirm(orgA, A, "telegram", conversation, scheduleHash)).rows[0].result;
+check("schedule confirmation updates the same draft", scheduledDraft.operation === "schedule_post" && scheduledDraft.post.id === draftToSchedule.id && scheduledDraft.post.status === "scheduled");
+check("schedule confirmation creates no extra post", Number((await asService(`select count(*) as n from public.social_posts where organization_id = '${orgA}'`)).rows[0].n) === postsBeforeSchedule);
+await expectFail("schedule confirmation cannot be replayed", () => confirm(orgA, A, "telegram", conversation, scheduleHash));
+const editedDraft = (await saveSocial(orgA, A, null, "draft", 99, JSON.stringify({ format: "feed", caption: "Outro", hashtags: [], media: [], scheduled_at: null, targets: [] }))).rows[0].result;
+const editedHash = "2".repeat(64);
+await insertSchedule(editedHash, editedDraft.id);
+await asService(`update public.social_posts set caption = 'mudou' where id = '${editedDraft.id}'`);
+await expectFail("schedule confirmation rejects a changed draft", () => confirm(orgA, A, "telegram", conversation, editedHash));
+const quotaDraft = (await saveSocial(orgA, A, null, "draft", 99, JSON.stringify({ format: "feed", caption: "Cota", hashtags: [], media: [], scheduled_at: null, targets: [] }))).rows[0].result;
+const quotaScheduleHash = "3".repeat(64);
+await insertSchedule(quotaScheduleHash, quotaDraft.id);
+await expectFail("schedule confirmation respects the monthly quota", () => confirm(orgA, A, "telegram", conversation, quotaScheduleHash, 0));
+check("failed schedule keeps the draft and the confirmation", (await asService(`select p.status, c.consumed_at from public.social_posts p, public.social_confirmations c where p.id = '${quotaDraft.id}' and c.proof_hash = '${quotaScheduleHash}'`)).rows[0].status === "draft");
+
 // Estúdio: gravações transacionais, isolamento e cobrança idempotente de geração.
 const studioBucket = (await db.query(`select public, file_size_limit from storage.buckets where id = 'studio-assets'`)).rows[0];
 check("studio asset bucket is private", studioBucket?.public === false && Number(studioBucket.file_size_limit) === 52428800);

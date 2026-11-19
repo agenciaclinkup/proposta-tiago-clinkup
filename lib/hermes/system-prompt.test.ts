@@ -27,3 +27,13 @@ describe("buildSystemPrompt", () => {
     expect(a.lastIndexOf("Data de hoje")).toBeGreaterThan(a.indexOf("</contexto_mestre>"));
   });
 });
+
+describe("Estúdio no prompt do Hermes", () => {
+  it("orienta gerar, exportar como rascunho e agendar só com confirmação", () => {
+    const prompt = buildSystemPrompt({ ...base, masterContext: null });
+    expect(prompt).toContain("generate_carousel");
+    expect(prompt).toContain("export_carousel_to_calendar");
+    expect(prompt).toMatch(/rascunho/);
+    expect(prompt).not.toMatch(/Carrosséis no estúdio[^.]*em breve/);
+  });
+});
