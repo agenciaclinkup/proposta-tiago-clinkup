@@ -14,7 +14,7 @@ import { prepareMediaUpload, savePostAction } from "./actions";
 type Channel = "instagram" | "facebook" | "google_business";
 type Media = { path: string; type: "image" | "video" };
 export type CalendarIntegration = { id: string; provider: string; name: string };
-export type CalendarPost = { id: string; status: string; format: string; caption: string; hashtags: string[]; media: Media[]; scheduled_at: string | null; social_post_targets: { channel: Channel; integration_id: string }[] };
+export type CalendarPost = { id: string; status: string; format: string; caption: string; hashtags: string[]; media: Media[]; scheduled_at: string | null; social_post_targets: { channel: Channel; integration_id: string; publish_state?: string; publish_error?: string | null; external_id?: string | null }[] };
 const CHANNELS: { id: Channel; name: string; provider: string }[] = [
   { id: "instagram", name: "Instagram", provider: "instagram" }, { id: "facebook", name: "Facebook", provider: "facebook_page" }, { id: "google_business", name: "Google Meu Negócio", provider: "google_business" },
 ];
@@ -24,6 +24,7 @@ const dateKey = (date: Date) => date.toISOString().slice(0, 10);
 const dayName = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const today = () => new Date(new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10) + "T12:00:00Z");
 const label = (post: CalendarPost) => post.caption.trim().slice(0, 55) || FORMATS.find(([id]) => id === post.format)?.[1] || "Post sem legenda";
+const postStatus = (post: CalendarPost) => post.social_post_targets.some((target) => target.publish_state === "uncertain") ? "A conferir" : statusLabel(post.status);
 
 export function CalendarView({ posts, accounts, truncated }: { posts: CalendarPost[]; accounts: CalendarIntegration[]; truncated: boolean }) {
   const [view, setView] = useState<"month" | "week" | "list">("month");
@@ -42,7 +43,7 @@ export function CalendarView({ posts, accounts, truncated }: { posts: CalendarPo
   const drafts = posts.filter((p) => !p.scheduled_at);
   return <div className="mx-auto max-w-7xl space-y-6">
     <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm text-muted-foreground">Planejamento de conteúdo</p><h1 className="text-3xl font-semibold">Calendário editorial</h1><p className="mt-1 text-sm text-muted-foreground">Organize seus posts e acompanhe o que está preparado para cada canal.</p></div><Button onClick={() => setEditing("new")}><Plus className="size-4" /> Novo post</Button></header>
-    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">Um post agendado conta uma vez no limite mensal, mesmo com vários canais. Editar um agendamento não cobra novamente; voltar a rascunho não estorna, e agendar outra vez consome uma unidade. A publicação automática será disponibilizada em breve.</div>
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">Um post agendado conta uma vez no limite mensal, mesmo com vários canais. Editar um agendamento não cobra novamente; voltar a rascunho não estorna, e agendar outra vez consome uma unidade. A publicação depende de contas conectadas e do serviço de agendamento configurado.</div>
     {truncated && <p role="status" className="text-sm text-amber-400">Mostrando os primeiros 1.000 posts. A paginação para volumes maiores será disponibilizada em breve.</p>}
     <section aria-label="Calendário de posts" className="rounded-xl border border-border bg-card/40 p-4 sm:p-5">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button variant="outline" size="icon" aria-label="Período anterior" onClick={() => shift(-1)}><ChevronLeft className="size-4" /></Button><h2 className="min-w-36 text-center text-lg font-semibold capitalize">{heading}</h2><Button variant="outline" size="icon" aria-label="Próximo período" onClick={() => shift(1)}><ChevronRight className="size-4" /></Button><Button variant="ghost" onClick={() => setDate(today())}>Hoje</Button></div><div className="flex gap-1" aria-label="Visão"><Button variant={view === "month" ? "secondary" : "ghost"} onClick={() => setView("month")}>Mês</Button><Button variant={view === "week" ? "secondary" : "ghost"} onClick={() => setView("week")}>Semana</Button><Button variant={view === "list" ? "secondary" : "ghost"} onClick={() => setView("list")}>Lista</Button></div></div>
@@ -54,7 +55,7 @@ export function CalendarView({ posts, accounts, truncated }: { posts: CalendarPo
 }
 
 function PostButton({ post, onClick, compact = false }: { post: CalendarPost; onClick: () => void; compact?: boolean }) {
-  return <button type="button" onClick={onClick} className={`w-full rounded-md border border-border bg-background/60 text-left hover:border-primary/60 focus-visible:outline-2 focus-visible:outline-primary ${compact ? "p-1.5 text-xs" : "p-3 text-sm"}`}><span className="block truncate font-medium">{label(post)}</span><span className="block text-xs text-muted-foreground">{post.scheduled_at ? `${localDate(post.scheduled_at).slice(11)} · ` : ""}{statusLabel(post.status)}</span></button>;
+  return <button type="button" onClick={onClick} className={`w-full rounded-md border border-border bg-background/60 text-left hover:border-primary/60 focus-visible:outline-2 focus-visible:outline-primary ${compact ? "p-1.5 text-xs" : "p-3 text-sm"}`}><span className="block truncate font-medium">{label(post)}</span><span className="block text-xs text-muted-foreground">{post.scheduled_at ? `${localDate(post.scheduled_at).slice(11)} · ` : ""}{postStatus(post)}</span></button>;
 }
 
 function PostEditor({ post, accounts, onClose }: { post: CalendarPost | null; accounts: CalendarIntegration[]; onClose: () => void }) {
@@ -85,7 +86,7 @@ function PostEditor({ post, accounts, onClose }: { post: CalendarPost | null; ac
     start(async () => { const result = await savePostAction(payload); if (result.error) setError(result.error); else onClose(); });
   }
   return <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/75 p-4" role="dialog" aria-modal="true" aria-labelledby="editor-title"><div className="my-4 w-full max-w-2xl rounded-xl border border-border bg-card p-5 shadow-2xl sm:p-6"><div className="mb-5 flex items-center justify-between gap-3"><h2 id="editor-title" className="text-xl font-semibold">{post ? "Detalhes do post" : "Novo post"}</h2><Button variant="ghost" onClick={onClose}>Fechar</Button></div>
-    {!editable && <p className="mb-4 text-sm text-muted-foreground">Este post está {statusLabel(post!.status).toLowerCase()} e não pode ser editado.</p>}
+    {!editable && <div className="mb-4 space-y-2 text-sm text-muted-foreground"><p>Situação: {postStatus(post!)}. Este post não pode ser editado agora.</p>{post!.social_post_targets.map((target) => <p key={target.integration_id}>{CHANNELS.find((channel) => channel.id === target.channel)?.name}: {target.publish_state === "published" ? "publicado" : target.publish_error ?? "aguardando resultado"}{target.external_id && target.publish_state === "uncertain" ? ` Referência: ${target.external_id}` : ""}.</p>)}</div>}
     <fieldset disabled={!editable || pending || uploading} className="space-y-4 disabled:opacity-60">
       <div className="space-y-1.5"><Label htmlFor="post-format">Formato</Label><select id="post-format" value={format} onChange={(e) => setFormat(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">{FORMATS.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></div>
       <div className="space-y-2"><p className="text-sm font-medium">Canais e contas</p>{CHANNELS.map((channel) => <div key={channel.id}><Label htmlFor={`channel-${channel.id}`} className="mb-1 block">{channel.name}</Label><select id={`channel-${channel.id}`} value={targets[channel.id] ?? ""} onChange={(e) => setTargets({ ...targets, [channel.id]: e.target.value })} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Não usar este canal</option>{accounts.filter((account) => account.provider === channel.provider).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}{targets[channel.id] && !accounts.some((account) => account.id === targets[channel.id]) && <option value={targets[channel.id]}>Conta indisponível — reconecte</option>}</select></div>)}<p className="text-xs text-muted-foreground">Não encontrou sua conta? <Link href="/integrations" className="text-primary underline">Conecte em Integrações</Link>.</p></div>

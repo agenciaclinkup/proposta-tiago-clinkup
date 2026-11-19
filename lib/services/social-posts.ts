@@ -35,6 +35,23 @@ export async function saveSocialPost(ctx: ServiceContext, input: z.infer<typeof 
   if (post.media.some((item) => !item.path.startsWith(`${ctx.organizationId}/`) || item.path.includes(".."))) {
     throw new ServiceError("A mídia precisa pertencer à sua empresa. Envie o arquivo novamente.");
   }
+  if (status === "scheduled") {
+    for (const target of post.targets) {
+      if (target.channel === "instagram") {
+        const one = post.media.length === 1;
+        const valid = (post.format === "feed" && one && post.media[0].type === "image") || (post.format === "reels" && one && post.media[0].type === "video") || (post.format === "stories" && one && !post.caption && post.hashtags.length === 0) || (post.format === "carousel" && post.media.length >= 2);
+        if (!valid) throw new ServiceError("Confira o Instagram: Feed exige uma imagem, Reels um vídeo, Carrossel ao menos duas mídias e Stories uma mídia sem legenda ou hashtags.");
+      }
+      if (target.channel === "facebook") {
+        const images = post.media.every((item) => item.type === "image");
+        const valid = (post.format === "feed" && (post.media.length === 0 || images || (post.media.length === 1 && post.media[0].type === "video"))) || (post.format === "carousel" && post.media.length >= 2 && images) || (post.format === "reels" && post.media.length === 1 && post.media[0].type === "video");
+        if (!valid) throw new ServiceError("No Facebook, escolha Feed, Carrossel com imagens ou Reels com um vídeo; Stories ainda não está disponível para publicação automática.");
+      }
+      if (target.channel === "google_business" && (!['feed', 'gmb_update'].includes(post.format) || post.media.length > 1 || post.media.some((item) => item.type !== "image") || (!post.caption && !post.hashtags.length))) {
+        throw new ServiceError("No Google, escolha Feed ou Atualização Google, informe uma legenda e use no máximo uma imagem.");
+      }
+    }
+  }
   const limit = limitFor(ctx.planId, "scheduled_posts");
   const { data, error } = await createAdminClient().rpc("save_social_post", {
     p_organization_id: ctx.organizationId, p_user_id: ctx.userId, p_post_id: postId ?? null,
@@ -59,7 +76,7 @@ export async function saveSocialPost(ctx: ServiceContext, input: z.infer<typeof 
 
 export async function listSocialPosts(ctx: ServiceContext, options: { from?: string; to?: string; limit?: number; offset?: number } = {}) {
   const filter = z.object({ from: z.iso.datetime({ offset: true }).optional(), to: z.iso.datetime({ offset: true }).optional(), limit: z.number().int().min(1).max(100).default(50), offset: z.number().int().min(0).default(0) }).parse(options);
-  let query = ctx.supabase.from("social_posts").select("*, social_post_targets(channel, integration_id)").eq("organization_id", ctx.organizationId).order("scheduled_at", { ascending: true, nullsFirst: false }).order("id").range(filter.offset, filter.offset + filter.limit - 1);
+  let query = ctx.supabase.from("social_posts").select("*, social_post_targets(channel, integration_id, publish_state, publish_error, external_id)").eq("organization_id", ctx.organizationId).order("scheduled_at", { ascending: true, nullsFirst: false }).order("id").range(filter.offset, filter.offset + filter.limit - 1);
   if (filter.from) query = query.gte("scheduled_at", filter.from);
   if (filter.to) query = query.lt("scheduled_at", filter.to);
   const { data, error } = await query;

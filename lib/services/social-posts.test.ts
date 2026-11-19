@@ -6,7 +6,7 @@ import { saveSocialPost, socialPostSchema } from "./social-posts";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const ctx = { organizationId: id, userId: id, via: "hermes", planId: "starter" } as ServiceContext;
-const post = { format: "feed", caption: "Olá", hashtags: [], media: [], targets: [{ channel: "instagram", integrationId: id }], scheduledAt: "2030-01-01T12:00:00Z" } as const;
+const post = { format: "feed", caption: "Olá", hashtags: [], media: [{ path: `${id}/foto.jpg`, type: "image" }], targets: [{ channel: "instagram", integrationId: id }], scheduledAt: "2030-01-01T12:00:00Z" } as const;
 beforeEach(() => { vi.clearAllMocks(); rpc.mockResolvedValue({ data: { id }, error: null }); });
 describe("social posts", () => {
   it("envia contexto, destino e limite do plano para a transação", async () => {
@@ -25,6 +25,10 @@ describe("social posts", () => {
   });
   it("recusa caminho de mídia de outra empresa antes de gravar", async () => {
     await expect(saveSocialPost(ctx, { status: "draft", post: socialPostSchema.parse({ ...post, media: [{ path: "outra-empresa/arquivo.jpg", type: "image" }] }) })).rejects.toThrow("pertencer à sua empresa");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("recusa combinação incompatível antes de consumir limite", async () => {
+    await expect(saveSocialPost(ctx, { status: "scheduled", post: socialPostSchema.parse({ ...post, media: [] }) })).rejects.toThrow("Feed exige uma imagem");
     expect(rpc).not.toHaveBeenCalled();
   });
 });

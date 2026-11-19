@@ -88,6 +88,31 @@ export async function fetchGoogleBusinessLocations(accessToken: string) {
   return locations;
 }
 
+// A integração existente guarda locations/<id>; a API de posts exige accounts/<id>/locations/<id>.
+export async function resolveGoogleBusinessLocation(accessToken: string, locationId: string): Promise<string> {
+  if (!/^locations\/[A-Za-z0-9_-]+$/.test(locationId)) throw new ServiceError("A localização do Google é inválida. Reconecte em Integrações.");
+  let accountPage: string | undefined;
+  do {
+    const accountsUrl = new URL("https://mybusinessaccountmanagement.googleapis.com/v1/accounts");
+    if (accountPage) accountsUrl.searchParams.set("pageToken", accountPage);
+    const accounts = await googleGet<{ accounts?: { name: string }[]; nextPageToken?: string }>(accountsUrl.toString(), accessToken);
+    for (const account of accounts.accounts ?? []) {
+      if (!/^accounts\/[A-Za-z0-9_-]+$/.test(account.name)) continue;
+      let locationPage: string | undefined;
+      do {
+        const url = new URL(`https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations`);
+        url.searchParams.set("readMask", "name"); url.searchParams.set("pageSize", "100");
+        if (locationPage) url.searchParams.set("pageToken", locationPage);
+        const locations = await googleGet<{ locations?: { name: string }[]; nextPageToken?: string }>(url.toString(), accessToken);
+        if (locations.locations?.some((location) => location.name === locationId)) return `${account.name}/${locationId}`;
+        locationPage = locations.nextPageToken;
+      } while (locationPage);
+    }
+    accountPage = accounts.nextPageToken;
+  } while (accountPage);
+  throw new ServiceError("Não encontramos a localização conectada no Google. Reconecte em Integrações.");
+}
+
 export async function fetchGooglePrimaryCalendar(accessToken: string) {
   const calendar = await googleGet<{ id: string; summary?: string }>(
     "https://www.googleapis.com/calendar/v3/users/me/calendarList/primary",

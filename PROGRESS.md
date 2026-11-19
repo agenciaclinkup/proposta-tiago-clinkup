@@ -5,14 +5,14 @@
 ## Estado atual
 
 - **Fase:** 5 — Calendário editorial e publicação omnichannel (Fases 2, 3 e 4 ✅ concluídas)
-- **Etapa em andamento:** 5.3 — Publicação automática e fila
+- **Etapa em andamento:** 5.3b — Conciliação de publicações e cobertura restante
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-18 — Codex
+- **Última atualização:** 2026-11-19 — Codex
 
 ## Próxima microtarefa (exata)
 
-**5.3 Publicação automática e fila:** implementar worker e endpoint Cron autenticado, com captura atômica de posts vencidos (`FOR UPDATE SKIP LOCKED`), processamento por canal/conta e transições seguras de `scheduled` para `publishing`, `published` ou `failed`. Definir recuperação de jobs interrompidos, idempotência e resultado parcial por canal antes de permitir repetição; renovar tokens quando necessário, proteger segredos e preservar isolamento entre empresas. Integrar Meta e Google com APIs e permissões verificadas na documentação oficial, adicionar testes de concorrência, falhas e isolamento, e registrar a configuração do Cron no checklist. Publicação instantânea e Tools do Hermes devem reutilizar o serviço e ficar para a etapa apropriada.
+**5.3b Cobertura restante:** concluir a 5.3 antes de avançar para publicação instantânea e Tools do Hermes. Implementar fluxo explícito de conferência/repetição apenas de destinos comprovadamente não publicados, incluindo os casos sem ID externo. Investigar e implementar Stories em Páginas do Facebook com documentação oficial verificável; até lá o agendamento dessa combinação é recusado. Testar concorrência real entre transações PostgreSQL independentes e integração ponta a ponta em staging quando disponíveis; manter o Cron desativado até cumprir os itens de go-live. Depois, detalhar 5.4 (postagem instantânea e Tools do Hermes reutilizando o mesmo publicador).
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
@@ -108,6 +108,10 @@
 - [ ] **Reuniões e dashboard (Fase 4.5):** com Google Calendar real conectado, agendar pela ficha e pelo Hermes, conferir convite recebido, fuso de Brasília, renovação de token, registro na linha do tempo e isolamento entre empresas; conferir conversão e valor do dashboard contra a visão do funil. Validar ausência de conexão e recuperação após falha parcial antes de tentar novamente.
 - [ ] **Calendário (Fase 5.1):** aplicar migration `20261119022436_social_posts.sql`, rodar advisors e validar com duas empresas os grants/RLS, integridade dos destinos, limite mensal sob concorrência e rollback. Uma integração referenciada por post não pode ser desconectada até as referências serem tratadas; validar o fluxo de desconexão antes do lançamento.
 - [ ] **Calendário (Fase 5.2):** aplicar `20261119024027_social_media_bucket.sql`; conferir bucket `social-media` privado, limite de 50 MB e MIME permitidos, upload assinado e acesso entre duas empresas. Definir limpeza segura de uploads órfãos antes do lançamento. Validar visualmente `/calendar` em desktop e celular, navegação por teclado, mês/semana/lista, edição, fuso e erros com Supabase real; o ambiente desta etapa não tinha navegador disponível nem credenciais. A listagem atualmente avisa ao atingir 1.000 posts; implementar paginação antes de operações maiores.
+- [ ] **Publicador (Fase 5.3, parcial):** aplicar `20261119025634_social_publish_queue.sql` e rodar advisors. Configurar `CRON_SECRET` aleatório de pelo menos 32 caracteres somente no servidor e no agendador; configurar chamada GET autenticada para `/api/cron/publish` a cada minuto via Supabase Cron/pg_net com segredo no Vault, ou cron equivalente na instalação dedicada. Não ativar até validar a 5.3b.
+- [ ] Validar em staging com contas e permissões reais da Meta e Google Business Profile, tipos de mídia, URLs assinadas, fuso, renovação OAuth, falhas e resultados parciais. Testar concorrência real com transações independentes, duração da função, recuperação de posse expirada e ausência de duplicações após timeout. O teste PGlite atual verifica capturas sucessivas e posse, mas não simula transações simultâneas independentes.
+- [ ] Medir atraso da fila sob carga: cada execução captura até cinco posts em paralelo e ocorre no máximo uma vez por minuto na configuração prevista; não há garantia de publicação no segundo exato nem de ausência de fila quando o volume ultrapassar a capacidade.
+- [ ] Validar a reconciliação por leitura de IDs externos: Google em `PROCESSING` e vídeos/Reels Facebook aceitos são marcados "A conferir" até confirmação, sem novo envio. Concluir fluxo seguro de conferência e repetição de destinos não publicados e verificar limites e cobertura de Stories para Facebook com documentação Meta atual e permissões aprovadas.
 - [ ] **Ficha do lead (Fase 4.3):** abrir pelo nome do card; atalhos de WhatsApp (abre conversa no número com 55), e-mail, telefone, site e Instagram funcionam no celular e no computador; salvar dados, trocar etapa (histórico "Movido de…"), adicionar anotação; linha do tempo mostra "por você", "por <nome do colega>" e "pelo Hermes" corretamente; excluir (só admin) volta ao quadro; abrir a URL de um lead de outra empresa → página não encontrada.
 - [ ] **Aba Funil (Fase 4.3):** números da tabela batem com o quadro; tooltip em português; gráfico só carrega ao abrir a aba; com zero leads aparece o estado vazio; sem etapa "ganho" a conversão mostra "—" com explicação. Conferir o gráfico visualmente (rótulos sem colisão em nomes longos de etapa).
 - [ ] Desempenho do quadro com volume real: o `/crm` carrega todos os leads do funil; medir com ~5 mil leads e, se ficar lento, priorizar paginação por coluna.
@@ -145,6 +149,13 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 5.3a Fila e adaptadores de publicação — parcial (2026-11-19)
+- `supabase/migrations/20261119025634_social_publish_queue.sql`: captura com `FOR UPDATE SKIP LOCKED`, posse por token e prazo, resultados por canal e recuperação conservadora de tarefas expiradas. Nenhuma tentativa inconclusiva é reenviada automaticamente.
+- `app/api/cron/publish/route.ts`, `lib/services/social-publish-{queue,worker}.ts`: endpoint com `CRON_SECRET`, rate limit e worker limitado a cinco posts paralelos por execução; validação e filtro explícito por empresa, segredos só no servidor e mensagens seguras em português.
+- `lib/integrations/social-publish.ts` e `google.ts`: publicação Meta e Google com URLs de mídia assinadas, resolução da conta Google, renovação de token Google e validação de formato. Google `PROCESSING` e vídeos/Reels Facebook aceitos são conciliados em consultas posteriores por ID, sem repetir a criação; casos sem confirmação permanecem inconclusivos. Stories Facebook ainda é recusado. Fontes consultadas: documentação [Meta Pages](https://developers.facebook.com/documentation/pages-api/posts), [Meta Instagram](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api), [Meta Reels](https://www.postman.com/meta/facebook/documentation/r56bjfd/facebook-api) e [Google Local Posts](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.localPosts/create).
+- `app/(app)/calendar/view.tsx` mostra resultados individuais e "A conferir"; `lib/services/social-posts.ts` impede combinações ainda incompatíveis antes de consumir cota.
+- **Testes:** `npm test` 292/292; `npm run test:db` OK; `npm run lint` limpo; `npm run build` OK. RED inicial das funções da fila, adaptadores e rota verificado. Sem chamadas externas reais nem teste de concorrência com conexões independentes; pendências acima. A 5.3 **não está integralmente concluída** até 5.3b.
 
 ### 5.2 Interface do calendário editorial — ✅ (2026-11-18)
 - `/calendar`: visões de mês, semana e lista, rascunhos, edição, escolha de contas e canais, formatos, legenda, hashtags e agendamento em horário de Brasília; cobrança e disponibilidade futura da publicação explicadas na interface. Navegação ativada.

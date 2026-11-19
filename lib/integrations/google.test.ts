@@ -47,6 +47,18 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+describe("localização para publicações", () => {
+  it("recupera a conta correspondente à localização conectada", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ accounts: [{ name: "accounts/123" }] }) });
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ locations: [{ name: "locations/456" }] }) });
+    await expect(google.resolveGoogleBusinessLocation("token", "locations/456")).resolves.toBe("accounts/123/locations/456");
+  });
+  it("recusa identificador inválido antes de acessar o Google", async () => {
+    await expect(google.resolveGoogleBusinessLocation("token", "../../fora")).rejects.toBeInstanceOf(ServiceError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("googleAuthorizeUrl", () => {
   it("pede acesso offline com consentimento (garante refresh_token) e o escopo do produto", () => {
     const url = new URL(google.googleAuthorizeUrl({ product: "calendar", redirectUri: "https://x/cb", state: "st" }));
