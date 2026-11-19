@@ -6,6 +6,8 @@ export type PlanLimits = {
   aiCreditsPerMonth: number;
   connections: number;
   seats: number;
+  // Total de leads ativos no CRM (não é mensal).
+  crmLeads: number;
 };
 
 export type Plan = {
@@ -30,6 +32,7 @@ export const PLANS: Plan[] = [
       aiCreditsPerMonth: 500,
       connections: 3,
       seats: 1,
+      crmLeads: 1000,
     },
     features: [
       "Agente Hermes no painel e no Telegram",
@@ -50,6 +53,7 @@ export const PLANS: Plan[] = [
       aiCreditsPerMonth: 3000,
       connections: 8,
       seats: 5,
+      crmLeads: 10000,
     },
     features: [
       "Tudo do Starter",
@@ -69,6 +73,7 @@ export const PLANS: Plan[] = [
       aiCreditsPerMonth: 15000,
       connections: 30,
       seats: 20,
+      crmLeads: 100000,
     },
     features: [
       "Tudo do Growth",

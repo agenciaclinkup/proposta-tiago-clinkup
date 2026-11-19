@@ -86,6 +86,14 @@ Convenções: `id uuid default gen_random_uuid()`, `created_at/updated_at timest
 **crm_leads** — `organization_id`, `pipeline_id`, `stage_id`, `position`, `name`, `company`, `email`, `phone`, `whatsapp`, `instagram`, `website`, `source` (`manual|scraping|landing_page|hermes|webhook`), `value numeric`, `ai_score int`, `owner_id`, `scraped_lead_id`, `next_meeting_at`, `google_event_id`, `notes`.
 **crm_activities** — `lead_id`, `organization_id`, `type` (`note|stage_change|meeting|message|ai_action`), `content`, `metadata jsonb`, `created_by`, `created_via`.
 
+**Implementado na Fase 4.1** (`supabase/migrations/20261119003114_crm.sql`, `lib/services/crm.ts`):
+- **Integridade no banco por FK composta:** `crm_stages (pipeline_id, organization_id) → crm_pipelines (id, organization_id)`; `crm_leads (stage_id, pipeline_id, organization_id) → crm_stages (id, pipeline_id, organization_id)`; `crm_activities (lead_id, organization_id) → crm_leads (id, organization_id)`. Um lead nunca aponta para etapa de outro funil ou de outra empresa, nem mesmo via service_role.
+- **RLS:** membros leem tudo da org, criam/editam leads e adicionam histórico (com `created_by = auth.uid()`); só owner/admin gerenciam funis/etapas e excluem leads; histórico é só de inclusão (sem update/delete).
+- **Funil padrão** (`private.create_default_pipeline`): Novo Lead, Qualificado por IA, Reunião Agendada, Proposta Enviada (abertas) e Fechado (`won`), criado no trigger de nova organização e por backfill na própria migration. Um único funil padrão por org (índice parcial).
+- **Posição fracionária** (`position double precision`): `computePosition` insere entre vizinhos com a média e só renumera a coluna (passo 1024) quando acaba a precisão.
+- **Service dual-control:** `getDefaultBoard`, `createLead` (limite `crmLeads` do plano, primeira etapa por padrão, origem `hermes` quando via agente), `updateLead`, `moveLead` (histórico `stage_change` com `created_via`), `addLeadNote`, `listLeadActivities`; schemas Zod `leadInputSchema`, `leadPatchSchema`, `moveLeadSchema`, `noteSchema` compartilhados com UI e Tools. Toda consulta filtra `organization_id` (contextos sem RLS, como o Telegram).
+- **Limite do plano:** `config/plans.ts` ganhou `crmLeads` (total de leads ativos, não mensal): Starter 1.000 · Growth 10.000 · Scale 100.000 (decisão a confirmar com o produto).
+
 ### Calendário & Estúdio (Fases 5–6)
 
 **social_posts** — `organization_id`, `channels text[]` (`instagram|facebook|google_business`), `format` enum (`feed|reels|stories|carousel|gmb_update`), `caption`, `hashtags text[]`, `media jsonb` (paths no Storage), `scheduled_at timestamptz`, `status` (`draft|scheduled|publishing|published|failed`), `published_at`, `external_ids jsonb` (id por canal), `error`, `carousel_id`, `created_by`, `created_via` (`manual|hermes`). Índice parcial `(scheduled_at) where status = 'scheduled'`.

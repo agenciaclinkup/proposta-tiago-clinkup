@@ -5,21 +5,24 @@
 ## Estado atual
 
 - **Fase:** 4 — CRM Inteligente: Kanban e Funil de Vendas (Fases 2 e 3 ✅ concluídas)
-- **Etapa em andamento:** 4.1 — Dados do CRM + services (dual-control)
+- **Etapa em andamento:** 4.2 — Quadro Kanban com arrastar e soltar (`/crm`)
+- **Decisão a confirmar com o produto:** limite de leads no CRM por plano (`config/plans.ts` → `crmLeads`): Starter 1.000 · Growth 10.000 · Scale 100.000.
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Claude
 
 ## Próxima microtarefa (exata)
 
-**4.1 Dados do CRM + services** (TDD; schema-base em `ARCHITECTURE.md` §2 "CRM"):
-1. Migration `crm` (`npx supabase migration new crm`): `crm_pipelines`, `crm_stages` (`position`, `color`, `kind open|won|lost`), `crm_leads` (`stage_id`, `position`, contato, `source`, `value`, `ai_score`, `owner_id`, `next_meeting_at`, `google_event_id`), `crm_activities` (histórico). RLS por `organization_id` (membros leem e operam leads; só owner/admin alteram pipeline/etapas), grants explícitos, índices `(organization_id, stage_id, position)`. FK de `stage_id` garantindo que a etapa é da **mesma org** (check via trigger ou FK composta `(stage_id, organization_id)`).
-2. Funil padrão por empresa: Novo Lead, Qualificado por IA, Reunião Agendada, Proposta Enviada, Fechado (ganho) — criado no trigger de nova organização **e** backfill para as orgs existentes.
-3. Checks em `supabase/tests/rls-check.mjs`: isolamento entre orgs, lead não pode apontar para etapa de outra org, member não altera etapas.
-4. `lib/services/crm.ts` com schemas Zod compartilhados (UI e Hermes): `listBoard`, `createLead`, `updateLead`, `moveLead` (reordena `position` na coluna de destino), `addLeadNote`; toda mudança de etapa grava `crm_activities` (`stage_change`, `via manual|hermes`). Testes unitários das regras (reordenação, validação, atividade).
+**4.2 Quadro Kanban com arrastar e soltar** (TDD nas actions e regras novas; base: `lib/services/crm.ts`):
+1. Instalar `@dnd-kit/core`, `@dnd-kit/sortable` e `@dnd-kit/utilities` com versões fixadas no lockfile (conferir compatibilidade com React 19.1).
+2. `app/(app)/crm/page.tsx` (server): `getDefaultBoard(ctx)`; `board.tsx` (client): `DndContext` + `SortableContext` por coluna, cards com nome, empresa, valor e origem; atualização otimista e `moveLeadAction` (Zod `moveLeadSchema`, rate limit, `revalidatePath`) com **rollback e aviso pt-BR** se o servidor recusar.
+3. Acessibilidade do arrastar: `KeyboardSensor` + anúncios em pt-BR (`announcements` do dnd-kit) — mover por teclado com espaço e setas.
+4. Criação rápida por coluna (`createLeadAction` com `leadInputSchema`; mensagem do limite do plano quando estourar) e estado vazio didático ("Arraste os cards entre as etapas…").
+5. Colunas personalizáveis (só owner/admin): renomear, mudar cor, adicionar, reordenar e excluir etapa **somente se vazia** — funções novas em `lib/services/crm.ts` (`createStage`, `updateStage`, `reorderStages`, `deleteStage`, testadas) + actions; member vê o quadro sem esses controles.
+6. Menu "CRM" com `ready: true` em `app/(app)/nav.tsx`; card "Oportunidades no funil" do dashboard com o total de leads em etapas abertas.
 
 **Plano da Fase 4:**
-- 4.1 dados + services (acima).
-- 4.2 `/crm` Kanban com `@dnd-kit` (instalar versão fixa), colunas personalizáveis (owner/admin), card do lead, criação rápida; menu "CRM" ativo.
+- 4.1 dados + services ✅.
+- 4.2 `/crm` Kanban (acima).
 - 4.3 Ficha do lead (dados, histórico de atividades, notas) + visão de **funil** com taxas de passagem entre etapas (`funnelMetrics` pura, testada) e Recharts.
 - 4.4 Tools do Hermes: `create_lead`, `update_lead`, `move_lead_to_stage`, `list_leads`, `add_lead_note`, `get_funnel_metrics` (rótulos pt-BR) — mesmas funções da UI.
 - 4.5 Reunião na Agenda do Google a partir do lead (`schedule_meeting`, usa `getGoogleAccessToken` da 3.5; cria evento com convite) + KPI "Oportunidades no funil" e "Taxa de conversão" no dashboard.
@@ -101,6 +104,12 @@
 - [ ] Revogação ao desconectar: desconectar a **última** integração de um consentimento revoga no Google (o app some de myaccount.google.com → Segurança → Apps de terceiros); com dois locais do mesmo consentimento, desconectar um **não** derruba o outro.
 - [ ] Monitorar logs `[google]` (falha no callback, renovação ou revogação).
 
+### CRM (Fase 4)
+- [ ] `db push` aplica a migration `crm` (Fase 4.1) — ela também **altera o trigger `handle_new_organization`** (cria o funil padrão) e faz **backfill** do funil para todas as empresas já existentes. Conferir depois: `select count(*) from organizations o where not exists (select 1 from crm_pipelines p where p.organization_id = o.id and p.is_default)` deve dar 0.
+- [ ] Rodar advisors do Supabase depois do `db push` (novas FKs compostas, índices e policies do CRM).
+- [ ] **Confirmar com o produto o limite de leads no CRM por plano** (`config/plans.ts` → `crmLeads`: 1.000 / 10.000 / 100.000) antes de publicar a página de preços, que já mostra "Leads no CRM".
+- [ ] Teste real de isolamento: com duas empresas, criar lead na empresa A e tentar, pela API REST com o token de um usuário da B, ler/alterar o lead e mover para uma etapa da B (deve falhar por RLS e pela FK composta).
+
 ### Variáveis de ambiente (produção, só no painel da hospedagem — nunca no Git)
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - [ ] `SUPABASE_SECRET_KEY` (somente servidor)
@@ -133,6 +142,15 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 4.1 Dados do CRM + services — ✅ (2026-11-18)
+- **Migration** `supabase/migrations/20261119003114_crm.sql`: enums `crm_stage_kind`, `crm_lead_source`, `crm_activity_type`; tabelas `crm_pipelines`, `crm_stages`, `crm_leads`, `crm_activities` com **FKs compostas** (lead → etapa do mesmo funil e da mesma empresa; atividade → lead da mesma empresa), índices de quadro e histórico, `updated_at`. RLS: membros leem e operam leads/histórico (`created_by = auth.uid()`), só owner/admin gerenciam funis/etapas e excluem leads, histórico só de inclusão.
+- **Funil padrão** `private.create_default_pipeline`: chamado pelo trigger `handle_new_organization` (recriado com a etapa extra) e por **backfill** na migration.
+- **`lib/services/crm.ts`** (dual-control, filtra `organization_id` sempre): `computePosition`, `getDefaultBoard`, `createLead` (limite `crmLeads` do plano → mensagem pt-BR com upgrade), `updateLead`, `moveLead` (renumeração rara + histórico `stage_change` com `created_via`), `addLeadNote`, `listLeadActivities`; schemas `leadInputSchema` (campos vazios do formulário viram ausentes), `leadPatchSchema`, `moveLeadSchema`, `noteSchema`.
+- **Plano:** `config/plans.ts` ganhou `crmLeads` e a tabela de preços mostra "Leads no CRM".
+- **Teste de banco:** o runner cria uma "empresa antiga" antes da migration do CRM para provar o backfill.
+
+**Testes:** `npm test` 219/219 (10 novos, RED verificado antes) · `npm run test:db` 96/96 (20 novos: funil padrão em empresa nova e antiga, isolamento, FK composta, papéis, histórico) · `tsc --noEmit` OK · lint limpo · build OK.
 
 ### 3.5 OAuth Google — Google Meu Negócio e Google Calendar — ✅ (2026-11-18) · **Fase 3 concluída**
 - **Conferido na doc oficial antes de codar:** endpoints de autorização/token/revogação, `access_type=offline` + `prompt=consent` (o `refresh_token` só vem na 1ª autorização sem o prompt), `error=access_denied`, escopo `business.manage` (com aprovação de acesso à API), escopos do Calendar, contas (`mybusinessaccountmanagement v1`) e locais (`mybusinessbusinessinformation v1`, `readMask`). Não confirmados na leitura (marcados no checklist): parâmetros exatos da renovação, campo `title` no `readMask` e `calendarList/primary`.

@@ -43,6 +43,8 @@ export function PricingTable({
           </ul>
 
           <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-4 text-xs">
+            <dt className="text-muted-foreground">Leads no CRM</dt>
+            <dd className="text-right">{nf.format(plan.limits.crmLeads)}</dd>
             <dt className="text-muted-foreground">Leads extraídos/mês</dt>
             <dd className="text-right">{nf.format(plan.limits.scrapedLeadsPerMonth)}</dd>
             <dt className="text-muted-foreground">Posts agendados/mês</dt>

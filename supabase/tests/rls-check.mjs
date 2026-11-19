@@ -20,7 +20,14 @@ await db.exec(`
   -- Como no Supabase: service_role recebe privilégios nas tabelas novas do public.
   alter default privileges in schema public grant all on tables to service_role;
 `);
+// Empresa "antiga": criada antes da migration do CRM, para provar o backfill do funil padrão.
+const LEGACY_USER = "00000000-0000-0000-0000-0000000000ff";
+const LEGACY_ORG = "10000000-0000-0000-0000-0000000000ff";
 for (const file of migrations) {
+  if (file.endsWith("_crm.sql")) {
+    await db.exec(`insert into auth.users (id) values ('${LEGACY_USER}');
+      insert into public.organizations (id, name, slug, created_by) values ('${LEGACY_ORG}', 'Empresa Antiga', 'empresa-antiga', '${LEGACY_USER}');`);
+  }
   await db.exec(readFileSync(join(dir, file), "utf8"));
   console.log("applied", file);
 }
@@ -180,3 +187,44 @@ const consumeFor = async (code, org) => (await asService(`select * from public.c
 check("code of org B rejected by org A bot", (await consumeFor("BBBB2345", orgA)).length === 0);
 check("rejected code stays usable for its own org", (await consumeFor("BBBB2345", orgB))[0]?.organization_id === orgB);
 await expectFail("authenticated cannot consume with org", () => as(A, `select * from public.consume_telegram_link_code('XXXX2345', '${orgA}')`));
+
+// CRM (Fase 4.1): funil padrão, isolamento por empresa e integridade etapa↔empresa garantida no banco
+const stagesOf = async (org) =>
+  (await asService(`select s.name, s.kind, s.position from public.crm_stages s join public.crm_pipelines p on p.id = s.pipeline_id
+                    where p.organization_id = '${org}' and p.is_default order by s.position`)).rows;
+check("new org gets default funnel", JSON.stringify((await stagesOf(orgA)).map((s) => s.name)) ===
+  JSON.stringify(["Novo Lead", "Qualificado por IA", "Reunião Agendada", "Proposta Enviada", "Fechado"]));
+check("last default stage is won", (await stagesOf(orgA)).at(-1)?.kind === "won");
+check("existing org got funnel by backfill", (await stagesOf(LEGACY_ORG)).length === 5);
+check("org B has its own funnel", (await stagesOf(orgB)).length === 5);
+
+const stageA = (await asService(`select s.id, s.pipeline_id from public.crm_stages s join public.crm_pipelines p on p.id = s.pipeline_id where p.organization_id = '${orgA}' order by s.position limit 1`)).rows[0];
+const stageB = (await asService(`select s.id, s.pipeline_id from public.crm_stages s join public.crm_pipelines p on p.id = s.pipeline_id where p.organization_id = '${orgB}' order by s.position limit 1`)).rows[0];
+const leadA = "40000000-0000-0000-0000-00000000000a";
+await as(C, `insert into public.crm_leads (id, organization_id, pipeline_id, stage_id, name, position, created_by)
+             values ('${leadA}', '${orgA}', '${stageA.pipeline_id}', '${stageA.id}', 'Maria Clínica', 1024, '${C}')`);
+check("member creates lead in own org", (await as(A, `select name from public.crm_leads`)).rows[0]?.name === "Maria Clínica");
+check("B sees no leads of A", (await as(B, `select * from public.crm_leads`)).rows.length === 0);
+check("B sees no stages of A", (await as(B, `select * from public.crm_stages where pipeline_id = '${stageA.pipeline_id}'`)).rows.length === 0);
+check("B cannot update lead of A", (await as(B, `update public.crm_leads set name = 'x' returning id`)).rows.length === 0);
+await expectFail("lead cannot point to stage of another org (FK)", () =>
+  asService(`insert into public.crm_leads (organization_id, pipeline_id, stage_id, name, position) values ('${orgA}', '${stageB.pipeline_id}', '${stageB.id}', 'x', 1)`));
+await expectFail("lead cannot move to stage of another org (FK)", () =>
+  asService(`update public.crm_leads set stage_id = '${stageB.id}' where id = '${leadA}'`));
+await expectFail("B cannot insert lead into A org", () =>
+  as(B, `insert into public.crm_leads (organization_id, pipeline_id, stage_id, name, position, created_by) values ('${orgA}', '${stageA.pipeline_id}', '${stageA.id}', 'x', 1, '${B}')`));
+await expectFail("member cannot spoof lead creator", () =>
+  as(C, `insert into public.crm_leads (organization_id, pipeline_id, stage_id, name, position, created_by) values ('${orgA}', '${stageA.pipeline_id}', '${stageA.id}', 'x', 1, '${A}')`));
+check("member cannot delete lead", (await as(C, `delete from public.crm_leads returning id`)).rows.length === 0);
+check("member cannot rename stage", (await as(C, `update public.crm_stages set name = 'x' returning id`)).rows.length === 0);
+check("admin renames stage", (await as(A, `update public.crm_stages set name = 'Novo Contato' where id = '${stageA.id}' returning id`)).rows.length === 1);
+
+await as(C, `insert into public.crm_activities (organization_id, lead_id, type, content, created_by, created_via)
+             values ('${orgA}', '${leadA}', 'note', 'Pediu orçamento', '${C}', 'manual')`);
+check("member reads lead history", (await as(A, `select content from public.crm_activities`)).rows[0]?.content === "Pediu orçamento");
+check("B sees no history of A", (await as(B, `select * from public.crm_activities`)).rows.length === 0);
+await expectFail("history is append-only", () => as(A, `update public.crm_activities set content = 'editado'`));
+await expectFail("activity cannot reference lead of another org", () =>
+  asService(`insert into public.crm_activities (organization_id, lead_id, type, content) values ('${orgB}', '${leadA}', 'note', 'x')`));
+check("admin deletes lead (history cascades)", (await as(A, `delete from public.crm_leads where id = '${leadA}' returning id`)).rows.length === 1
+  && (await db.query(`select count(*)::int as n from public.crm_activities`)).rows[0].n === 0);
