@@ -20,7 +20,7 @@ const ITEMS: { href: string; label: string; icon: LucideIcon; ready: boolean }[]
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, ready: true },
   { href: "/hermes", label: "Agente Hermes", icon: Bot, ready: true },
   { href: "/crm", label: "CRM", icon: KanbanSquare, ready: true },
-  { href: "/calendar", label: "Calendário", icon: CalendarDays, ready: false },
+  { href: "/calendar", label: "Calendário", icon: CalendarDays, ready: true },
   { href: "/studio", label: "Estúdio", icon: Palette, ready: false },
   { href: "/leads-ads", label: "Leads & Ads", icon: Megaphone, ready: false },
   { href: "/integrations", label: "Integrações", icon: PlugZap, ready: true },

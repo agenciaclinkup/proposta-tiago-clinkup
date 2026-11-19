@@ -5,14 +5,14 @@
 ## Estado atual
 
 - **Fase:** 5 — Calendário editorial e publicação omnichannel (Fases 2, 3 e 4 ✅ concluídas)
-- **Etapa em andamento:** 5.2 — Interface do calendário editorial
+- **Etapa em andamento:** 5.3 — Publicação automática e fila
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-18 — Codex
 
 ## Próxima microtarefa (exata)
 
-**5.2 Interface do calendário editorial:** implementar `/calendar` com visões mês, semana e lista, criação e edição de rascunhos e agendamentos, escolha de canal e conta conectada, formato, mídia, copy/hashtags e data/hora exatas; usar os schemas e `saveSocialPost`/`listSocialPosts` de 5.1 por Server Actions autenticadas e com rate limit. Explicar a cobrança mensal e orientar a conexão de contas. Cobrir ações e estados com testes e validar a interface no navegador. Publicação instantânea, worker/Cron e Tools do Hermes ficam nas etapas seguintes, sem apresentar publicação como disponível antes de implementada.
+**5.3 Publicação automática e fila:** implementar worker e endpoint Cron autenticado, com captura atômica de posts vencidos (`FOR UPDATE SKIP LOCKED`), processamento por canal/conta e transições seguras de `scheduled` para `publishing`, `published` ou `failed`. Definir recuperação de jobs interrompidos, idempotência e resultado parcial por canal antes de permitir repetição; renovar tokens quando necessário, proteger segredos e preservar isolamento entre empresas. Integrar Meta e Google com APIs e permissões verificadas na documentação oficial, adicionar testes de concorrência, falhas e isolamento, e registrar a configuração do Cron no checklist. Publicação instantânea e Tools do Hermes devem reutilizar o serviço e ficar para a etapa apropriada.
 
 **Plano da Fase 4:**
 - 4.1 dados + services ✅.
@@ -107,6 +107,7 @@
 - [ ] Dashboard: "Oportunidades no funil" igual à soma dos leads nas etapas abertas (não conta "Fechado").
 - [ ] **Reuniões e dashboard (Fase 4.5):** com Google Calendar real conectado, agendar pela ficha e pelo Hermes, conferir convite recebido, fuso de Brasília, renovação de token, registro na linha do tempo e isolamento entre empresas; conferir conversão e valor do dashboard contra a visão do funil. Validar ausência de conexão e recuperação após falha parcial antes de tentar novamente.
 - [ ] **Calendário (Fase 5.1):** aplicar migration `20261119022436_social_posts.sql`, rodar advisors e validar com duas empresas os grants/RLS, integridade dos destinos, limite mensal sob concorrência e rollback. Uma integração referenciada por post não pode ser desconectada até as referências serem tratadas; validar o fluxo de desconexão antes do lançamento.
+- [ ] **Calendário (Fase 5.2):** aplicar `20261119024027_social_media_bucket.sql`; conferir bucket `social-media` privado, limite de 50 MB e MIME permitidos, upload assinado e acesso entre duas empresas. Definir limpeza segura de uploads órfãos antes do lançamento. Validar visualmente `/calendar` em desktop e celular, navegação por teclado, mês/semana/lista, edição, fuso e erros com Supabase real; o ambiente desta etapa não tinha navegador disponível nem credenciais. A listagem atualmente avisa ao atingir 1.000 posts; implementar paginação antes de operações maiores.
 - [ ] **Ficha do lead (Fase 4.3):** abrir pelo nome do card; atalhos de WhatsApp (abre conversa no número com 55), e-mail, telefone, site e Instagram funcionam no celular e no computador; salvar dados, trocar etapa (histórico "Movido de…"), adicionar anotação; linha do tempo mostra "por você", "por <nome do colega>" e "pelo Hermes" corretamente; excluir (só admin) volta ao quadro; abrir a URL de um lead de outra empresa → página não encontrada.
 - [ ] **Aba Funil (Fase 4.3):** números da tabela batem com o quadro; tooltip em português; gráfico só carrega ao abrir a aba; com zero leads aparece o estado vazio; sem etapa "ganho" a conversão mostra "—" com explicação. Conferir o gráfico visualmente (rótulos sem colisão em nomes longos de etapa).
 - [ ] Desempenho do quadro com volume real: o `/crm` carrega todos os leads do funil; medir com ~5 mil leads e, se ficar lento, priorizar paginação por coluna.
@@ -144,6 +145,12 @@
 - [ ] Monitorar logs `[usage]` (falha no estorno de crédito; o usuário fica cobrado por uma resposta que falhou).
 
 ## Concluído
+
+### 5.2 Interface do calendário editorial — ✅ (2026-11-18)
+- `/calendar`: visões de mês, semana e lista, rascunhos, edição, escolha de contas e canais, formatos, legenda, hashtags e agendamento em horário de Brasília; cobrança e disponibilidade futura da publicação explicadas na interface. Navegação ativada.
+- `app/(app)/calendar/actions.ts`: Server Actions autenticadas, validação e rate limit, usando os serviços compartilhados. `lib/services/social-posts.ts`: paginação das consultas e verificação de que caminhos de mídia pertencem à organização.
+- Migration `20261119024027_social_media_bucket.sql`: bucket privado com limites de tamanho e tipos; upload por URL assinada para caminho gerado pelo servidor. Remover arquivo do formulário não exclui o objeto: limpeza de órfãos pendente no checklist.
+- **Testes:** `npm test` 275/275; `npm run test:db` OK; `npm run lint` limpo; `npm run build` OK. RED inicial da action verificado. Inspeção visual e testes com credenciais reais não realizados: navegador indisponível e `.env.local` ausente; permanecem no checklist.
 
 ### 5.1 Dados e serviços do calendário — ✅ (2026-11-18)
 - Migration `supabase/migrations/20261119022436_social_posts.sql`: posts, destinos por canal, integridade composta com integrações da empresa, RLS de leitura, mutação restrita ao servidor e índice de fila. A função transacional valida associação e consome limite junto da gravação.

@@ -23,4 +23,8 @@ describe("social posts", () => {
     rpc.mockResolvedValueOnce({ error: { message: "social_integration_invalid" } });
     await expect(saveSocialPost(ctx, { status: "scheduled", post: socialPostSchema.parse(post) })).rejects.toThrow("integração");
   });
+  it("recusa caminho de mídia de outra empresa antes de gravar", async () => {
+    await expect(saveSocialPost(ctx, { status: "draft", post: socialPostSchema.parse({ ...post, media: [{ path: "outra-empresa/arquivo.jpg", type: "image" }] }) })).rejects.toThrow("pertencer à sua empresa");
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });

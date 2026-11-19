@@ -21,6 +21,7 @@ export const RATE_LIMITS = {
   metaWebhookIp: { limit: 60, windowSeconds: 60 },
   // Arrastar cards gera várias ações seguidas: limite folgado por usuário.
   crmUser: { limit: 120, windowSeconds: 60 },
+  calendarUser: { limit: 60, windowSeconds: 60 },
 } satisfies Record<string, RateRule>;
 
 export const RATE_LIMIT_MESSAGE = "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";

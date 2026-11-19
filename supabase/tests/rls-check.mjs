@@ -11,6 +11,8 @@ const migrations = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 await db.exec(`
   create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
   create schema auth;
+  create schema storage;
+  create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table auth.users (id uuid primary key, raw_user_meta_data jsonb default '{}');
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
@@ -47,6 +49,8 @@ const expectFail = async (label, fn) => {
 const check = (label, cond) => { console.log(cond ? "ok " : "FAIL", label); if (!cond) process.exitCode = 1; };
 
 const orgA = "10000000-0000-0000-0000-00000000000a";
+const mediaBucket = (await db.query(`select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'social-media'`)).rows[0];
+check("social media bucket is private and size limited", mediaBucket?.public === false && Number(mediaBucket.file_size_limit) === 52428800 && !mediaBucket.allowed_mime_types.includes("text/html"));
 await as(A, `insert into public.organizations (id, name, slug, niche) values ('${orgA}', 'Clinkup', 'clinkup-abc', 'Marketing')`);
 check("profile auto-created", (await db.query(`select full_name from public.profiles where id='${A}'`)).rows[0]?.full_name === "Ana");
 check("owner membership", (await as(A, `select role from public.organization_members`)).rows[0]?.role === "owner");

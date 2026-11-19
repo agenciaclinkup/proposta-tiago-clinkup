@@ -32,6 +32,9 @@ export async function saveSocialPost(ctx: ServiceContext, input: z.infer<typeof 
   if (!parsed.success) throw new ServiceError(parsed.error.issues[0]?.message ?? "Dados do post inválidos.");
   if (!ctx.userId) throw new ServiceError("Entre na sua conta para salvar um post.");
   const { post, postId, status } = parsed.data;
+  if (post.media.some((item) => !item.path.startsWith(`${ctx.organizationId}/`) || item.path.includes(".."))) {
+    throw new ServiceError("A mídia precisa pertencer à sua empresa. Envie o arquivo novamente.");
+  }
   const limit = limitFor(ctx.planId, "scheduled_posts");
   const { data, error } = await createAdminClient().rpc("save_social_post", {
     p_organization_id: ctx.organizationId, p_user_id: ctx.userId, p_post_id: postId ?? null,
@@ -54,9 +57,9 @@ export async function saveSocialPost(ctx: ServiceContext, input: z.infer<typeof 
   return data;
 }
 
-export async function listSocialPosts(ctx: ServiceContext, options: { from?: string; to?: string; limit?: number } = {}) {
-  const filter = z.object({ from: z.iso.datetime({ offset: true }).optional(), to: z.iso.datetime({ offset: true }).optional(), limit: z.number().int().min(1).max(100).default(50) }).parse(options);
-  let query = ctx.supabase.from("social_posts").select("*, social_post_targets(channel, integration_id)").eq("organization_id", ctx.organizationId).order("scheduled_at", { ascending: true, nullsFirst: false }).limit(filter.limit);
+export async function listSocialPosts(ctx: ServiceContext, options: { from?: string; to?: string; limit?: number; offset?: number } = {}) {
+  const filter = z.object({ from: z.iso.datetime({ offset: true }).optional(), to: z.iso.datetime({ offset: true }).optional(), limit: z.number().int().min(1).max(100).default(50), offset: z.number().int().min(0).default(0) }).parse(options);
+  let query = ctx.supabase.from("social_posts").select("*, social_post_targets(channel, integration_id)").eq("organization_id", ctx.organizationId).order("scheduled_at", { ascending: true, nullsFirst: false }).order("id").range(filter.offset, filter.offset + filter.limit - 1);
   if (filter.from) query = query.gte("scheduled_at", filter.from);
   if (filter.to) query = query.lt("scheduled_at", filter.to);
   const { data, error } = await query;
