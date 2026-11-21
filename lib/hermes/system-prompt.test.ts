@@ -50,3 +50,16 @@ describe("Prospecção B2B no prompt do Hermes", () => {
     expect(prompt).not.toMatch(/Extração de leads[^.]*em breve/);
   });
 });
+
+describe("Meta Ads no prompt do Hermes", () => {
+  it("orienta diagnóstico, tetos e confirmação financeira explícita sem aviso de em breve", () => {
+    const prompt = buildSystemPrompt({ ...base, masterContext: null });
+    expect(prompt).toContain("check_ads_readiness");
+    expect(prompt).toContain("propose_ad_campaign");
+    expect(prompt).toContain("propose_activate_ad_campaign");
+    expect(prompt).toContain("propose_update_ad_budget");
+    expect(prompt).toContain("confirm_ad_action");
+    expect(prompt).toContain("pause_ad_campaign");
+    expect(prompt).not.toMatch(/Meta Ads[^.]*em breve/i);
+  });
+});

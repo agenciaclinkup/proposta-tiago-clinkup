@@ -4,15 +4,15 @@
 
 ## Estado atual
 
-- **Fase:** 8 — Escala & Meta Ads (Fases 2, 3, 4, 5, 6 e 7 ✅ concluídas; 8.1 ✅, 8.2 ✅)
-- **Etapa em andamento:** pronta para iniciar 8.3
+- **Fase:** 9 — Escala, Dashboard Executivo, Admin, Asaas & White-Label (Fases 2, 3, 4, 5, 6, 7 e 8 ✅ concluídas)
+- **Etapa em andamento:** pronta para iniciar 9.1
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18). Limite de campanhas ativas Meta Ads (`maxActiveAdCampaigns`) — Starter 0 (indisponível) · Growth 20 · Scale 100.
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-21 — Antigravity (8.2 concluída)
+- **Última atualização:** 2026-11-21 — Antigravity (8.3 concluída; Fase 8 encerrada)
 
 ## Próxima microtarefa (exata)
 
-**8.3 — Tools do Agente Hermes para Meta Ads:** expor no Hermes (web e Telegram) as ferramentas de gestão de Meta Ads reutilizando `lib/services/meta-ads.ts`: `check_ads_readiness`, `list_ad_campaigns`, `propose_ad_campaign` (com chave `requestId` UUID v5 idempotente por mensagem/parâmetros), `propose_activate_ad_campaign`, `propose_update_ad_budget`, `confirm_ad_action` (lendo a prova exclusivamente de `approval.proof` da mensagem real do usuário e ocultando o código de `hermes_logs`) e `pause_ad_campaign`. Atualizar `lib/hermes/tools.ts`, `lib/hermes/tool-labels.ts` e `lib/hermes/system-prompt.ts` em `pt-BR` (removendo o aviso "em breve" de Meta Ads), com testes unitários, `test:db`, `tsc --noEmit`, `lint` e `build`. Na sequência da Fase 8: 8.4 Dashboard executivo com KPIs reais + Recharts, 8.5 `/admin` + Asaas + White-Label (`docker-compose.yml`).
+**9.1 — Dashboard executivo com KPIs reais e gráficos Recharts (`/dashboard`):** consolidar indicadores reais por organização (leads extraídos, oportunidades no funil, taxa de conversão, posts agendados/publicados, investimento e ROAS em Meta Ads, consumo do plano e atividades recentes do Hermes) com visualizações Recharts responsivas em `pt-BR`, isolamento estrito por `organization_id`, testes unitários/banco, `tsc --noEmit`, `lint` e `build`. Na sequência da Fase 9: 9.2 painel Super-Admin (`/admin` para gestão de tenants, licenças White-Label e consumo de API), 9.3 adaptador de billing Asaas (Pix/boleto) e 9.4 empacotamento White-Label dedicado (`docker-compose.yml`, variáveis de marca e banco dedicado).
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -210,7 +210,16 @@
 
 - [ ] **Meta Ads — interface `/meta-ads` (8.2):** validar visualmente `/meta-ads` em desktop e celular (navegação por teclado, leitor de tela e contraste Dark Mode): banner do plano Starter redirecionando para `/billing`; vinculação de conta Meta Ads conectada; bloqueio visual e no servidor enquanto o teto diário estiver zerado; configuração de tetos como `owner`/`admin` (e bloqueio como `member`); sincronização real de campanhas/métricas (CTR e CPC); fluxo completo de proposta → checkbox de aprovação financeira → execução confirmada para criar campanha, ativar e ajustar verba; pausa segura imediata e histórico em `ad_action_logs`.
 
+- [ ] **Hermes no Meta Ads (8.3):** validar em web e Telegram: `check_ads_readiness`, `list_ad_accounts`, `list_ad_campaigns` (KPIs calculados), `list_ad_action_logs`, `sync_ad_campaigns` e `pause_ad_campaign`; fluxo de proposta (`propose_ad_campaign`, `propose_activate_ad_campaign`, `propose_update_ad_budget`) gerando `CONFIRMAR <código>` oculto em `hermes_logs` e `confirm_ad_action` executando apenas com o comando enviado em nova mensagem; recusa em plano Starter, papel `member`, teto diário zerado, replay, expiração (15 min) e outro usuário/org/canal/conversa.
+
 ## Concluído
+
+### 8.3 Tools do Agente Hermes para Meta Ads — ✅ (2026-11-21)
+- **`lib/hermes/meta-ads-tools.ts`:** 10 Tools integradas em `lib/hermes/tools.ts` reutilizando `lib/services/meta-ads.ts` e `lib/meta-ads/metrics.ts`:
+  - Leitura/diagnóstico e pausa segura: `check_ads_readiness`, `list_ad_accounts`, `list_ad_campaigns` (com investimento, impressões, cliques, leads, CTR e CPC), `list_ad_action_logs`, `sync_ad_campaigns` e `pause_ad_campaign`, com rate limit por usuário e por organização (`metaAdsSync` / `metaAdsWrite`).
+  - Ações financeiras com confirmação persistente: `propose_ad_campaign` (chave `requestId` UUID v5 idempotente por mensagem e parâmetros), `propose_activate_ad_campaign`, `propose_update_ad_budget` (gerando `CONFIRMAR <código>`, oculto em `hermes_logs`) e `confirm_ad_action` (aceita exclusivamente `approval.proof` da mensagem real do usuário).
+- **`lib/hermes/tool-labels.ts` e `lib/hermes/system-prompt.ts`:** rótulos `pt-BR` para as 10 Tools e instruções completas de Meta Ads (removendo o aviso de "em breve" e reforçando tetos obrigatórios e confirmação financeira explícita).
+- **Testes:** `npm test` 447/447 (75 arquivos, +7 testes em `meta-ads-tools.test.ts` e `system-prompt.test.ts`, + `tools.test.ts` atualizado); `npm run test:db`, `npx tsc --noEmit`, `npm run lint` (0 erros, 0 warnings) e `npm run build` verdes. Fase 8 concluída.
 
 ### 8.2 Interface de Gestão de Meta Ads, tetos financeiros e aprovação explícita — ✅ (2026-11-21)
 - **`app/(app)/nav.tsx`:** item **Meta Ads** (`/meta-ads`) ativado no menu lateral.

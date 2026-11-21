@@ -17,6 +17,7 @@ import { defineTool, runTool, type HermesTool } from "./run-tool";
 import { buildStudioTurnTools, STUDIO_TOOLS } from "./studio-tools";
 import { PROSPECT_REVIEW_TOOLS } from "./prospect-review-tools";
 import { buildProspectTurnTools } from "./prospect-tools";
+import { buildMetaAdsTurnTools, META_ADS_READ_TOOLS } from "./meta-ads-tools";
 
 const ONBOARDING_REQUIRED = "A memória da marca ainda não foi criada. Conclua o onboarding no painel para que eu possa usá-la.";
 
@@ -209,6 +210,7 @@ export const HERMES_TOOLS: HermesTool[] = [
   listPostsTool, listCalendarAccountsTool, createPostTool, updatePostTool, reschedulePostTool, cancelPostTool, planWeekTool,
   ...STUDIO_TOOLS,
   ...PROSPECT_REVIEW_TOOLS,
+  ...META_ADS_READ_TOOLS,
 ] as HermesTool[];
 
 // Tools prontas para o AI SDK, já presas ao contexto (organização, usuário, canal) da requisição.
@@ -225,7 +227,7 @@ export function buildHermesTools(ctx: ServiceContext, approval?: { conversationI
     return confirmSocialAction(context, { conversationId: approval.conversationId }, approval.proof);
   } });
   return Object.fromEntries(
-    [...HERMES_TOOLS, publishTool, confirmTool, ...buildStudioTurnTools(approval?.messageId ? { conversationId: approval.conversationId, messageId: approval.messageId } : undefined), ...buildProspectTurnTools(approval)].map((definition) => [
+    [...HERMES_TOOLS, publishTool, confirmTool, ...buildStudioTurnTools(approval?.messageId ? { conversationId: approval.conversationId, messageId: approval.messageId } : undefined), ...buildProspectTurnTools(approval), ...buildMetaAdsTurnTools(approval)].map((definition) => [
       definition.name,
       tool({
         description: definition.description,
