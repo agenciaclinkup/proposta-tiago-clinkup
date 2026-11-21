@@ -559,3 +559,49 @@ await expectFail("prospect confirmation cannot be replayed", () => confirmProspe
 const expiredProspectProof = '5'.repeat(64);
 await asService(`insert into public.prospect_confirmations(organization_id,user_id,channel,conversation_id,proof_hash,pipeline_id,stage_id,prospect_ids,expires_at) values('${orgB}','${B}','telegram','${confirmProspectConv}','${expiredProspectProof}','${prospectStageB.pipeline_id}','${prospectStageB.id}',array['${prospectB}']::uuid[],now() - interval '1 second')`);
 await expectFail("expired prospect confirmation is rejected", () => confirmProspect(orgB, B, 'telegram', confirmProspectConv, expiredProspectProof, 1000));
+
+// Fase 8.1: Meta Ads — isolamento multi-tenant, FKs compostas, teto financeiro e confirmação persistente.
+const metaAdsIntA = (await asService(`insert into public.integrations(organization_id,provider,status,external_account_id,display_name) values('${orgA}','meta_ads','connected','act_1001','Conta A') returning id`)).rows[0].id;
+await expectFail("ad account rejects another tenant's meta_ads integration", () =>
+  asService(`insert into public.meta_ad_accounts(organization_id,integration_id,external_ad_account_id,name) values('${orgB}','${metaAdsIntA}','act_1001','Cross Tenant')`)
+);
+const adAccA = (await asService(`insert into public.meta_ad_accounts(organization_id,integration_id,external_ad_account_id,name) values('${orgA}','${metaAdsIntA}','act_1001','Conta A') returning id`)).rows[0].id;
+check("member reads own meta ad account", (await as(A, `select * from public.meta_ad_accounts where id='${adAccA}'`)).rows.length === 1);
+check("other tenant cannot read meta ad account", (await as(B, `select * from public.meta_ad_accounts`)).rows.length === 0);
+await expectFail("member cannot mutate meta ad account directly", () => as(A, `update public.meta_ad_accounts set daily_budget_cap_cents=99999 where id='${adAccA}'`));
+await expectFail("ad action confirmations table is private", () => as(A, `select * from public.ad_action_confirmations`));
+
+const adConv = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const adProofNoCap = '6'.repeat(64);
+const adPayload = JSON.stringify({ adAccountId: adAccA, requestId: '70000000-0000-4000-8000-000000000001', name: 'Campanha A', objective: 'OUTCOME_LEADS', dailyBudgetCents: 5000, initialStatus: 'active' });
+await asService(`insert into public.ad_action_confirmations(organization_id,user_id,channel,conversation_id,ad_account_id,operation,proof_hash,payload) values('${orgA}','${A}','web','${adConv}','${adAccA}','create_campaign','${adProofNoCap}','${adPayload}'::jsonb)`);
+const confirmAd = (org, user, channel, conv, hash, maxActive = 20) =>
+  asService(`select public.consume_ad_action_confirmation('${org}','${user}','${channel}',${conv ? `'${conv}'` : 'null'},'${hash}',${maxActive}) as result`);
+await expectFail("authenticated cannot call consume_ad_action_confirmation", () => as(A, `select public.consume_ad_action_confirmation('${orgA}','${A}','web','${adConv}','${adProofNoCap}',20)`));
+await expectFail("ad confirmation blocked when budget cap is zero", () => confirmAd(orgA, A, 'web', adConv, adProofNoCap, 20));
+await asService(`update public.meta_ad_accounts set daily_budget_cap_cents=4000, monthly_budget_cap_cents=120000 where id='${adAccA}'`);
+await expectFail("ad confirmation blocked when daily budget exceeds cap", () => confirmAd(orgA, A, 'web', adConv, adProofNoCap, 20));
+await asService(`update public.meta_ad_accounts set daily_budget_cap_cents=10000, monthly_budget_cap_cents=120000 where id='${adAccA}'`);
+await expectFail("ad confirmation blocked when projected monthly spend exceeds monthly cap", () => confirmAd(orgA, A, 'web', adConv, adProofNoCap, 20));
+await asService(`update public.meta_ad_accounts set daily_budget_cap_cents=10000, monthly_budget_cap_cents=300000 where id='${adAccA}'`);
+await expectFail("ad confirmation blocked when plan active campaign limit is 0", () => confirmAd(orgA, A, 'web', adConv, adProofNoCap, 0));
+await expectFail("ad confirmation rejects other organization", () => confirmAd(orgB, B, 'web', adConv, adProofNoCap, 20));
+const adConsumed = (await confirmAd(orgA, A, 'web', adConv, adProofNoCap, 20)).rows[0].result;
+check("ad confirmation succeeds within caps and returns account binding", adConsumed.operation === 'create_campaign' && adConsumed.adAccountId === adAccA && adConsumed.externalAdAccountId === 'act_1001');
+await expectFail("ad confirmation cannot be replayed", () => confirmAd(orgA, A, 'web', adConv, adProofNoCap, 20));
+
+const adCampA = (await asService(`insert into public.ad_campaigns(organization_id,ad_account_id,integration_id,external_campaign_id,name,objective,daily_budget_cents,status,created_via) values('${orgA}','${adAccA}','${metaAdsIntA}','ext_c1','Campanha A','OUTCOME_LEADS',5000,'active','manual') returning id`)).rows[0].id;
+await expectFail("ad set cannot reference campaign of another tenant", () =>
+  asService(`insert into public.ad_sets(organization_id,campaign_id,external_ad_set_id,name) values('${orgB}','${adCampA}','ext_s1','Cross')`)
+);
+const adSetA = (await asService(`insert into public.ad_sets(organization_id,campaign_id,external_ad_set_id,name) values('${orgA}','${adCampA}','ext_s1','Conjunto 1') returning id`)).rows[0].id;
+await asService(`insert into public.ad_ads(organization_id,ad_set_id,external_ad_id,name) values('${orgA}','${adSetA}','ext_ad1','Anuncio 1')`);
+await asService(`insert into public.ad_metric_snapshots(organization_id,campaign_id,date_start,date_stop,spend_cents,impressions,clicks,leads,roas) values('${orgA}','${adCampA}','2026-11-01','2026-11-20',12000,4000,150,10,2.5)`);
+await asService(`insert into public.ad_action_logs(organization_id,ad_account_id,campaign_id,action,actor_id,via,status) values('${orgA}','${adAccA}','${adCampA}','create_campaign','${A}','manual','succeeded')`);
+check("other tenant sees zero meta ads campaigns, sets, ads, snapshots and logs",
+  (await as(B, `select * from public.ad_campaigns`)).rows.length === 0 &&
+  (await as(B, `select * from public.ad_sets`)).rows.length === 0 &&
+  (await as(B, `select * from public.ad_ads`)).rows.length === 0 &&
+  (await as(B, `select * from public.ad_metric_snapshots`)).rows.length === 0 &&
+  (await as(B, `select * from public.ad_action_logs`)).rows.length === 0
+);

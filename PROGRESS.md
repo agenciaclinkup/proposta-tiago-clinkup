@@ -4,15 +4,15 @@
 
 ## Estado atual
 
-- **Fase:** 8 — Escala (Fases 2, 3, 4, 5, 6 e 7 ✅ concluídas)
-- **Etapa em andamento:** pronta para iniciar 8.1
-- **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
+- **Fase:** 8 — Escala & Meta Ads (Fases 2, 3, 4, 5, 6 e 7 ✅ concluídas; 8.1 ✅)
+- **Etapa em andamento:** pronta para iniciar 8.2
+- **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18). Limite de campanhas ativas Meta Ads (`maxActiveAdCampaigns`) — Starter 0 (indisponível) · Growth 20 · Scale 100.
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-21 — Antigravity (7.3 concluída; Fase 7 encerrada)
+- **Última atualização:** 2026-11-21 — Antigravity (8.1 concluída)
 
 ## Próxima microtarefa (exata)
 
-**8.1 — Dashboard executivo com KPIs reais e gráficos Recharts (`/dashboard`):** consolidar métricas reais por organização (leads extraídos, oportunidades no funil, taxa de conversão, posts agendados/publicados, consumo do plano e atividades recentes do Hermes) com visualizações Recharts responsivas em pt-BR, isolamento multi-tenant, testes unitários/banco, `tsc --noEmit`, `lint` e `build`. Na sequência da Fase 8: 8.2 `/admin` (gestão de tenants, licenças White-Label e consumo), 8.3 adaptador Asaas (Pix/boleto) e 8.4 empacotamento White-Label (`docker-compose.yml` e banco dedicado).
+**8.2 — Interface do Gestor Meta Ads (`/leads-ads` aba/seção Meta Ads) e Tools do Agente Hermes para Meta Ads:** expor prontidão da conta, configuração de tetos diário/mensal (admin/owner), sincronização de campanhas/métricas, listagem, pausa segura e fluxo de proposta + confirmação persistente (`CONFIRMAR <código>`) para criar campanha, ativar e alterar orçamento — tanto na UI quanto nas Tools do Hermes (`check_ads_readiness`, `list_ad_campaigns`, `propose_ad_campaign`, `propose_update_ad_budget`, `propose_activate_ad_campaign`, `confirm_ad_action`, `pause_ad_campaign`), atualizando `system-prompt.ts` e `tool-labels.ts` em `pt-BR`. Na sequência: Dashboard executivo com KPIs reais + Recharts, `/admin`, adaptador Asaas e empacotamento White-Label (`docker-compose.yml`).
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -206,7 +206,16 @@
 
 - [ ] **Hermes na prospecção B2B (7.3):** aplicar `20261121143851_prospect_transfer_confirmation.sql`, rodar advisors e confirmar que `prospect_confirmations` não tem grants para `anon`/`authenticated` e que `confirm_prospect_transfer` é executável somente por `service_role`. Validar em web e Telegram: consulta por CNPJ (BrasilAPI) e busca comercial (CNAE/município) exigindo declaração de origem e base legal do usuário; deduplicação e idempotência na mesma mensagem; `propose_send_prospects_to_crm` gerando `CONFIRMAR <código>` (oculto em `hermes_logs`) e `confirm_prospect_transfer` transferindo atomicamente apenas com o comando enviado em nova mensagem, recusando replay, expiração (15 min), outro usuário/org/canal/conversa e revertendo todo o lote ao atingir o limite de leads no CRM.
 
+- [ ] **Meta Ads — dados, serviços e proteções financeiras (8.1):** aplicar `20261121145101_meta_ads_module.sql`, rodar advisors e confirmar que `ad_action_confirmations` não tem grants para `anon`/`authenticated` e que `consume_ad_action_confirmation` é executável somente por `service_role`. Validar em staging com conta real de testes da Meta Marketing API (`v27.0`, permissões `ads_management` e `ads_read` aprovadas no App Review): sincronização de campanhas, conjuntos, anúncios e insights (`spend`, `impressions`, `clicks`, `actions[lead]`, `purchase_roas`); bloqueio de gasto quando `daily_budget_cap_cents = 0`; rejeição acima do teto diário/mensal e do limite `maxActiveAdCampaigns` do plano; confirmação persistente de uso único para criar, ativar e ajustar orçamento; auditoria em `ad_action_logs`; isolamento estrito de tokens por organização via `integration_secrets`. Confirmar também com o produto os limites `maxActiveAdCampaigns` (Growth 20 / Scale 100) em `config/plans.ts`.
+
 ## Concluído
+
+### 8.1 Dados e serviços compartilhados do módulo Meta Ads — ✅ (2026-11-21)
+- **Migration `20261121145101_meta_ads_module.sql`:** tabelas `meta_ad_accounts`, `ad_campaigns`, `ad_sets`, `ad_ads`, `ad_metric_snapshots`, `ad_action_logs` (leitura por membros via RLS, FKs compostas por `organization_id`, escrita somente servidor) e tabela privada `ad_action_confirmations` + RPC transacional `consume_ad_action_confirmation` (`service_role`), validando papel `owner`/`admin`, teto diário/mensal e limite de campanhas ativas do plano com bloqueio `for update`.
+- **`config/plans.ts`:** limite numérico `maxActiveAdCampaigns` (Starter `0`, Growth `20`, Scale `100`) mantendo `PlanLimits` compatível com `usage.ts`.
+- **`lib/integrations/meta-ads-client.ts`:** cliente desacoplado da Meta Marketing API (`v27.0`) com validação Zod, timeout de 15 s, mapeamento de erros (401/190, 403/200, 429/17, timeout) em `pt-BR` e `createSimulatedMetaAdsClient` para testes sem chamadas externas.
+- **`lib/services/meta-ads.ts`:** serviço dual-control (`checkAdsReadiness`, `listAdAccounts`, `listAdCampaigns`, `listAdActionLogs`, `syncAdAccountFromIntegration`, `updateAdAccountBudgetCaps`, `syncAccountCampaignsAndMetrics`, `proposeCreateCampaign`, `proposeActivateCampaign`, `proposeUpdateCampaignBudget`, `confirmAdAction`, `pauseAdCampaign`) com proteções financeiras rígidas, idempotência por `requestId` e trilha de auditoria em `ad_action_logs`.
+- **Testes:** `npm test` 432/432 (72 arquivos, +12 testes em `meta-ads-client.test.ts` e `meta-ads.test.ts`); `npm run test:db` verde (+15 cenários de isolamento RLS, FKs compostas, teto financeiro e confirmação persistente); `npx tsc --noEmit`, `npm run lint` (0 erros, 0 warnings) e `npm run build` verdes.
 
 ### 7.3 Tools do Agente Hermes para Prospecção B2B — ✅ (2026-11-21)
 - **Migration `20261121143851_prospect_transfer_confirmation.sql`:** tabela privada `prospect_confirmations` (FK composta para `crm_stages(id, pipeline_id, organization_id)`, expiração de 15 min, prova em hash SHA-256) e função transacional `confirm_prospect_transfer` (somente `service_role`), que trava a confirmação e a empresa, valida vínculo de organização/usuário/canal/conversa/etapa e chama `send_scraped_lead_to_crm` para o lote inteiro na mesma transação (rollback total em erro ou limite).

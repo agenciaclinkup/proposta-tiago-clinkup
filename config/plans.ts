@@ -8,6 +8,8 @@ export type PlanLimits = {
   seats: number;
   // Total de leads ativos no CRM (não é mensal).
   crmLeads: number;
+  // Limite de campanhas ativas no Meta Ads (0 = módulo indisponível no plano).
+  maxActiveAdCampaigns: number;
 };
 
 export type Plan = {
@@ -33,6 +35,7 @@ export const PLANS: Plan[] = [
       connections: 3,
       seats: 1,
       crmLeads: 1000,
+      maxActiveAdCampaigns: 0,
     },
     features: [
       "Agente Hermes no painel e no Telegram",
@@ -54,6 +57,7 @@ export const PLANS: Plan[] = [
       connections: 8,
       seats: 5,
       crmLeads: 10000,
+      maxActiveAdCampaigns: 20,
     },
     features: [
       "Tudo do Starter",
@@ -74,6 +78,7 @@ export const PLANS: Plan[] = [
       connections: 30,
       seats: 20,
       crmLeads: 100000,
+      maxActiveAdCampaigns: 100,
     },
     features: [
       "Tudo do Growth",
