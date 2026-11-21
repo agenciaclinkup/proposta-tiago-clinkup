@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PricingTable } from "@/components/pricing-table";
 import { UsageCard } from "@/components/usage-card";
+import { listOrganizationInvoices } from "@/lib/services/asaas-billing";
 import { serviceContext } from "@/lib/services/context";
 import { getUsageSummary } from "@/lib/services/usage";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { getPlan, type PlanId } from "@/config/plans";
 import { requireWorkspace } from "@/lib/workspace";
 import { openBillingPortal, startCheckout } from "./actions";
+import { AsaasBillingPanel } from "./asaas-panel";
 
 export const metadata: Metadata = { title: "Planos e assinatura" };
 
@@ -32,8 +34,9 @@ const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" });
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const workspace = await requireWorkspace();
-  const { organization, subscription } = workspace;
-  const usage = await getUsageSummary(serviceContext(workspace, "manual"));
+  const { organization, subscription, user, profile, role } = workspace;
+  const ctx = serviceContext(workspace, "manual");
+  const [usage, invoices] = await Promise.all([getUsageSummary(ctx), listOrganizationInvoices(ctx)]);
   const planId = (subscription?.plan_id ?? organization.plan_id) as PlanId;
   const plan = getPlan(planId);
   const notice = status ? NOTICES[status] : undefined;
@@ -94,10 +97,18 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <form action={startCheckout}>
             <input type="hidden" name="planId" value={id} />
             <Button type="submit" className="w-full">
-              Assinar {getPlan(id)?.name}
+              Assinar {getPlan(id)?.name} (Cartão)
             </Button>
           </form>
         )}
+      />
+
+      <AsaasBillingPanel
+        isAdmin={role !== "member"}
+        defaultEmail={user.email ?? ""}
+        defaultName={profile.full_name ?? organization.name}
+        currentPlanId={planId}
+        invoices={invoices}
       />
     </div>
   );

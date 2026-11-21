@@ -1,10 +1,14 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { stripePriceId } from "@/config/plans";
-import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
+import { RATE_LIMIT_MESSAGE, RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
+import { asaasSubscribeSchema, subscribeWithAsaas, type BillingInvoiceRow } from "@/lib/services/asaas-billing";
+import { serviceContext } from "@/lib/services/context";
+import { ServiceError } from "@/lib/services/errors";
 import { getStripe } from "@/lib/stripe";
 import { requireWorkspace } from "@/lib/workspace";
 
@@ -65,4 +69,27 @@ export async function openBillingPortal() {
     return_url: `${origin}/billing`,
   });
   redirect(session.url);
+}
+
+export async function startAsaasSubscriptionAction(
+  input: unknown,
+): Promise<{ invoice: BillingInvoiceRow } | { error: string }> {
+  const workspace = await requireWorkspace();
+  if (workspace.role === "member") {
+    return { error: "Apenas proprietários e administradores podem alterar a assinatura." };
+  }
+  if (!(await rateLimit(`billing:user:${workspace.user.id}`, RATE_LIMITS.billingUser))) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+  const parsed = asaasSubscribeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Confira os dados de cobrança." };
+  }
+  try {
+    const result = await subscribeWithAsaas(serviceContext(workspace, "manual"), parsed.data);
+    revalidatePath("/billing");
+    return { invoice: result.invoice };
+  } catch (error) {
+    return { error: error instanceof ServiceError ? error.message : "Não foi possível gerar a cobrança via Asaas." };
+  }
 }

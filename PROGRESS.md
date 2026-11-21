@@ -4,15 +4,15 @@
 
 ## Estado atual
 
-- **Fase:** 9 — Escala, Dashboard Executivo, Admin, Asaas & White-Label (Fases 2–8 ✅ concluídas; 9.1 ✅, 9.2 ✅)
-- **Etapa em andamento:** pronta para iniciar 9.3
+- **Fase:** 9 — Escala, Dashboard Executivo, Admin, Asaas & White-Label (Fases 2–8 ✅ concluídas; 9.1 ✅, 9.2 ✅, 9.3 ✅)
+- **Etapa em andamento:** pronta para iniciar 9.4 (última microtarefa de construção antes do Go-Live)
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18). Limite de campanhas ativas Meta Ads (`maxActiveAdCampaigns`) — Starter 0 (indisponível) · Growth 20 · Scale 100.
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-21 — Antigravity (9.2 concluída)
+- **Última atualização:** 2026-11-21 — Antigravity (9.3 concluída)
 
 ## Próxima microtarefa (exata)
 
-**9.3 — Adaptador de billing Asaas (Pix/boleto) + webhook verificado:** implementar o adaptador desacoplado Asaas (`lib/billing/asaas.ts`, somente servidor, timeout, Zod e modo simulado para testes), endpoint de webhook `/api/webhooks/asaas` com verificação de token em tempo constante (`ASAAS_WEBHOOK_TOKEN`), rate limit por IP e sincronização de `subscriptions` (`provider = 'asaas'`) e `organizations.plan_id` via cliente admin, integrando a opção Pix/boleto em `/billing` sem quebrar o checkout Stripe existente. Na sequência da Fase 9: 9.4 empacotamento White-Label dedicado (`docker-compose.yml`, variáveis de marca e banco dedicado).
+**9.4 — Empacotamento White-Label dedicado (`Dockerfile`, `docker-compose.yml`, marca própria e guia de implantação):** preparar o modo de instalação dedicada/White-Label descrito no `AGENTS.md` §1 e `ARCHITECTURE.md` §4 (`next.config.ts` `output: "standalone"`, `Dockerfile` multi-stage seguro sem root, `docker-compose.yml` com app + cron interno chamando `/api/cron/publish` + suporte a banco PostgreSQL/Supabase dedicado, validação das variáveis `NEXT_PUBLIC_BRAND_*` em `config/tenant-brand.ts`, healthcheck `/api/health` e documentação de deploy dedicado), com testes unitários, `test:db`, `tsc --noEmit`, `lint` e `build` 100% verdes, encerrando a Fase 9 pronta para o Checklist de Go-Live.
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -216,7 +216,17 @@
 
 - [ ] **Painel Super-Admin `/admin` (9.2):** aplicar `20261121174835_super_admin_audit.sql`, rodar advisors e confirmar que `admin_audit_logs` não tem grants para `anon`/`authenticated`, que `grant_usage_bonus` é executável somente por `service_role` e que `UPDATE`/`DELETE` em `admin_audit_logs` é bloqueado pelo trigger `admin_audit_immutable`. Configurar `SUPER_ADMIN_EMAILS` somente no servidor (nunca `NEXT_PUBLIC_`). Validar em produção: usuário comum autenticado acessando `/admin` é redirecionado para `/dashboard` sem ver dados e tem as Server Actions bloqueadas; operador Super-Admin visualiza KPIs globais, filtra organizações, altera plano/status/White-Label, concede bônus de créditos de IA (refletido em `consume_usage`) e verifica o registro imutável na trilha de auditoria.
 
+- [ ] **Billing Asaas — Pix/Boleto e webhook (9.3):** aplicar `20261121175831_asaas_billing.sql`, rodar advisors e confirmar que `billing_webhook_events` não tem grants para `anon`/`authenticated` e que `billing_invoices` isola empresas por RLS. Configurar `ASAAS_API_KEY`, `ASAAS_ENV=production` (ou `sandbox` em staging) e `ASAAS_WEBHOOK_TOKEN` somente no servidor; cadastrar o webhook `https://<domínio>/api/webhooks/asaas` no painel da Asaas com o cabeçalho `asaas-access-token` e eventos `PAYMENT_CREATED`, `PAYMENT_UPDATED`, `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`, `PAYMENT_REFUNDED`, `PAYMENT_DELETED`, `SUBSCRIPTION_DELETED`. Validar em sandbox real: gerar assinatura Pix (copia-e-cola) e Boleto (linha digitável) como `owner`/`admin`, confirmar que `member` é bloqueado, simular confirmação de pagamento e reenvio duplicado do mesmo `event_id` (conferindo ativação única e idempotência).
+
 ## Concluído
+
+### 9.3 Adaptador de billing Asaas (Pix/boleto e assinaturas recorrentes) — ✅ (2026-11-21)
+- **Migration `20261121175831_asaas_billing.sql`:** tabela `billing_invoices` (RLS por organização, leitura para membros, escrita somente servidor) e tabela privada `billing_webhook_events` com chave primária `(provider, event_id)` garantindo idempotência estrita contra reenvios.
+- **`lib/integrations/asaas.ts` e `asaas.test.ts`:** cliente desacoplado da API Asaas (`ASAAS_API_KEY`, `ASAAS_ENV`, `ASAAS_WEBHOOK_TOKEN` documentados em `.env.example`), validação Zod, timeout de 15 s, verificação do token em tempo constante (`timingSafeEqual`), tradução de erros em `pt-BR` e `createSimulatedAsaasClient` para testes sem chamadas externas.
+- **`lib/services/asaas-billing.ts` e `asaas-billing.test.ts`:** `subscribeWithAsaas` (restrito a `owner`/`admin`, usa preços de `config/plans.ts`, gera QR Code Pix ou linha digitável do boleto sem ativar antes da confirmação), `listOrganizationInvoices` e `processAsaasWebhookEvent` (deduplicação por `event_id` e sincronização de `subscriptions`, `organizations.plan_id` e `billing_invoices`).
+- **`app/api/webhooks/asaas/route.ts` e `route.test.ts`:** endpoint com rate limit por IP (`asaasWebhookIp`), verificação de `asaas-access-token`, validação Zod e processamento idempotente.
+- **`app/(app)/billing/{page.tsx,actions.ts,asaas-panel.tsx}`:** assinatura recorrente via Pix/Boleto integrada em `/billing` ao lado do Stripe existente, exibindo Pix Copia e Cola, linha digitável do boleto e histórico de faturas.
+- **Testes:** `npm test` 472/472 (82 arquivos, +12 testes); `npm run test:db` verde (+5 cenários de `billing_invoices` e deduplicação de webhooks); `npx tsc --noEmit`, `npm run lint` (0 erros, 0 warnings) e `npm run build` verdes.
 
 ### 9.2 Painel Super-Admin `/admin` da plataforma — ✅ (2026-11-21)
 - **Migration `20261121174835_super_admin_audit.sql`:** tabela privada e imutável `admin_audit_logs` (RLS ativo, sem grants para `anon`/`authenticated`, trigger `prevent_admin_audit_mutation` bloqueando `UPDATE`/`DELETE` mesmo sob `service_role`), coluna `bonus` em `usage_counters`, atualização de `consume_usage` para respeitar `p_limit + bonus` e RPC `grant_usage_bonus` (`service_role`).

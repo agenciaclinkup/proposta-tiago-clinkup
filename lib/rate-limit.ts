@@ -12,6 +12,7 @@ export const RATE_LIMITS = {
   onboardingUser: { limit: 20, windowSeconds: 600 },
   billingUser: { limit: 10, windowSeconds: 600 },
   stripeWebhookIp: { limit: 300, windowSeconds: 60 },
+  asaasWebhookIp: { limit: 300, windowSeconds: 60 },
   hermesChatUser: { limit: 20, windowSeconds: 60 },
   hermesDeleteUser: { limit: 30, windowSeconds: 60 },
   integrationsUser: { limit: 20, windowSeconds: 60 },

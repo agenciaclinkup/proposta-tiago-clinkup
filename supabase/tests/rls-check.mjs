@@ -625,3 +625,16 @@ const bonusRes = (await asService(`select public.grant_usage_bonus('${orgB}','ai
 check("usage bonus expands effective monthly limit in consume_usage", bonusRes.bonus === 2 && (await asService(`select public.consume_usage('${orgB}','ai_credits',2,0) as result`)).rows[0].result.allowed === true);
 const reducedBonus = (await asService(`select public.grant_usage_bonus('${orgB}','ai_credits',-999) as result`)).rows[0].result;
 check("usage bonus never drops below zero", reducedBonus.bonus === 0);
+
+// Fase 9.3: faturas Asaas isoladas por organização e deduplicação estrita de webhooks por event_id.
+await asService(`insert into public.billing_invoices(organization_id,provider,external_payment_id,plan_id,billing_type,status,amount_cents) values('${orgA}','asaas','pay_a_1','growth','PIX','pending',49700)`);
+check("member reads own billing invoices", (await as(A, `select * from public.billing_invoices`)).rows.length === 1);
+check("other tenant cannot read billing invoices", (await as(B, `select * from public.billing_invoices`)).rows.length === 0);
+await expectFail("member cannot insert billing invoices directly", () =>
+  as(A, `insert into public.billing_invoices(organization_id,provider,external_payment_id,plan_id,billing_type,status,amount_cents) values('${orgA}','asaas','pay_forged','growth','PIX','confirmed',0)`)
+);
+await expectFail("billing webhook events table is private", () => as(A, `select * from public.billing_webhook_events`));
+await asService(`insert into public.billing_webhook_events(provider,event_id,event_type,organization_id) values('asaas','evt_unique_1','PAYMENT_CONFIRMED','${orgA}')`);
+await expectFail("duplicate asaas webhook event_id is rejected", () =>
+  asService(`insert into public.billing_webhook_events(provider,event_id,event_type,organization_id) values('asaas','evt_unique_1','PAYMENT_CONFIRMED','${orgA}')`)
+);
