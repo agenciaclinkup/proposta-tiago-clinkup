@@ -61,6 +61,7 @@ npx supabase db advisors
 21. `20261121174835_super_admin_audit.sql` — `admin_audit_logs` (imutável), `usage_counters.bonus` e `grant_usage_bonus`
 22. `20261121175831_asaas_billing.sql` — `billing_invoices` e `billing_webhook_events` (deduplicação por `event_id`)
 23. `20261121202545_organization_white_label_brand.sql` — `organization_brands` e `private.can_manage_org_brand`
+24. `20261121222353_advisor_hardening.sql` — revogação de `public.rls_auto_enable()` para `anon`/`authenticated` e separação de policies em `crm_pipelines`/`crm_stages`
 
 ### 2.3 Configurações obrigatórias no Painel do Supabase
 
