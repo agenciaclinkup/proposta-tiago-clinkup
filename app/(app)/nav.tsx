@@ -22,7 +22,7 @@ const ITEMS: { href: string; label: string; icon: LucideIcon; ready: boolean }[]
   { href: "/crm", label: "CRM", icon: KanbanSquare, ready: true },
   { href: "/calendar", label: "Calendário", icon: CalendarDays, ready: true },
   { href: "/studio", label: "Estúdio", icon: Palette, ready: true },
-  { href: "/leads-ads", label: "Leads & Ads", icon: Megaphone, ready: false },
+  { href: "/leads-ads", label: "Prospecção", icon: Megaphone, ready: true },
   { href: "/integrations", label: "Integrações", icon: PlugZap, ready: true },
   { href: "/billing", label: "Planos", icon: CreditCard, ready: true },
 ];

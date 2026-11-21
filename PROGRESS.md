@@ -5,14 +5,14 @@
 ## Estado atual
 
 - **Fase:** 7 — Leads & Ads (Fases 2, 3, 4, 5 e 6 ✅ concluídas)
-- **Etapa em andamento:** 7.2 — Integração Google Places e interface de prospecção
+- **Etapa em andamento:** 7.2 parcial — interface de resultados; integração Google pendente
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
 - **Última atualização:** 2026-11-20 — Codex (7.1)
 
 ## Próxima microtarefa (exata)
 
-**7.2 Leads & Ads — Google Places e interface de prospecção:** integrar um adaptador servidor Google Places ao contrato `ProspectProvider`, após verificar a documentação oficial de endpoints, campos, preços, limites e permissões; configurar a credencial apenas no servidor e oferecer orientação clara quando ausente. Criar `/leads-ads` para buscar por nicho/localização, acompanhar reservas e recuperação de buscas interrompidas, inspecionar resultados existentes e enviar ao CRM pela camada 7.1. Usar chave idempotente por pedido, limite de requisições, isolamento por empresa e URLs validadas; a repetição de uma busca existente nunca deve chamar o provedor novamente. Cobrir mocks, falhas, expiração, quotas, acessibilidade, banco e Go-Live, e planejar a próxima microtarefa. Avaliar recuperação de reservas de usuários que perderam a associação, sem liberar uma tentativa ainda em execução.
+**7.2 pendente — origem autorizada para novas buscas:** a interface `/leads-ads` já lista resultados existentes e permite enviá-los ao CRM, mas a busca permanece indisponível. O usuário informou não possuir autorização específica para armazenar ou transferir conteúdo do Google Places. A política oficial do Google restringe copiar e armazenar nomes e outros dados de estabelecimentos; IDs são exceção. O adaptador de IDs foi preparado sem conectá-lo ao serviço que grava nomes e contatos. Definir com o usuário uma fonte autorizada para dados persistentes, ou outra solução permitida, antes de concluir a busca, a integração e os testes correspondentes. Não ativar nem anunciar a 7.2 como concluída enquanto isso não estiver resolvido. Após a 7.2, preparar a **7.3 — Tools de prospecção do Hermes**, com schemas compartilhados, idempotência e limites.
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -200,7 +200,15 @@
 
 - [ ] **Prospecção (7.1):** aplicar `20261121004212_lead_prospecting.sql` e executar advisors; testar RLS e FKs com duas empresas, busca repetida e concorrência PostgreSQL real, reserva/estorno no mês original, recuperação após interrupção, deduplicação por `place_id` e envio idempotente ao CRM. Confirmar recuperação quando o usuário perde acesso e unificar a trava com a criação manual de leads antes de depender do limite rígido entre canais. Nenhum provedor externo foi integrado nesta etapa.
 
+- [ ] **Google Places (7.2 parcial):** `GOOGLE_PLACES_API_KEY` é apenas de servidor e a consulta de IDs permanece desconectada. Antes de integrar dados à prospecção, confirmar os [requisitos oficiais de armazenamento e atribuição](https://developers.google.com/maps/documentation/places/web-service/policies), termos de uso, política de privacidade, cobrança e permissões da fonte escolhida. O usuário informou não possuir autorização específica para copiar conteúdo do Places ao CRM. Validar com conta real e dados autorizados antes de liberar a busca.
+
 ## Concluído
+
+### 7.2 Prospecção — parcial (2026-11-20)
+- `/leads-ads`, menu e ações: saldo mensal, resultados existentes, envio selecionado ao CRM e recuperação de buscas interrompidas, usando serviços da 7.1. Nova busca está desativada.
+- `lib/prospecting/google-place-ids.ts`: consulta Text Search (New) limitada a IDs, timeout e paginação, sem integração com o serviço que persiste conteúdo. `GOOGLE_PLACES_API_KEY` documentada sem valor; não houve chamadas reais.
+- A integração completa e a preparação definitiva da 7.3 permanecem pendentes até haver uma origem autorizada para os dados do CRM.
+- **Testes:** `npm test` 391/391; `npm run test:db`, `npx tsc --noEmit`, `npm run lint` e `npm run build` verdes. Interface e credenciais reais não foram verificadas em ambiente conectado.
 
 ### 7.1 Dados e serviços de prospecção — ✅ (2026-11-20)
 - Migration `20261121004212_lead_prospecting.sql`: buscas, resultados e associações com RLS, FKs compostas, deduplicação por empresa e gravação privilegiada. Reserva mensal é atômica; somente resultados novos são cobrados e a reserva não usada volta ao período original. Recuperação após 15 minutos não reexecuta o provedor.
