@@ -4,15 +4,14 @@
 
 ## Estado atual
 
-- **Fase:** 9 — Escala, Dashboard Executivo, Admin, Asaas & White-Label (Fases 2–8 ✅ concluídas; 9.1 ✅, 9.2 ✅, 9.3 ✅)
-- **Etapa em andamento:** pronta para iniciar 9.4 (última microtarefa de construção antes do Go-Live)
+- **Fase:** Construção concluída (Fases 1–9 ✅ concluídas; 9.1–9.4 ✅)
+- **Etapa em andamento:** Pronto para execução do **Checklist Obrigatório de Go-Live** (etapa 1.3 + validações em ambiente real com credenciais, webhooks, Docker/Compose e advisors do Supabase)
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18). Limite de campanhas ativas Meta Ads (`maxActiveAdCampaigns`) — Starter 0 (indisponível) · Growth 20 · Scale 100.
-- **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-21 — Antigravity (9.3 concluída)
+- **Última atualização:** 2026-11-21 — Antigravity (9.4 concluída; Fase 9 encerrada)
 
 ## Próxima microtarefa (exata)
 
-**9.4 — Empacotamento White-Label dedicado (`Dockerfile`, `docker-compose.yml`, marca própria e guia de implantação):** preparar o modo de instalação dedicada/White-Label descrito no `AGENTS.md` §1 e `ARCHITECTURE.md` §4 (`next.config.ts` `output: "standalone"`, `Dockerfile` multi-stage seguro sem root, `docker-compose.yml` com app + cron interno chamando `/api/cron/publish` + suporte a banco PostgreSQL/Supabase dedicado, validação das variáveis `NEXT_PUBLIC_BRAND_*` em `config/tenant-brand.ts`, healthcheck `/api/health` e documentação de deploy dedicado), com testes unitários, `test:db`, `tsc --noEmit`, `lint` e `build` 100% verdes, encerrando a Fase 9 pronta para o Checklist de Go-Live.
+**Go-Live & Validação em Staging/Produção (etapa final):** executar integralmente a seção **`## CHECKLIST OBRIGATÓRIO DE GO-LIVE (NÃO PULAR)`** abaixo — aplicar todas as migrations no Supabase real (`npx supabase db push`), rodar advisors de segurança/performance, configurar variáveis de ambiente no servidor, validar imagem Docker/Compose em ambiente com Docker ativo, e testar de ponta a ponta Auth, RLS entre dois tenants, Stripe/Asaas, Telegram, OAuth Meta/Google, CRM, Calendário/Cron, Estúdio, Prospecção B2B, Meta Ads, Dashboard Executivo, `/admin` e White-Label `/settings`.
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -43,6 +42,12 @@
 ## CHECKLIST OBRIGATÓRIO DE GO-LIVE (NÃO PULAR)
 
 > Executar antes de qualquer deploy de produção. Todo agente que criar env, webhook, migration ou configuração externa **acrescenta o item aqui na mesma tarefa**. Nunca remover itens; marcar `[x]` só com evidência.
+
+### White-Label dedicado e marca por organização (9.4)
+- [ ] Validar imagem, Compose, proxy HTTPS, backups e restauracao do Supabase dedicado antes do deploy.
+- [ ] Configurar e validar NEXT_PUBLIC_BRAND_FAVICON_URL e NEXT_PUBLIC_BRAND_SUPPORT_WHATSAPP quando usados; reconstruir a imagem ao alterar variaveis publicas.
+- [ ] Validar CRON_SECRET, integracoes e publicacao real antes de habilitar o perfil scheduler; evitar agendadores duplicados.
+- [ ] Aplicar `20261121202545_organization_white_label_brand.sql`, rodar advisors e validar `/settings` em produção com duas organizações: bloqueio para `member` e planos `starter`/`growth` sem licença White-Label; persistência e aplicação imediata no layout (logo, favicon, cores, ocultação da marca Clinkup e link de WhatsApp de suporte) para `owner`/`admin` em plano Scale ou com licença White-Label.
 
 ### Etapa 1.3 — Validação em ambiente real (adiada pelo usuário para o fim da construção)
 - [ ] Criar projeto Supabase e preencher `.env.local` (modelo: `.env.example`).
@@ -219,6 +224,13 @@
 - [ ] **Billing Asaas — Pix/Boleto e webhook (9.3):** aplicar `20261121175831_asaas_billing.sql`, rodar advisors e confirmar que `billing_webhook_events` não tem grants para `anon`/`authenticated` e que `billing_invoices` isola empresas por RLS. Configurar `ASAAS_API_KEY`, `ASAAS_ENV=production` (ou `sandbox` em staging) e `ASAAS_WEBHOOK_TOKEN` somente no servidor; cadastrar o webhook `https://<domínio>/api/webhooks/asaas` no painel da Asaas com o cabeçalho `asaas-access-token` e eventos `PAYMENT_CREATED`, `PAYMENT_UPDATED`, `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`, `PAYMENT_REFUNDED`, `PAYMENT_DELETED`, `SUBSCRIPTION_DELETED`. Validar em sandbox real: gerar assinatura Pix (copia-e-cola) e Boleto (linha digitável) como `owner`/`admin`, confirmar que `member` é bloqueado, simular confirmação de pagamento e reenvio duplicado do mesmo `event_id` (conferindo ativação única e idempotência).
 
 ## Concluído
+
+### 9.4 Empacotamento White-Label dedicado e marca própria por organização — ✅ (2026-11-21)
+- **Empacotamento dedicado:** `Dockerfile` multi-stage não-root, `.dockerignore`, `docker-compose.yml` (app + perfil opcional `scheduler` para `/api/cron/publish`), `next.config.ts` (`output: "standalone"`), `app/api/health/route.ts`, `config/tenant-brand.ts` (validação Zod de URLs, cores, e-mail e WhatsApp), `public/.gitkeep` e guia de deploy em `deploy/`.
+- **Migration `20261121202545_organization_white_label_brand.sql`:** tabela `public.organization_brands` com RLS estrito por `organization_id` e função `private.can_manage_org_brand` (escrita permitida apenas para `owner`/`admin` de organização em plano `scale` ou com `is_white_label = true`, ou Super-Admin).
+- **`lib/services/organization-brand.ts` e `organization-brand.test.ts`:** `getOrganizationBrand`, `saveOrganizationBrand` (reutilizando `organizationBrandSchema` e `canManageOrganizationBrand` de `config/organization-brand.ts`), `resolveEffectiveBrand` e `buildWhatsappSupportUrl`.
+- **`app/(app)/settings/{page.tsx,brand-form.tsx,actions.ts,actions.test.ts}`, `components/brand-mark.tsx`, `app/(app)/layout.tsx` e `app/(app)/nav.tsx`:** item **White-Label** (`/settings`) no menu lateral, formulário completo de identidade da marca com validação Zod e rate limit, e aplicação efetiva no layout autenticado (variáveis CSS de cor primária/secundária, logotipo, favicon, ocultação da marca Clinkup quando `hide_clinkup = true` e link direto de suporte no WhatsApp).
+- **Testes:** `npm test` 489/489 (87 arquivos, incluindo `organization-brand.test.ts`, `settings/actions.test.ts`, `packaging.test.ts`, `tenant-brand.test.ts` e `config/organization-brand.test.ts`); `npm run test:db` verde (+6 cenários RLS de `organization_brands`); `npx tsc --noEmit`, `npm run lint` (0 erros, 0 warnings) e `npm run build` verdes. Fase 9 concluída.
 
 ### 9.3 Adaptador de billing Asaas (Pix/boleto e assinaturas recorrentes) — ✅ (2026-11-21)
 - **Migration `20261121175831_asaas_billing.sql`:** tabela `billing_invoices` (RLS por organização, leitura para membros, escrita somente servidor) e tabela privada `billing_webhook_events` com chave primária `(provider, event_id)` garantindo idempotência estrita contra reenvios.

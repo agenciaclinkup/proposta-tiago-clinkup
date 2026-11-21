@@ -8,6 +8,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     // Ignora assets estáticos e webhooks (que têm autenticação própria).
-    "/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/cron/publish(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/health(?:/|$)|api/cron/publish(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

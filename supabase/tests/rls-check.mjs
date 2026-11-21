@@ -638,3 +638,15 @@ await asService(`insert into public.billing_webhook_events(provider,event_id,eve
 await expectFail("duplicate asaas webhook event_id is rejected", () =>
   asService(`insert into public.billing_webhook_events(provider,event_id,event_type,organization_id) values('asaas','evt_unique_1','PAYMENT_CONFIRMED','${orgA}')`)
 );
+
+// Fase 9.4: identidade White-Label por organização com RLS estrito e elegibilidade por plano/licença.
+await expectFail("starter owner cannot create white-label brand without license", () =>
+  as(A, `insert into public.organization_brands(organization_id,name,primary_color,secondary_color,support_email,support_whatsapp,hide_clinkup) values('${orgA}','Marca A','#00D4FF','#2563EB','suporte@a.com','5511999998888',true)`)
+);
+await asService(`update public.organizations set is_white_label=true where id='${orgA}'`);
+await as(A, `insert into public.organization_brands(organization_id,name,primary_color,secondary_color,support_email,support_whatsapp,hide_clinkup) values('${orgA}','Marca A','#00D4FF','#2563EB','suporte@a.com','5511999998888',true)`);
+check("eligible owner saves and reads own white-label brand", (await as(A, `select name, hide_clinkup from public.organization_brands where organization_id='${orgA}'`)).rows[0]?.name === 'Marca A');
+check("other tenant cannot read white-label brand", (await as(B, `select * from public.organization_brands`)).rows.length === 0);
+check("other tenant cannot mutate org A white-label brand", (await as(B, `update public.organization_brands set name='Hackeada' where organization_id='${orgA}' returning organization_id`)).rows.length === 0);
+check("member cannot update white-label brand", (await as(C, `update public.organization_brands set name='Alterada' where organization_id='${orgA}' returning organization_id`)).rows.length === 0);
+check("member reads own organization white-label brand", (await as(C, `select name from public.organization_brands where organization_id='${orgA}'`)).rows[0]?.name === 'Marca A');

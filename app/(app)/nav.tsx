@@ -11,6 +11,7 @@ import {
   Megaphone,
   Palette,
   PlugZap,
+  Settings,
   ShieldAlert,
   TrendingUp,
   type LucideIcon,
@@ -28,6 +29,7 @@ const ITEMS: { href: string; label: string; icon: LucideIcon; ready: boolean }[]
   { href: "/meta-ads", label: "Meta Ads", icon: TrendingUp, ready: true },
   { href: "/integrations", label: "Integrações", icon: PlugZap, ready: true },
   { href: "/billing", label: "Planos", icon: CreditCard, ready: true },
+  { href: "/settings", label: "White-Label", icon: Settings, ready: true },
 ];
 
 export function Nav({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
