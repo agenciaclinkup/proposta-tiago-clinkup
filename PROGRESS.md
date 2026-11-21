@@ -7,11 +7,11 @@
 - **Fase:** Construção concluída (Fases 1–9 ✅ concluídas; 9.1–9.4 ✅)
 - **Etapa em andamento:** Pronto para execução do **Checklist Obrigatório de Go-Live** (etapa 1.3 + validações em ambiente real com credenciais, webhooks, Docker/Compose e advisors do Supabase)
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18). Limite de campanhas ativas Meta Ads (`maxActiveAdCampaigns`) — Starter 0 (indisponível) · Growth 20 · Scale 100.
-- **Última atualização:** 2026-11-21 — Antigravity (9.4 concluída; Fase 9 encerrada)
+- **Última atualização:** 2026-11-21 — Antigravity (Auditoria final de Go-Live concluída; `deploy/GO_LIVE_RUNBOOK.md` publicado)
 
 ## Próxima microtarefa (exata)
 
-**Go-Live & Validação em Staging/Produção (etapa final):** executar integralmente a seção **`## CHECKLIST OBRIGATÓRIO DE GO-LIVE (NÃO PULAR)`** abaixo — aplicar todas as migrations no Supabase real (`npx supabase db push`), rodar advisors de segurança/performance, configurar variáveis de ambiente no servidor, validar imagem Docker/Compose em ambiente com Docker ativo, e testar de ponta a ponta Auth, RLS entre dois tenants, Stripe/Asaas, Telegram, OAuth Meta/Google, CRM, Calendário/Cron, Estúdio, Prospecção B2B, Meta Ads, Dashboard Executivo, `/admin` e White-Label `/settings`.
+**Go-Live & Validação em Staging/Produção (etapa final):** seguir [`deploy/GO_LIVE_RUNBOOK.md`](./deploy/GO_LIVE_RUNBOOK.md) e executar integralmente a seção **`## CHECKLIST OBRIGATÓRIO DE GO-LIVE (NÃO PULAR)`** abaixo — aplicar todas as 23 migrations no Supabase real (`npx supabase db push`), rodar advisors de segurança/performance, configurar variáveis de ambiente e webhooks (Stripe, Asaas, Telegram, Meta, Google), validar imagem Docker/Compose em ambiente com Docker ativo e concluir o smoke test ponta a ponta entre duas organizações.
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
