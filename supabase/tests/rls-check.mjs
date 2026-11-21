@@ -605,3 +605,23 @@ check("other tenant sees zero meta ads campaigns, sets, ads, snapshots and logs"
   (await as(B, `select * from public.ad_metric_snapshots`)).rows.length === 0 &&
   (await as(B, `select * from public.ad_action_logs`)).rows.length === 0
 );
+
+// Fase 9.2: trilha de auditoria imutável do Super-Admin e bônus de créditos.
+await expectFail("authenticated cannot read admin audit logs", () => as(A, `select * from public.admin_audit_logs`));
+await expectFail("authenticated cannot insert admin audit logs", () =>
+  as(A, `insert into public.admin_audit_logs(actor_id,actor_email,action,reason) values('${A}','a@example.com','update_subscription','forged')`)
+);
+const auditId = (await asService(`insert into public.admin_audit_logs(actor_id,actor_email,target_organization_id,action,reason,before_state,after_state) values('${A}','admin@clinkup.com','${orgA}','update_subscription','Cortesia','{}'::jsonb,'{"planId":"scale"}'::jsonb) returning id`)).rows[0].id;
+await expectFail("admin audit logs cannot be updated even by service_role", () =>
+  asService(`update public.admin_audit_logs set reason='alterado' where id='${auditId}'`)
+);
+await expectFail("admin audit logs cannot be deleted even by service_role", () =>
+  asService(`delete from public.admin_audit_logs where id='${auditId}'`)
+);
+await expectFail("authenticated cannot grant usage bonus", () =>
+  as(A, `select public.grant_usage_bonus('${orgA}','ai_credits',100)`)
+);
+const bonusRes = (await asService(`select public.grant_usage_bonus('${orgB}','ai_credits',2) as result`)).rows[0].result;
+check("usage bonus expands effective monthly limit in consume_usage", bonusRes.bonus === 2 && (await asService(`select public.consume_usage('${orgB}','ai_credits',2,0) as result`)).rows[0].result.allowed === true);
+const reducedBonus = (await asService(`select public.grant_usage_bonus('${orgB}','ai_credits',-999) as result`)).rows[0].result;
+check("usage bonus never drops below zero", reducedBonus.bonus === 0);

@@ -29,6 +29,7 @@ export const RATE_LIMITS = {
   prospectingSearch: { limit: 5, windowSeconds: 600 },
   metaAdsSync: { limit: 10, windowSeconds: 600 },
   metaAdsWrite: { limit: 20, windowSeconds: 600 },
+  superAdminWrite: { limit: 30, windowSeconds: 600 },
   landingCapture: { limit: 8, windowSeconds: 600 },
   landingMedia: { limit: 120, windowSeconds: 60 },
 } satisfies Record<string, RateRule>;

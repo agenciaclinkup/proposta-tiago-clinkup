@@ -4,15 +4,15 @@
 
 ## Estado atual
 
-- **Fase:** 9 — Escala, Dashboard Executivo, Admin, Asaas & White-Label (Fases 2–8 ✅ concluídas; 9.1 ✅)
-- **Etapa em andamento:** pronta para iniciar 9.2
+- **Fase:** 9 — Escala, Dashboard Executivo, Admin, Asaas & White-Label (Fases 2–8 ✅ concluídas; 9.1 ✅, 9.2 ✅)
+- **Etapa em andamento:** pronta para iniciar 9.3
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18). Limite de campanhas ativas Meta Ads (`maxActiveAdCampaigns`) — Starter 0 (indisponível) · Growth 20 · Scale 100.
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-21 — Antigravity (9.1 concluída)
+- **Última atualização:** 2026-11-21 — Antigravity (9.2 concluída)
 
 ## Próxima microtarefa (exata)
 
-**9.2 — Painel Super-Admin (`/admin`):** criar camada de serviço protegida exclusivamente para `profiles.is_super_admin = true` (verificada no servidor com `getUser()` + cliente admin, jamais confiando no cliente), listando organizações/tenants, plano e status da assinatura, consumo mensal de `usage_counters` (créditos IA, leads extraídos, posts agendados) e ações auditáveis para liberar/revogar licença White-Label (`organizations.is_white_label`) e ajustar plano manual de cortesia/enterprise, com rate limit, validação Zod, testes unitários/banco, `tsc --noEmit`, `lint` e `build`. Na sequência da Fase 9: 9.3 adaptador de billing Asaas (Pix/boleto) e 9.4 empacotamento White-Label dedicado (`docker-compose.yml`, variáveis de marca e banco dedicado).
+**9.3 — Adaptador de billing Asaas (Pix/boleto) + webhook verificado:** implementar o adaptador desacoplado Asaas (`lib/billing/asaas.ts`, somente servidor, timeout, Zod e modo simulado para testes), endpoint de webhook `/api/webhooks/asaas` com verificação de token em tempo constante (`ASAAS_WEBHOOK_TOKEN`), rate limit por IP e sincronização de `subscriptions` (`provider = 'asaas'`) e `organizations.plan_id` via cliente admin, integrando a opção Pix/boleto em `/billing` sem quebrar o checkout Stripe existente. Na sequência da Fase 9: 9.4 empacotamento White-Label dedicado (`docker-compose.yml`, variáveis de marca e banco dedicado).
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -214,7 +214,16 @@
 
 - [ ] **Dashboard executivo (9.1):** validar visualmente `/dashboard?period=7d|30d|90d` em desktop e celular com dados reais de duas organizações distintas (conferindo isolamento total dos KPIs e gráficos Recharts, tooltips em `pt-BR`, estados vazios amigáveis e atalhos rápidos para cada módulo).
 
+- [ ] **Painel Super-Admin `/admin` (9.2):** aplicar `20261121174835_super_admin_audit.sql`, rodar advisors e confirmar que `admin_audit_logs` não tem grants para `anon`/`authenticated`, que `grant_usage_bonus` é executável somente por `service_role` e que `UPDATE`/`DELETE` em `admin_audit_logs` é bloqueado pelo trigger `admin_audit_immutable`. Configurar `SUPER_ADMIN_EMAILS` somente no servidor (nunca `NEXT_PUBLIC_`). Validar em produção: usuário comum autenticado acessando `/admin` é redirecionado para `/dashboard` sem ver dados e tem as Server Actions bloqueadas; operador Super-Admin visualiza KPIs globais, filtra organizações, altera plano/status/White-Label, concede bônus de créditos de IA (refletido em `consume_usage`) e verifica o registro imutável na trilha de auditoria.
+
 ## Concluído
+
+### 9.2 Painel Super-Admin `/admin` da plataforma — ✅ (2026-11-21)
+- **Migration `20261121174835_super_admin_audit.sql`:** tabela privada e imutável `admin_audit_logs` (RLS ativo, sem grants para `anon`/`authenticated`, trigger `prevent_admin_audit_mutation` bloqueando `UPDATE`/`DELETE` mesmo sob `service_role`), coluna `bonus` em `usage_counters`, atualização de `consume_usage` para respeitar `p_limit + bonus` e RPC `grant_usage_bonus` (`service_role`).
+- **`lib/super-admin.ts` e `super-admin.test.ts`:** validação estrita no servidor via `profiles.is_super_admin` ou `SUPER_ADMIN_EMAILS` (documentada em `.env.example`, somente servidor); `requireSuperAdmin` redireciona usuários comuns para `/dashboard` e `assertSuperAdminActor` bloqueia ações não autorizadas.
+- **`lib/services/super-admin.ts` e `super-admin.test.ts`:** `getAdminOverview`, `buildAdminOverview`, `adminUpdateTenantSubscription` e `adminAdjustTenantAiCredits` com validação Zod e registro obrigatório em `admin_audit_logs`.
+- **`app/(app)/admin/{page,view,actions,actions.test}.ts(x)` + `layout.tsx`/`nav.tsx`:** item "Super-Admin" exibido no menu apenas para operadores autorizados; KPIs globais do SaaS, busca e filtros por plano/status, inspeção de uso mensal vs. limites, ajustes manuais auditados (plano, status, White-Label e bônus de créditos de IA) com rate limit `superAdminWrite` e visualização da trilha de auditoria imutável.
+- **Testes:** `npm test` 460/460 (79 arquivos, +9 testes); `npm run test:db` verde (+7 cenários de imutabilidade de auditoria e bônus de créditos); `npx tsc --noEmit`, `npm run lint` (0 erros, 0 warnings) e `npm run build` (`/admin` 8,4 kB) verdes.
 
 ### 9.1 Dashboard executivo com KPIs reais e gráficos Recharts — ✅ (2026-11-21)
 - **`lib/services/dashboard.ts` e `dashboard.test.ts`:** serviço agregador multi-tenant (`getExecutiveDashboard`, `buildExecutiveDashboardMetrics`, `parseDashboardPeriod`) com filtro de período (`7d`, `30d`, `90d`) e cálculos seguros sem divisão por zero consolidando Funil & CRM, Conteúdo & Redes Sociais, Prospecção B2B & Estúdio e Tráfego Pago (Meta Ads via `ad_metric_snapshots` com fallback para `ad_campaigns.metrics`).

@@ -2,6 +2,7 @@ import { LogOut } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { getPlan } from "@/config/plans";
+import { isSuperAdminUser } from "@/lib/super-admin";
 import { requireWorkspace } from "@/lib/workspace";
 import { signOut } from "../(auth)/actions";
 import { Nav } from "./nav";
@@ -9,6 +10,7 @@ import { Nav } from "./nav";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { organization, profile, user } = await requireWorkspace();
   const plan = getPlan(organization.plan_id);
+  const isSuperAdmin = isSuperAdminUser(user, profile);
 
   return (
     <div className="min-h-svh lg:grid lg:grid-cols-[260px_1fr]">
@@ -16,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="mb-4 flex items-center justify-between lg:mb-8">
           <BrandMark />
         </div>
-        <Nav />
+        <Nav isSuperAdmin={isSuperAdmin} />
         <div className="mt-4 hidden border-t border-sidebar-border pt-4 lg:mt-auto lg:block">
           <p className="truncate text-sm font-medium">{organization.name}</p>
           <p className="truncate text-xs text-muted-foreground">

@@ -11,6 +11,7 @@ import {
   Megaphone,
   Palette,
   PlugZap,
+  ShieldAlert,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -29,12 +30,15 @@ const ITEMS: { href: string; label: string; icon: LucideIcon; ready: boolean }[]
   { href: "/billing", label: "Planos", icon: CreditCard, ready: true },
 ];
 
-export function Nav() {
+export function Nav({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const pathname = usePathname();
+  const items = isSuperAdmin
+    ? [...ITEMS, { href: "/admin", label: "Super-Admin", icon: ShieldAlert, ready: true }]
+    : ITEMS;
 
   return (
     <nav aria-label="Navegação principal" className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
-      {ITEMS.map(({ href, label, icon: Icon, ready }) => {
+      {items.map(({ href, label, icon: Icon, ready }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         const content = (
           <>
