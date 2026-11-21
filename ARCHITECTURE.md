@@ -141,6 +141,8 @@ O gateway normalizado recebe `POST` com Bearer e JSON `{ niche, location, maxRes
 
 As buscas B2B usam município/CNPJ e não aplicam raio geográfico; o valor `radius_km = 1` é apenas um preenchimento exigido pelo contrato herdado da 7.1 e não deve ser apresentado como filtro efetivo.
 
+**7.3 implementada:** o Hermes expõe revisão (`list_prospect_searches`, `list_prospect_results`), consultas B2B autorizadas (`lookup_cnpj_prospects`, `search_commercial_prospects`, com chave UUID v5 idempotente por mensagem e parâmetros, rate limit compartilhado e registro obrigatório de origem e base legal via `runB2bProspecting`) e envio ao CRM protegido por confirmação persistente de uso único (`propose_send_prospects_to_crm` + `confirm_prospect_transfer`, tabela privada `prospect_confirmations` e função transacional `confirm_prospect_transfer`, vinculadas a empresa, usuário, canal, conversa, etapa e lote de até 20 empresas). A prova é lida exclusivamente da mensagem real do usuário (`CONFIRMAR <código>`) e ocultada de `hermes_logs`.
+
 ## 3. Tools do Agente Hermes
 
 Cada Tool = wrapper de um service com o mesmo schema Zod, executada sempre por `runTool` (`lib/hermes/run-tool.ts`): valida com Zod, executa, grava `hermes_logs` e devolve `{ ok, data | error }` — `ServiceError` vira mensagem amigável; erro interno vira mensagem genérica (detalhe só no log). `ai_credits` é cobrado por turno do agente (Fase 2.3), não por Tool. Ações com custo (campanhas, publicação imediata) usam `needsApproval` e pedem confirmação explícita do usuário. Registro: `lib/hermes/tools.ts` (`HERMES_TOOLS`, `buildHermesTools(ctx)`).

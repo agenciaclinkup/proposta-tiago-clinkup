@@ -4,15 +4,15 @@
 
 ## Estado atual
 
-- **Fase:** 7 — Leads & Ads (Fases 2, 3, 4, 5 e 6 ✅ concluídas)
-- **Etapa em andamento:** 7.3 — Tools do Agente Hermes para Prospecção B2B
+- **Fase:** 8 — Escala (Fases 2, 3, 4, 5, 6 e 7 ✅ concluídas)
+- **Etapa em andamento:** pronta para iniciar 8.1
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-20 — Codex (7.2)
+- **Última atualização:** 2026-11-21 — Antigravity (7.3 concluída; Fase 7 encerrada)
 
 ## Próxima microtarefa (exata)
 
-**7.3 — Tools do Agente Hermes para Prospecção B2B:** expor consulta por CNPJ, busca comercial, listagem e envio ao CRM usando `runB2bProspecting`, `listProspectSearches`, `listProspects` e `sendProspectToCrm`. Reutilizar schemas e regras de cota, isolamento, declaração explícita de origem/base legal e idempotência entre turnos e chamadas paralelas. Desambiguar empresas e etapas antes de transferir, apresentar custos e falhas em pt-BR e manter Google Places desconectado da persistência. Cobrir web/Telegram, limite, falhas, replays, testes de banco, build, lint e `tsc`; preparar a microtarefa seguinte.
+**8.1 — Dashboard executivo com KPIs reais e gráficos Recharts (`/dashboard`):** consolidar métricas reais por organização (leads extraídos, oportunidades no funil, taxa de conversão, posts agendados/publicados, consumo do plano e atividades recentes do Hermes) com visualizações Recharts responsivas em pt-BR, isolamento multi-tenant, testes unitários/banco, `tsc --noEmit`, `lint` e `build`. Na sequência da Fase 8: 8.2 `/admin` (gestão de tenants, licenças White-Label e consumo), 8.3 adaptador Asaas (Pix/boleto) e 8.4 empacotamento White-Label (`docker-compose.yml` e banco dedicado).
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -204,7 +204,16 @@
 
 - [ ] **Fontes B2B (7.2):** aplicar `20261121012536_b2b_prospect_provenance.sql`, rodar advisors e validar com duas empresas RLS, declaração, idempotência, reservas e concorrência real; configurar `B2B_PROSPECTING_API_URL` e `B2B_PROSPECTING_API_KEY` somente no servidor e conferir licença, política de dados, cobranças, cotas e contrato de resposta da fonte contratada. Validar BrasilAPI e Casa dos Dados com credenciais/dados reais, formatos CSV/JSON, acessibilidade e telas. Conferir o limite de cinco CNPJs por lote e eventual bloqueio da BrasilAPI; não armazenar quadro societário nem conteúdo do Google Places. A declaração registra a informação fornecida pelo usuário e não comprova por si só a autorização.
 
+- [ ] **Hermes na prospecção B2B (7.3):** aplicar `20261121143851_prospect_transfer_confirmation.sql`, rodar advisors e confirmar que `prospect_confirmations` não tem grants para `anon`/`authenticated` e que `confirm_prospect_transfer` é executável somente por `service_role`. Validar em web e Telegram: consulta por CNPJ (BrasilAPI) e busca comercial (CNAE/município) exigindo declaração de origem e base legal do usuário; deduplicação e idempotência na mesma mensagem; `propose_send_prospects_to_crm` gerando `CONFIRMAR <código>` (oculto em `hermes_logs`) e `confirm_prospect_transfer` transferindo atomicamente apenas com o comando enviado em nova mensagem, recusando replay, expiração (15 min), outro usuário/org/canal/conversa e revertendo todo o lote ao atingir o limite de leads no CRM.
+
 ## Concluído
+
+### 7.3 Tools do Agente Hermes para Prospecção B2B — ✅ (2026-11-21)
+- **Migration `20261121143851_prospect_transfer_confirmation.sql`:** tabela privada `prospect_confirmations` (FK composta para `crm_stages(id, pipeline_id, organization_id)`, expiração de 15 min, prova em hash SHA-256) e função transacional `confirm_prospect_transfer` (somente `service_role`), que trava a confirmação e a empresa, valida vínculo de organização/usuário/canal/conversa/etapa e chama `send_scraped_lead_to_crm` para o lote inteiro na mesma transação (rollback total em erro ou limite).
+- **`lib/services/prospect-confirmations.ts`:** `proposeProspectTransfer` (valida vínculo, etapa por nome/ID, existência/status dos leads na org e limite de `crmLeads`) e `confirmProspectTransfer` com tradução de erros em pt-BR.
+- **`lib/hermes/prospect-review-tools.ts` e `lib/hermes/prospect-tools.ts`:** Tools `list_prospect_searches`, `list_prospect_results`, `lookup_cnpj_prospects`, `search_commercial_prospects`, `propose_send_prospects_to_crm` e `confirm_prospect_transfer` integradas em `lib/hermes/tools.ts`, com chave UUID v5 idempotente por mensagem/parâmetros, rate limit compartilhado, declaração obrigatória de origem/base legal e prova lida exclusivamente da mensagem real do usuário (`approval.proof`, código ocultado em `hermes_logs`).
+- **`lib/hermes/tool-labels.ts` e `lib/hermes/system-prompt.ts`:** rótulos pt-BR e orientações de prospecção B2B (declaração de origem/base legal, cota mensal, Google Places desconectado, desambiguação e confirmação persistente; Meta Ads segue marcado como em breve).
+- **Testes:** `npm test` 420/420 (70 arquivos, incluindo `prospect-confirmations.test.ts`, `prospect-tools.test.ts`, `prospect-review-tools.test.ts`, `prospect-registration.test.ts`, `tools.test.ts` e `system-prompt.test.ts`); `npm run test:db` verde (inclui 11 novos cenários de `prospect_confirmations`/`confirm_prospect_transfer`); `npx tsc --noEmit`, `npm run lint` e `npm run build` verdes. Fase 7 concluída.
 
 ### 7.2 Prospecção B2B autorizada — ✅ (2026-11-20)
 - `lib/prospecting/b2b.ts`, `import-file.ts` e `lib/services/b2b-prospecting.ts`: consulta unitária/lote de CNPJ pela BrasilAPI, Casa dos Dados v5 por CNAE/município, gateway normalizado e importação CSV/JSON; timeout, validação, idempotência e deduplicação por CNPJ reutilizam a 7.1.

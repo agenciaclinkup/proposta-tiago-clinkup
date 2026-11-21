@@ -37,3 +37,16 @@ describe("Estúdio no prompt do Hermes", () => {
     expect(prompt).not.toMatch(/Carrosséis no estúdio[^.]*em breve/);
   });
 });
+
+describe("Prospecção B2B no prompt do Hermes", () => {
+  it("exige origem/base legal e confirmação persistente antes de enviar ao CRM", () => {
+    const prompt = buildSystemPrompt({ ...base, masterContext: null });
+    expect(prompt).toContain("lookup_cnpj_prospects");
+    expect(prompt).toContain("search_commercial_prospects");
+    expect(prompt).toContain("propose_send_prospects_to_crm");
+    expect(prompt).toContain("confirm_prospect_transfer");
+    expect(prompt).toContain("base legal");
+    expect(prompt).toContain("Google Places não é usado");
+    expect(prompt).not.toMatch(/Extração de leads[^.]*em breve/);
+  });
+});

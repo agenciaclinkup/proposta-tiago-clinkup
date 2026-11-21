@@ -535,3 +535,27 @@ await expectFail("other tenant cannot declare source", () => recordSource(orgB, 
 check("authorized source recorded", (await recordSource(orgA, A)).rows[0].ok === true);
 check("other tenant cannot read B2B source", (await as(B, `select * from public.prospect_sources`)).rows.length === 0);
 await expectFail("idempotency key cannot change B2B contents", () => recordSource(orgA, A, 'b'.repeat(64)));
+
+// Fase 7.3: confirmação persistente e transacional de transferência de prospecção ao CRM pelo Hermes.
+const prospectStageB = (await asService(`select id, pipeline_id from public.crm_stages where organization_id = '${orgB}' order by position limit 1`)).rows[0];
+const confirmProspectConv = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const prospectProof1 = '4'.repeat(64);
+await expectFail("prospect confirmation rejects another organization's stage", () =>
+  asService(`insert into public.prospect_confirmations(organization_id,user_id,channel,conversation_id,proof_hash,pipeline_id,stage_id,prospect_ids) values('${orgB}','${B}','telegram','${confirmProspectConv}','${prospectProof1}','${landingStageA.pipeline_id}','${landingStageA.id}',array['${prospectB}']::uuid[])`)
+);
+await asService(`insert into public.prospect_confirmations(organization_id,user_id,channel,conversation_id,proof_hash,pipeline_id,stage_id,prospect_ids) values('${orgB}','${B}','telegram','${confirmProspectConv}','${prospectProof1}','${prospectStageB.pipeline_id}','${prospectStageB.id}',array['${prospectB}']::uuid[])`);
+await expectFail("prospect confirmation table is private", () => as(B, `select * from public.prospect_confirmations`));
+const confirmProspect = (org, user, channel, conv, hash, limit = 1000) =>
+  asService(`select public.confirm_prospect_transfer('${org}','${user}','${channel}',${conv ? `'${conv}'` : 'null'},'${hash}',${limit}) as result`);
+await expectFail("authenticated cannot call confirm_prospect_transfer directly", () => as(B, `select public.confirm_prospect_transfer('${orgB}','${B}','telegram','${confirmProspectConv}','${prospectProof1}',1000)`));
+await expectFail("prospect confirmation rejects other organization", () => confirmProspect(orgA, A, 'telegram', confirmProspectConv, prospectProof1));
+await expectFail("prospect confirmation rejects other channel", () => confirmProspect(orgB, B, 'web', confirmProspectConv, prospectProof1));
+await expectFail("prospect confirmation rejects other conversation", () => confirmProspect(orgB, B, 'telegram', null, prospectProof1));
+await expectFail("prospect confirmation rolls back when CRM limit is exceeded", () => confirmProspect(orgB, B, 'telegram', confirmProspectConv, prospectProof1, 0));
+check("failed prospect confirmation remains unconsumed", (await asService(`select consumed_at from public.prospect_confirmations where proof_hash='${prospectProof1}'`)).rows[0].consumed_at === null);
+const transferred = (await confirmProspect(orgB, B, 'telegram', confirmProspectConv, prospectProof1, 1000)).rows[0].result;
+check("prospect confirmation transfers selected leads atomically", transferred.transferredCount === 1 && transferred.stageId === prospectStageB.id && (await as(B, `select status from public.scraped_leads where id='${prospectB}'`)).rows[0].status === 'sent_to_crm');
+await expectFail("prospect confirmation cannot be replayed", () => confirmProspect(orgB, B, 'telegram', confirmProspectConv, prospectProof1, 1000));
+const expiredProspectProof = '5'.repeat(64);
+await asService(`insert into public.prospect_confirmations(organization_id,user_id,channel,conversation_id,proof_hash,pipeline_id,stage_id,prospect_ids,expires_at) values('${orgB}','${B}','telegram','${confirmProspectConv}','${expiredProspectProof}','${prospectStageB.pipeline_id}','${prospectStageB.id}',array['${prospectB}']::uuid[],now() - interval '1 second')`);
+await expectFail("expired prospect confirmation is rejected", () => confirmProspect(orgB, B, 'telegram', confirmProspectConv, expiredProspectProof, 1000));
