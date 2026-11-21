@@ -27,6 +27,8 @@ export const RATE_LIMITS = {
   // Cada geração pode consumir crédito e chamar o provedor de IA.
   studioGenerateUser: { limit: 10, windowSeconds: 60 },
   prospectingSearch: { limit: 5, windowSeconds: 600 },
+  metaAdsSync: { limit: 10, windowSeconds: 600 },
+  metaAdsWrite: { limit: 20, windowSeconds: 600 },
   landingCapture: { limit: 8, windowSeconds: 600 },
   landingMedia: { limit: 120, windowSeconds: 60 },
 } satisfies Record<string, RateRule>;

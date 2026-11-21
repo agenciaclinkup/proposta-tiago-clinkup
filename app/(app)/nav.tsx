@@ -11,6 +11,7 @@ import {
   Megaphone,
   Palette,
   PlugZap,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ const ITEMS: { href: string; label: string; icon: LucideIcon; ready: boolean }[]
   { href: "/calendar", label: "Calendário", icon: CalendarDays, ready: true },
   { href: "/studio", label: "Estúdio", icon: Palette, ready: true },
   { href: "/leads-ads", label: "Prospecção", icon: Megaphone, ready: true },
+  { href: "/meta-ads", label: "Meta Ads", icon: TrendingUp, ready: true },
   { href: "/integrations", label: "Integrações", icon: PlugZap, ready: true },
   { href: "/billing", label: "Planos", icon: CreditCard, ready: true },
 ];

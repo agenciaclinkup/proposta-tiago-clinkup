@@ -4,15 +4,15 @@
 
 ## Estado atual
 
-- **Fase:** 8 — Escala & Meta Ads (Fases 2, 3, 4, 5, 6 e 7 ✅ concluídas; 8.1 ✅)
-- **Etapa em andamento:** pronta para iniciar 8.2
+- **Fase:** 8 — Escala & Meta Ads (Fases 2, 3, 4, 5, 6 e 7 ✅ concluídas; 8.1 ✅, 8.2 ✅)
+- **Etapa em andamento:** pronta para iniciar 8.3
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18). Limite de campanhas ativas Meta Ads (`maxActiveAdCampaigns`) — Starter 0 (indisponível) · Growth 20 · Scale 100.
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-21 — Antigravity (8.1 concluída)
+- **Última atualização:** 2026-11-21 — Antigravity (8.2 concluída)
 
 ## Próxima microtarefa (exata)
 
-**8.2 — Interface do Gestor Meta Ads (`/leads-ads` aba/seção Meta Ads) e Tools do Agente Hermes para Meta Ads:** expor prontidão da conta, configuração de tetos diário/mensal (admin/owner), sincronização de campanhas/métricas, listagem, pausa segura e fluxo de proposta + confirmação persistente (`CONFIRMAR <código>`) para criar campanha, ativar e alterar orçamento — tanto na UI quanto nas Tools do Hermes (`check_ads_readiness`, `list_ad_campaigns`, `propose_ad_campaign`, `propose_update_ad_budget`, `propose_activate_ad_campaign`, `confirm_ad_action`, `pause_ad_campaign`), atualizando `system-prompt.ts` e `tool-labels.ts` em `pt-BR`. Na sequência: Dashboard executivo com KPIs reais + Recharts, `/admin`, adaptador Asaas e empacotamento White-Label (`docker-compose.yml`).
+**8.3 — Tools do Agente Hermes para Meta Ads:** expor no Hermes (web e Telegram) as ferramentas de gestão de Meta Ads reutilizando `lib/services/meta-ads.ts`: `check_ads_readiness`, `list_ad_campaigns`, `propose_ad_campaign` (com chave `requestId` UUID v5 idempotente por mensagem/parâmetros), `propose_activate_ad_campaign`, `propose_update_ad_budget`, `confirm_ad_action` (lendo a prova exclusivamente de `approval.proof` da mensagem real do usuário e ocultando o código de `hermes_logs`) e `pause_ad_campaign`. Atualizar `lib/hermes/tools.ts`, `lib/hermes/tool-labels.ts` e `lib/hermes/system-prompt.ts` em `pt-BR` (removendo o aviso "em breve" de Meta Ads), com testes unitários, `test:db`, `tsc --noEmit`, `lint` e `build`. Na sequência da Fase 8: 8.4 Dashboard executivo com KPIs reais + Recharts, 8.5 `/admin` + Asaas + White-Label (`docker-compose.yml`).
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -208,7 +208,17 @@
 
 - [ ] **Meta Ads — dados, serviços e proteções financeiras (8.1):** aplicar `20261121145101_meta_ads_module.sql`, rodar advisors e confirmar que `ad_action_confirmations` não tem grants para `anon`/`authenticated` e que `consume_ad_action_confirmation` é executável somente por `service_role`. Validar em staging com conta real de testes da Meta Marketing API (`v27.0`, permissões `ads_management` e `ads_read` aprovadas no App Review): sincronização de campanhas, conjuntos, anúncios e insights (`spend`, `impressions`, `clicks`, `actions[lead]`, `purchase_roas`); bloqueio de gasto quando `daily_budget_cap_cents = 0`; rejeição acima do teto diário/mensal e do limite `maxActiveAdCampaigns` do plano; confirmação persistente de uso único para criar, ativar e ajustar orçamento; auditoria em `ad_action_logs`; isolamento estrito de tokens por organização via `integration_secrets`. Confirmar também com o produto os limites `maxActiveAdCampaigns` (Growth 20 / Scale 100) em `config/plans.ts`.
 
+- [ ] **Meta Ads — interface `/meta-ads` (8.2):** validar visualmente `/meta-ads` em desktop e celular (navegação por teclado, leitor de tela e contraste Dark Mode): banner do plano Starter redirecionando para `/billing`; vinculação de conta Meta Ads conectada; bloqueio visual e no servidor enquanto o teto diário estiver zerado; configuração de tetos como `owner`/`admin` (e bloqueio como `member`); sincronização real de campanhas/métricas (CTR e CPC); fluxo completo de proposta → checkbox de aprovação financeira → execução confirmada para criar campanha, ativar e ajustar verba; pausa segura imediata e histórico em `ad_action_logs`.
+
 ## Concluído
+
+### 8.2 Interface de Gestão de Meta Ads, tetos financeiros e aprovação explícita — ✅ (2026-11-21)
+- **`app/(app)/nav.tsx`:** item **Meta Ads** (`/meta-ads`) ativado no menu lateral.
+- **`lib/meta-ads/metrics.ts` e `lib/meta-ads/metrics.test.ts`:** cálculos puros e seguros (sem `NaN`/`Infinity`) de investimento, impressões, cliques, leads, CTR, CPC, CPL, conversão BRL↔centavos e rótulos em `pt-BR`.
+- **`lib/rate-limit.ts`:** regras dedicadas `metaAdsSync` (10/10 min) e `metaAdsWrite` (20/10 min), aplicadas por usuário e por organização.
+- **`app/(app)/meta-ads/actions.ts` e `actions.test.ts`:** Server Actions com Zod, `requireWorkspace()`, rate limit por usuário/org e delegação estrita para `lib/services/meta-ads.ts` (`linkMetaAdAccountAction`, `updateBudgetCapsAction`, `syncMetaAdsAction`, `proposeCreateCampaignAction`, `proposeActivateCampaignAction`, `proposeUpdateBudgetAction`, `confirmMetaAdsAction` com `confirmed: true`, `pauseCampaignAction`).
+- **`app/(app)/meta-ads/page.tsx` e `view.tsx`:** painel completo em Dark Mode Clinkup com prontidão da conta, vínculo/seletor de conta, sincronização manual, configuração obrigatória de tetos diário/mensal (admin/owner), KPIs consolidados e por campanha (investimento, impressões, cliques, leads, CTR, CPC), painel de aprovação financeira explícita, pausa segura, banner informativo para plano Starter com link para `/billing` e histórico de auditoria (`ad_action_logs`).
+- **Testes:** `npm test` 440/440 (74 arquivos, +8 testes em `metrics.test.ts` e `app/(app)/meta-ads/actions.test.ts`); `npm run test:db`, `npx tsc --noEmit`, `npm run lint` (0 erros, 0 warnings) e `npm run build` (`/meta-ads` 10,2 kB) verdes.
 
 ### 8.1 Dados e serviços compartilhados do módulo Meta Ads — ✅ (2026-11-21)
 - **Migration `20261121145101_meta_ads_module.sql`:** tabelas `meta_ad_accounts`, `ad_campaigns`, `ad_sets`, `ad_ads`, `ad_metric_snapshots`, `ad_action_logs` (leitura por membros via RLS, FKs compostas por `organization_id`, escrita somente servidor) e tabela privada `ad_action_confirmations` + RPC transacional `consume_ad_action_confirmation` (`service_role`), validando papel `owner`/`admin`, teto diário/mensal e limite de campanhas ativas do plano com bloqueio `for update`.
