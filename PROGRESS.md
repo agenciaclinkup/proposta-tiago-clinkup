@@ -4,15 +4,15 @@
 
 ## Estado atual
 
-- **Fase:** 9 — Escala, Dashboard Executivo, Admin, Asaas & White-Label (Fases 2, 3, 4, 5, 6, 7 e 8 ✅ concluídas)
-- **Etapa em andamento:** pronta para iniciar 9.1
+- **Fase:** 9 — Escala, Dashboard Executivo, Admin, Asaas & White-Label (Fases 2–8 ✅ concluídas; 9.1 ✅)
+- **Etapa em andamento:** pronta para iniciar 9.2
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18). Limite de campanhas ativas Meta Ads (`maxActiveAdCampaigns`) — Starter 0 (indisponível) · Growth 20 · Scale 100.
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-21 — Antigravity (8.3 concluída; Fase 8 encerrada)
+- **Última atualização:** 2026-11-21 — Antigravity (9.1 concluída)
 
 ## Próxima microtarefa (exata)
 
-**9.1 — Dashboard executivo com KPIs reais e gráficos Recharts (`/dashboard`):** consolidar indicadores reais por organização (leads extraídos, oportunidades no funil, taxa de conversão, posts agendados/publicados, investimento e ROAS em Meta Ads, consumo do plano e atividades recentes do Hermes) com visualizações Recharts responsivas em `pt-BR`, isolamento estrito por `organization_id`, testes unitários/banco, `tsc --noEmit`, `lint` e `build`. Na sequência da Fase 9: 9.2 painel Super-Admin (`/admin` para gestão de tenants, licenças White-Label e consumo de API), 9.3 adaptador de billing Asaas (Pix/boleto) e 9.4 empacotamento White-Label dedicado (`docker-compose.yml`, variáveis de marca e banco dedicado).
+**9.2 — Painel Super-Admin (`/admin`):** criar camada de serviço protegida exclusivamente para `profiles.is_super_admin = true` (verificada no servidor com `getUser()` + cliente admin, jamais confiando no cliente), listando organizações/tenants, plano e status da assinatura, consumo mensal de `usage_counters` (créditos IA, leads extraídos, posts agendados) e ações auditáveis para liberar/revogar licença White-Label (`organizations.is_white_label`) e ajustar plano manual de cortesia/enterprise, com rate limit, validação Zod, testes unitários/banco, `tsc --noEmit`, `lint` e `build`. Na sequência da Fase 9: 9.3 adaptador de billing Asaas (Pix/boleto) e 9.4 empacotamento White-Label dedicado (`docker-compose.yml`, variáveis de marca e banco dedicado).
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -212,7 +212,14 @@
 
 - [ ] **Hermes no Meta Ads (8.3):** validar em web e Telegram: `check_ads_readiness`, `list_ad_accounts`, `list_ad_campaigns` (KPIs calculados), `list_ad_action_logs`, `sync_ad_campaigns` e `pause_ad_campaign`; fluxo de proposta (`propose_ad_campaign`, `propose_activate_ad_campaign`, `propose_update_ad_budget`) gerando `CONFIRMAR <código>` oculto em `hermes_logs` e `confirm_ad_action` executando apenas com o comando enviado em nova mensagem; recusa em plano Starter, papel `member`, teto diário zerado, replay, expiração (15 min) e outro usuário/org/canal/conversa.
 
+- [ ] **Dashboard executivo (9.1):** validar visualmente `/dashboard?period=7d|30d|90d` em desktop e celular com dados reais de duas organizações distintas (conferindo isolamento total dos KPIs e gráficos Recharts, tooltips em `pt-BR`, estados vazios amigáveis e atalhos rápidos para cada módulo).
+
 ## Concluído
+
+### 9.1 Dashboard executivo com KPIs reais e gráficos Recharts — ✅ (2026-11-21)
+- **`lib/services/dashboard.ts` e `dashboard.test.ts`:** serviço agregador multi-tenant (`getExecutiveDashboard`, `buildExecutiveDashboardMetrics`, `parseDashboardPeriod`) com filtro de período (`7d`, `30d`, `90d`) e cálculos seguros sem divisão por zero consolidando Funil & CRM, Conteúdo & Redes Sociais, Prospecção B2B & Estúdio e Tráfego Pago (Meta Ads via `ad_metric_snapshots` com fallback para `ad_campaigns.metrics`).
+- **`app/(app)/dashboard/charts.tsx` e `page.tsx`:** substituição integral dos placeholders por KPIs reais, filtro de período na URL (`?period=7d|30d|90d`), 3 gráficos responsivos em Recharts (funil por etapa, evolução de investimento em Meta Ads e ritmo de conteúdo/prospecção), estados vazios amigáveis em `pt-BR`, copy atualizada do Hermes (sem avisos de "em breve") e atalhos rápidos para todos os módulos.
+- **Testes:** `npm test` 451/451 (76 arquivos, +4 testes em `lib/services/dashboard.test.ts`); `npm run test:db`, `npx tsc --noEmit`, `npm run lint` (0 erros, 0 warnings) e `npm run build` verdes.
 
 ### 8.3 Tools do Agente Hermes para Meta Ads — ✅ (2026-11-21)
 - **`lib/hermes/meta-ads-tools.ts`:** 10 Tools integradas em `lib/hermes/tools.ts` reutilizando `lib/services/meta-ads.ts` e `lib/meta-ads/metrics.ts`:

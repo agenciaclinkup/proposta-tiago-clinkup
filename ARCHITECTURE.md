@@ -151,6 +151,10 @@ As buscas B2B usam município/CNPJ e não aplicam raio geográfico; o valor `rad
 
 **8.3 implementada:** `lib/hermes/meta-ads-tools.ts` expõe no Hermes (web e Telegram) `check_ads_readiness`, `list_ad_accounts`, `list_ad_campaigns` (com KPIs calculados), `list_ad_action_logs`, `sync_ad_campaigns`, `pause_ad_campaign`, `propose_ad_campaign` (com chave `requestId` UUID v5 idempotente por mensagem e parâmetros), `propose_activate_ad_campaign`, `propose_update_ad_budget` e `confirm_ad_action` (lendo a prova exclusivamente de `approval.proof` da mensagem real do usuário, com código ocultado em `hermes_logs`). `system-prompt.ts` e `tool-labels.ts` atualizados em `pt-BR`.
 
+### Escala & Dashboard Executivo (Fase 9)
+
+**9.1 implementada:** `lib/services/dashboard.ts` agrega métricas reais com isolamento estrito por `organization_id` e filtro de período (`7d`, `30d`, `90d`) sem divisão por zero: Funil & CRM (total, novos no período, oportunidades abertas, conversão, valor e distribuição por etapa), Conteúdo & Redes (publicados no período, agendados, rascunhos e contas conectadas), Prospecção B2B & Estúdio (prospects capturados/enviados ao CRM, carrosséis, landing pages publicadas e créditos de IA) e Meta Ads (investimento, leads, CTR, CPC, CPL e tendência diária a partir de `ad_metric_snapshots` com fallback seguro para `ad_campaigns.metrics`). `/dashboard` substitui todos os placeholders por KPIs reais e gráficos responsivos Recharts (`app/(app)/dashboard/charts.tsx`) com estados vazios e atalhos rápidos em `pt-BR`.
+
 ## 3. Tools do Agente Hermes
 
 Cada Tool = wrapper de um service com o mesmo schema Zod, executada sempre por `runTool` (`lib/hermes/run-tool.ts`): valida com Zod, executa, grava `hermes_logs` e devolve `{ ok, data | error }` — `ServiceError` vira mensagem amigável; erro interno vira mensagem genérica (detalhe só no log). `ai_credits` é cobrado por turno do agente (Fase 2.3), não por Tool. Ações com custo (campanhas, publicação imediata) usam `needsApproval` e pedem confirmação explícita do usuário. Registro: `lib/hermes/tools.ts` (`HERMES_TOOLS`, `buildHermesTools(ctx)`).
