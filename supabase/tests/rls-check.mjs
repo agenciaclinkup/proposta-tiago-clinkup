@@ -497,8 +497,12 @@ check("CRM transfer is idempotent", sent.id === sentAgain.id && (await as(A, `se
 const secondSearchId = '40000000-0000-4000-8000-000000000002';
 const beforeRepeat = Number((await asService(`select used from public.usage_counters where organization_id='${orgA}' and metric='scraped_leads'`)).rows[0].used);
 await beginSearch(orgA, A, secondSearchId);
-const again = (await asService(`select public.finish_lead_search('${orgA}','${A}','${secondSearchId}','succeeded','${results}'::jsonb) as result`)).rows[0].result;
+await asService(`update public.scraped_leads set phone='11999990000' where id='${prospect.id}'`);
+const enrichment = JSON.stringify([{ placeId: 'place-1', name: 'Alterado', email: 'contato@example.com', phone: '11888880000' }]);
+const again = (await asService(`select public.finish_lead_search('${orgA}','${A}','${secondSearchId}','succeeded','${enrichment}'::jsonb) as result`)).rows[0].result;
 check("existing results remain associated without another charge", again.results_count === 1 && again.charged_count === 0 && (await as(A, `select * from public.lead_search_results where search_id='${secondSearchId}'`)).rows.length === 1 && Number((await asService(`select used from public.usage_counters where organization_id='${orgA}' and metric='scraped_leads'`)).rows[0].used) === beforeRepeat);
+const enriched = (await as(A, `select name,email,phone from public.scraped_leads where id='${prospect.id}'`)).rows[0];
+check("enrichment fills blanks without overwriting existing data", enriched.name === 'Clínica' && enriched.email === 'contato@example.com' && enriched.phone === '11999990000');
 const orgBSearchId = '40000000-0000-4000-8000-000000000005';
 await beginSearch(orgB, B, orgBSearchId);
 await expectFail("cannot link search results across tenants", () => asService(`insert into public.lead_search_results(organization_id,search_id,scraped_lead_id) values('${orgB}','${orgBSearchId}','${prospect.id}')`));
@@ -521,3 +525,13 @@ await asService(`update public.lead_searches set period_start='2019-01-01',creat
 await asService(`insert into public.usage_counters(organization_id,metric,period_start,used) values('${orgA}','scraped_leads','2019-01-01',2)`);
 await asService(`select public.recover_lead_search('${orgA}','${A}','${previousPeriodSearch}')`);
 check("expired search refunds original month", Number((await asService(`select used from public.usage_counters where organization_id='${orgA}' and metric='scraped_leads' and period_start='2019-01-01'`)).rows[0].used) === 0 && Number((await asService(`select used from public.usage_counters where organization_id='${orgA}' and metric='scraped_leads' and period_start<>'2019-01-01'`)).rows[0].used) === beforeRepeat + 2);
+
+const b2bSearchId = '40000000-0000-4000-8000-000000000008';
+await beginSearch(orgA, A, b2bSearchId, 100);
+const provenanceHash = 'a'.repeat(64);
+const recordSource = (org, user, hash = provenanceHash) => asService(`select public.record_prospect_source('${org}','${user}','${b2bSearchId}','import','Base própria','Contrato','${hash}') as ok`);
+await expectFail("authenticated cannot forge B2B source", () => as(A, `select public.record_prospect_source('${orgA}','${A}','${b2bSearchId}','import','Base própria','Contrato','${provenanceHash}')`));
+await expectFail("other tenant cannot declare source", () => recordSource(orgB, B));
+check("authorized source recorded", (await recordSource(orgA, A)).rows[0].ok === true);
+check("other tenant cannot read B2B source", (await as(B, `select * from public.prospect_sources`)).rows.length === 0);
+await expectFail("idempotency key cannot change B2B contents", () => recordSource(orgA, A, 'b'.repeat(64)));

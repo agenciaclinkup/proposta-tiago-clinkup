@@ -28,13 +28,20 @@ function fail(error: { message: string }, ctx: ServiceContext): never {
   if (error.message.includes("prospect_state_invalid")) throw new ServiceError("Este resultado não pode ser enviado ao CRM no estado atual.");
   throw new Error(error.message);
 }
-export async function searchProspects(ctx: ServiceContext, input: z.input<typeof prospectSearchSchema>, provider?: ProspectProvider) {
+export async function searchProspects(ctx: ServiceContext, input: z.input<typeof prospectSearchSchema>, provider?: ProspectProvider, options?: { verifyRequest: () => Promise<void> }) {
   const parsed = parse(prospectSearchSchema, input); const user = userId(ctx);
   if (!provider) throw new ServiceError("A busca de empresas ainda está indisponível. Configure o provedor quando a integração estiver disponível.");
   const admin = createAdminClient();
   const started = await admin.rpc("begin_lead_search", { p_org: ctx.organizationId, p_user: user, p_id: parsed.requestId, p_niche: parsed.niche, p_location: parsed.location, p_radius: parsed.radiusKm, p_count: parsed.maxResults, p_via: ctx.via, p_limit: limitFor(ctx.planId, "scraped_leads") });
   if (started.error) fail(started.error, ctx);
   const data = started.data as { created: boolean; search: unknown };
+  try { await options?.verifyRequest(); } catch (error) {
+    if (data.created) {
+      const failed = await admin.rpc("finish_lead_search", { p_org: ctx.organizationId, p_user: user, p_id: parsed.requestId, p_status: "failed", p_results: [] });
+      if (failed.error) throw new Error("Não foi possível liberar a reserva da busca.");
+    }
+    throw error;
+  }
   if (!data.created) return data;
   let results: z.output<typeof prospectSchema>[];
   const abort = new AbortController();
@@ -43,10 +50,10 @@ export async function searchProspects(ctx: ServiceContext, input: z.input<typeof
     const deadline = new Promise<never>((_resolve, reject) => { timeout = setTimeout(() => { abort.abort(); reject(new Error("provider timeout")); }, 60_000); });
     const response = await Promise.race([provider.search({ niche: parsed.niche, location: parsed.location, radiusKm: parsed.radiusKm, maxResults: parsed.maxResults }, { signal: abort.signal }), deadline]);
     results = z.array(prospectSchema).max(parsed.maxResults).parse(response);
-  } catch {
+  } catch (error) {
     const failed = await admin.rpc("finish_lead_search", { p_org: ctx.organizationId, p_user: user, p_id: parsed.requestId, p_status: "failed", p_results: [] });
     if (failed.error) throw new Error("Não foi possível registrar a falha da busca. Consulte o suporte antes de tentar novamente.");
-    throw new ServiceError("Não foi possível concluir a busca. Tente novamente em alguns instantes.");
+    throw error instanceof ServiceError ? error : new ServiceError("Não foi possível concluir a busca. Tente novamente em alguns instantes.");
   } finally { if (timeout) clearTimeout(timeout); }
   const finished = await admin.rpc("finish_lead_search", { p_org: ctx.organizationId, p_user: user, p_id: parsed.requestId, p_status: "succeeded", p_results: results });
   if (finished.error) fail(finished.error, ctx);

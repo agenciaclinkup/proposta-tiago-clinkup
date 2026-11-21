@@ -5,14 +5,14 @@
 ## Estado atual
 
 - **Fase:** 7 — Leads & Ads (Fases 2, 3, 4, 5 e 6 ✅ concluídas)
-- **Etapa em andamento:** 7.2 parcial — interface de resultados; integração Google pendente
+- **Etapa em andamento:** 7.3 — Tools do Agente Hermes para Prospecção B2B
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-20 — Codex (7.1)
+- **Última atualização:** 2026-11-20 — Codex (7.2)
 
 ## Próxima microtarefa (exata)
 
-**7.2 pendente — origem autorizada para novas buscas:** a interface `/leads-ads` já lista resultados existentes e permite enviá-los ao CRM, mas a busca permanece indisponível. O usuário informou não possuir autorização específica para armazenar ou transferir conteúdo do Google Places. A política oficial do Google restringe copiar e armazenar nomes e outros dados de estabelecimentos; IDs são exceção. O adaptador de IDs foi preparado sem conectá-lo ao serviço que grava nomes e contatos. Definir com o usuário uma fonte autorizada para dados persistentes, ou outra solução permitida, antes de concluir a busca, a integração e os testes correspondentes. Não ativar nem anunciar a 7.2 como concluída enquanto isso não estiver resolvido. Após a 7.2, preparar a **7.3 — Tools de prospecção do Hermes**, com schemas compartilhados, idempotência e limites.
+**7.3 — Tools do Agente Hermes para Prospecção B2B:** expor consulta por CNPJ, busca comercial, listagem e envio ao CRM usando `runB2bProspecting`, `listProspectSearches`, `listProspects` e `sendProspectToCrm`. Reutilizar schemas e regras de cota, isolamento, declaração explícita de origem/base legal e idempotência entre turnos e chamadas paralelas. Desambiguar empresas e etapas antes de transferir, apresentar custos e falhas em pt-BR e manter Google Places desconectado da persistência. Cobrir web/Telegram, limite, falhas, replays, testes de banco, build, lint e `tsc`; preparar a microtarefa seguinte.
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -202,7 +202,15 @@
 
 - [ ] **Google Places (7.2 parcial):** `GOOGLE_PLACES_API_KEY` é apenas de servidor e a consulta de IDs permanece desconectada. Antes de integrar dados à prospecção, confirmar os [requisitos oficiais de armazenamento e atribuição](https://developers.google.com/maps/documentation/places/web-service/policies), termos de uso, política de privacidade, cobrança e permissões da fonte escolhida. O usuário informou não possuir autorização específica para copiar conteúdo do Places ao CRM. Validar com conta real e dados autorizados antes de liberar a busca.
 
+- [ ] **Fontes B2B (7.2):** aplicar `20261121012536_b2b_prospect_provenance.sql`, rodar advisors e validar com duas empresas RLS, declaração, idempotência, reservas e concorrência real; configurar `B2B_PROSPECTING_API_URL` e `B2B_PROSPECTING_API_KEY` somente no servidor e conferir licença, política de dados, cobranças, cotas e contrato de resposta da fonte contratada. Validar BrasilAPI e Casa dos Dados com credenciais/dados reais, formatos CSV/JSON, acessibilidade e telas. Conferir o limite de cinco CNPJs por lote e eventual bloqueio da BrasilAPI; não armazenar quadro societário nem conteúdo do Google Places. A declaração registra a informação fornecida pelo usuário e não comprova por si só a autorização.
+
 ## Concluído
+
+### 7.2 Prospecção B2B autorizada — ✅ (2026-11-20)
+- `lib/prospecting/b2b.ts`, `import-file.ts` e `lib/services/b2b-prospecting.ts`: consulta unitária/lote de CNPJ pela BrasilAPI, Casa dos Dados v5 por CNAE/município, gateway normalizado e importação CSV/JSON; timeout, validação, idempotência e deduplicação por CNPJ reutilizam a 7.1.
+- Migration `20261121012536_b2b_prospect_provenance.sql`: registro por empresa da origem e base legal declaradas, protegido por RLS e vinculado à busca; o conteúdo da solicitação é vinculado à chave idempotente por hash.
+- `/leads-ads` permite declarar a origem, buscar/importar, revisar e enviar ao CRM. Google Places continua desconectado da persistência. Credenciais e chamadas reais não foram usadas nos testes.
+- **Testes:** `npm test` 399/399; `npm run test:db`, `npx tsc --noEmit`, `npm run lint` e `npm run build` verdes; validação com provedores reais e concorrência permanece no checklist.
 
 ### 7.2 Prospecção — parcial (2026-11-20)
 - `/leads-ads`, menu e ações: saldo mensal, resultados existentes, envio selecionado ao CRM e recuperação de buscas interrompidas, usando serviços da 7.1. Nova busca está desativada.
