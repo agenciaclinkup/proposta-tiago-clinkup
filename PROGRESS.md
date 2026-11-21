@@ -5,14 +5,14 @@
 ## Estado atual
 
 - **Fase:** 7 — Leads & Ads (Fases 2, 3, 4, 5 e 6 ✅ concluídas)
-- **Etapa em andamento:** 7.1 — Dados e serviços compartilhados de prospecção
+- **Etapa em andamento:** 7.2 — Integração Google Places e interface de prospecção
 - **Decidido:** limite de leads no CRM por plano (`crmLeads`) — Starter 1.000 · Growth 10.000 · Scale 100.000 (confirmado pelo usuário em 2026-11-18).
 - **Adiado pelo usuário:** 1.3 (validação com credenciais reais) fica para o final da construção — ver CHECKLIST DE GO-LIVE abaixo.
-- **Última atualização:** 2026-11-19 — Codex (6.4)
+- **Última atualização:** 2026-11-20 — Codex (7.1)
 
 ## Próxima microtarefa (exata)
 
-**7.1 Leads & Ads — dados e serviços de prospecção:** implementar, com TDD, as tabelas `lead_searches` e `scraped_leads` descritas em `ARCHITECTURE.md`, com RLS, grants explícitos, FKs compostas por empresa e unicidade por `place_id` e organização. Criar serviços compartilhados com schemas Zod para consultas, resultados e envio ao CRM, respeitando limites mensais de `scrapedLeadsPerMonth` e limite total de leads do CRM, com consumo transacional, isolamento e mensagens pt-BR. Preparar integração Google Places e UI para a próxima microtarefa, sem chamar provedores ou expor credenciais nesta etapa. Cobrir banco em memória, testes unitários, build, lint e `tsc`; registrar migrations no checklist.
+**7.2 Leads & Ads — Google Places e interface de prospecção:** integrar um adaptador servidor Google Places ao contrato `ProspectProvider`, após verificar a documentação oficial de endpoints, campos, preços, limites e permissões; configurar a credencial apenas no servidor e oferecer orientação clara quando ausente. Criar `/leads-ads` para buscar por nicho/localização, acompanhar reservas e recuperação de buscas interrompidas, inspecionar resultados existentes e enviar ao CRM pela camada 7.1. Usar chave idempotente por pedido, limite de requisições, isolamento por empresa e URLs validadas; a repetição de uma busca existente nunca deve chamar o provedor novamente. Cobrir mocks, falhas, expiração, quotas, acessibilidade, banco e Go-Live, e planejar a próxima microtarefa. Avaliar recuperação de reservas de usuários que perderam a associação, sem liberar uma tentativa ainda em execução.
 
 **Plano da Fase 6 (concluída):**
 - 6.1 dados + serviços ✅.
@@ -198,7 +198,14 @@
 
 - [ ] **Landing pages públicas (6.4):** aplicar `20261119165745_landing_public_capture.sql` e executar advisors; configurar domínio público `/p/[orgSlug]/[slug]`, HTTPS e proxy confiável que substitua `X-Forwarded-For`; validar com duas empresas páginas publicadas/rascunhos, imagens privadas, formulário, consentimento, honeypot, rate limit e limite do CRM. Disponibilizar a política de privacidade adequada de cada empresa antes do go-live. Testar concorrência real: a captura pública serializa por empresa, mas a criação manual existente no CRM usa contagem sem trava e pode concorrer com ela; unificar a proteção do limite antes de depender de limite rígido entre canais. Conferir upload e acessibilidade em navegadores e leitores de tela reais.
 
+- [ ] **Prospecção (7.1):** aplicar `20261121004212_lead_prospecting.sql` e executar advisors; testar RLS e FKs com duas empresas, busca repetida e concorrência PostgreSQL real, reserva/estorno no mês original, recuperação após interrupção, deduplicação por `place_id` e envio idempotente ao CRM. Confirmar recuperação quando o usuário perde acesso e unificar a trava com a criação manual de leads antes de depender do limite rígido entre canais. Nenhum provedor externo foi integrado nesta etapa.
+
 ## Concluído
+
+### 7.1 Dados e serviços de prospecção — ✅ (2026-11-20)
+- Migration `20261121004212_lead_prospecting.sql`: buscas, resultados e associações com RLS, FKs compostas, deduplicação por empresa e gravação privilegiada. Reserva mensal é atômica; somente resultados novos são cobrados e a reserva não usada volta ao período original. Recuperação após 15 minutos não reexecuta o provedor.
+- `lib/services/prospecting.ts` e `lib/prospecting/provider.ts`: schemas Zod, adaptador desacoplado, timeout e cancelamento, fallback sem chamadas externas, leitura isolada e envio idempotente ao CRM com etapa e limite verificados.
+- **Testes:** `npm test` 386/386; `npm run test:db`, `npx tsc --noEmit`, `npm run lint` e `npm run build` verdes; PostgreSQL real e integrações externas permanecem no checklist.
 
 ### 6.4 Landing pages públicas e captura no CRM — ✅ (2026-11-19)
 - Rota `/p/[orgSlug]/[slug]` renderiza apenas páginas publicadas; metadados e conteúdo expõem somente dados públicos, e a imagem privada é servida por rota vinculada à página publicada, sem URLs assinadas ou identificadores internos no HTML.
